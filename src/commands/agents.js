@@ -31,14 +31,16 @@ export function listAgents(config, sessionOverrides = {}, projectConfig = null) 
   });
 }
 
-// ADR 0018: the full human act (the panel is the person's), then signed by the phone if enrolled.
-async function signPanelChange(role, provider, deps) {
+// ADR 0018: the full human act (the panel is the person's), then signed as the security level asks
+// (ADR 0060). What is signed names the file this scope writes.
+async function signPanelChange(role, provider, isGlobal, deps) {
   humanAct("agents-set", { env: deps.env ?? process.env, tty: deps.tty ?? process.stdout.isTTY, ancestry: deps.ancestry ?? {}, confirm: deps.confirm });
   const change = `${role}: ${provider}`;
+  const file = isGlobal ? "~/.karajan/kj.config.yml" : ".karajan/kj.config.yml";
   await signAct("agents-set", {
     projectDir: path.dirname(path.dirname(getProjectConfigPath())), home: deps.home, logger: deps.logger ?? console, deps, kjVersion: deps.kjVersion ?? "unknown",
-    files: [{ file: ".karajan/kj.config.yml", sha256: "" }],
-    changes: [{ file: ".karajan/kj.config.yml", status: "modified", summary: change, diff: change, truncated: false }],
+    files: [{ file, sha256: "" }],
+    changes: [{ file, status: "modified", summary: change, diff: change, truncated: false }],
   });
 }
 
@@ -52,7 +54,7 @@ export async function setAgent(role, provider, { global: isGlobal = false, deps 
       throw new Error(`Provider "${provider}" not found. Available: ${VALID_PROVIDERS.join(", ")}`);
     }
   }
-  await signPanelChange(role, provider, deps);
+  await signPanelChange(role, provider, isGlobal, deps);
 
   if (isGlobal) {
     const config = await loadGlobalConfigFile();

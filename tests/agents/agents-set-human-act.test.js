@@ -32,7 +32,9 @@ const { setRuntimeOverride } = await import("../../src/session/runtime-overrides
 const { HUMAN_ACTS } = await import("../../src/harden/human-act.js");
 const { handleAgents } = await import("../../src/mcp/handlers/management-handlers.js");
 
-const human = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce };
+// HU-4905: at critical (the default) the phone signs the change too.
+const phone = { enrolled: () => true, request: async () => ({ ok: true, block: { signer: "k", signature: "s" } }) };
+const human = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce, phone };
 const agentSession = { env: { CLAUDECODE: "1" }, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (nonce) => nonce };
 const agentAncestor = { env: {}, tty: true, ancestry: { readProc: (p) => (p === 4242 ? { ppid: 1, cmd: "claude" } : { ppid: 4242, cmd: "node kj" }) }, confirm: (nonce) => nonce };
 

@@ -13,7 +13,7 @@ This is the "I want Gemini reviewing instead of Codex from now on" command.
 
 ## A human act
 
-The panel is yours: it decides who writes the code, who reviews it and who arbitrates. `kj agents set` is a human act (ADR 0009, ADR 0018), like `kj hooks set`. kj refuses it when it runs inside an agent session or descends from an agent process, and you confirm it by typing back the code it shows at your terminal. When the repo's security level asks for it, your phone signs it too. Type it in your own terminal, never in a script.
+The panel is yours: it decides who writes the code, who reviews it and who arbitrates. `kj agents set` is a human act (ADR 0009, ADR 0018), like `kj hooks set`. kj refuses it when it runs inside an agent session or descends from an agent process, and you confirm it by typing back the code it shows at your terminal. At the `critical` level (the default) and at `max` your phone signs it too; at `normal`, only when a phone is enrolled. Type it in your own terminal, never in a script.
 
 The MCP tool `kj_agents` lists the panel; its `set` action refuses and names the `kj agents set` command for you to type. `kj agents` (the listing) stays free.
 

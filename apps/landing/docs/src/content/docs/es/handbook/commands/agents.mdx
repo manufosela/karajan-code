@@ -13,7 +13,7 @@ Es el comando "quiero Gemini revisando en vez de Codex de ahora en adelante".
 
 ## Un acto humano
 
-El panel es tuyo: decide quién escribe el código, quién lo revisa y quién arbitra. `kj agents set` es un acto humano (ADR 0009, ADR 0018), como `kj hooks set`. kj lo rechaza si corre dentro de una sesión de agente o desciende de un proceso de agente, y lo confirmas tecleando el código que enseña en tu terminal. Si el nivel de seguridad del repo lo pide, también lo firma tu móvil. Tecléalo en tu propia terminal, nunca en un script.
+El panel es tuyo: decide quién escribe el código, quién lo revisa y quién arbitra. `kj agents set` es un acto humano (ADR 0009, ADR 0018), como `kj hooks set`. kj lo rechaza si corre dentro de una sesión de agente o desciende de un proceso de agente, y lo confirmas tecleando el código que enseña en tu terminal. En el nivel `critical` (el de por defecto) y en `max` también lo firma tu móvil; en `normal`, solo si hay un móvil enrolado. Tecléalo en tu propia terminal, nunca en un script.
 
 La herramienta MCP `kj_agents` lista el panel; su acción `set` se niega y te nombra el comando `kj agents set` para que lo teclees. `kj agents` (el listado) sigue libre.
 
