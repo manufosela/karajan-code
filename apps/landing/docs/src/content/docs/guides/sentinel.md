@@ -124,6 +124,21 @@ When they differ, kj tells three cases apart. If the file is exactly what `kj ha
 
 Human acts (sealing with `kj harden --commit`, enrolling the phone) are refused by the commands themselves when they run inside an agent session: the environment, the terminal, the process ancestry and a code typed back. The Sentinel does not read their text, so a card title or a commit message that mentions them passes; the phone key file itself stays off-limits to the session.
 
+### A seal in a pull request
+
+`kj harden --commit` makes one commit, and that commit is the human's act: no AI reviews it. The `verdicts` check (`kj review --verify-pr`) and `kj review --publish-pr` accept it without a verdict when it holds `.karajan/supervisor-provenance.json` and every file it touches is one the seal vouches for, byte for byte at the head of the PR:
+
+- a seal signed by the roster's phone or passkey vouches for the exact bytes of every file it lists, a workflow of your own included;
+- a seal with no signature (no roster, or the `critical` level when no signature was asked) vouches only for what kj recomputes itself: the hooks the seal re-rendered, a workflow whose only change is its kj pin, and the shared host settings without kj's hooks.
+
+Anything the seal does not vouch for makes it an ordinary commit that needs a verdict; and in a repo with `.karajan/policy.yml`, an agent's review of a diff that touches the supervisor's files is refused. So a change of your own to a workflow enters with a signed seal (at `critical`, a seal that changes the governance config asks the phone), and anything else goes in its own PR. A PR made only of seal commits needs no review.
+
+`kj review --publish-pr` reads the seal from the working tree: run it from a checkout at the head of the PR. In CI the checkout is the PR's merge, so the check sees it.
+
+The check judges with the kj pinned in the PR's own `kj-verdicts.yml`, because it runs on `pull_request`; a repo that ships kj itself judges with the kj of its base branch.
+
+If a seal PR still cannot pass, your user merges it with `gh pr merge --admin` and signs the reason with `kj main-guard-except <pr> --why "<reason>"`, a human act signed on the phone. The signature goes on the PR as a comment and covers its head commit, so a later push voids it. It is read by `kj main-guard`, the audit of each push to main. `kj harden` does not install a workflow for that audit: the exception only counts in a repo that runs `kj main-guard` on pushes to main (karajan-code runs it from its own `kj-main-guard.yml`).
+
 ## discard
 
 A session does not discard changes it did not make. `git checkout -- <path>`, `git checkout <path>`, `git checkout .`, `git checkout -f`, `git restore` (of the working tree), `git reset --hard`, `git switch --discard-changes` and any `git clean` that is not a dry run are denied when what they would throw away includes a file the session did not own. A file is the session's own when it was clean, or did not exist, the first time the session touched it. An edit on top of your uncommitted work leaves the file yours, not the session's. For `git clean` the Sentinel asks git itself what would go (`git clean -n` with the same options), so ignored files under `-x` and nested repositories under `-ff` count too. `git stash drop` and `git stash clear` are always denied: saved work may not be the session's. A git discard nested in `$( )`, backticks, `eval`, `xargs` or `sh -c` cannot be read, so it is denied too: run it as a simple command.

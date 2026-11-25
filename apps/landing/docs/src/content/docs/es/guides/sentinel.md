@@ -124,6 +124,21 @@ Cuando no coinciden, kj distingue tres casos. Si el fichero es exactamente lo qu
 
 Los actos humanos (sellar con `kj harden --commit`, enrolar el móvil) los rechazan las propias órdenes cuando corren dentro de una sesión de agente: el entorno, el terminal, la ascendencia de procesos y un código que hay que teclear. El Sentinel no lee su texto, así que un título de card o un mensaje de commit que los menciona pasa; el fichero de la clave del móvil sigue vedado a la sesión.
 
+### Un sello en una pull request
+
+`kj harden --commit` hace un commit, y ese commit es el acto de la persona: ninguna IA lo revisa. El check `verdicts` (`kj review --verify-pr`) y `kj review --publish-pr` lo aceptan sin veredicto cuando lleva `.karajan/supervisor-provenance.json` y cada fichero que toca es uno que el sello avala, byte a byte en la cabeza de la PR:
+
+- un sello firmado con el móvil o la passkey del padrón avala los bytes exactos de cada fichero que lista, incluido un workflow propio;
+- un sello sin firma (sin padrón, o en el nivel `critical` cuando no se pidió firma) solo avala lo que kj recalcula él mismo: los hooks que el sello volvió a generar, un workflow cuyo único cambio es el pin de kj y los settings compartidos del anfitrión sin los hooks de kj.
+
+Cualquier cosa que el sello no avale convierte ese commit en uno normal, que necesita veredicto; y en un repo con `.karajan/policy.yml`, la review de un agente sobre un diff que toca los ficheros del supervisor se rechaza. Así que un cambio propio a un workflow entra con un sello firmado (en `critical`, un sello que cambia la configuración de gobierno pide el móvil), y todo lo demás va en su propia PR. Una PR hecha solo de commits de sellado no necesita review.
+
+`kj review --publish-pr` lee el sello del árbol de trabajo: ejecútalo desde un checkout en la cabeza de la PR. En la CI el checkout es el merge de la PR, así que el check lo ve.
+
+El check juzga con el kj fijado en el propio `kj-verdicts.yml` de la PR, porque corre con `pull_request`; un repo que publica el propio kj juzga con el kj de su rama base.
+
+Si aun así una PR de sellado no puede pasar, tu usuario la mergea con `gh pr merge --admin` y firma el motivo con `kj main-guard-except <pr> --why "<motivo>"`, un acto humano firmado en el móvil. La firma va a la PR como comentario y cubre su commit de cabeza, así que un push posterior la anula. La lee `kj main-guard`, la auditoría de cada push a main. `kj harden` no instala ningún workflow para esa auditoría: la excepción solo cuenta en un repo que ejecuta `kj main-guard` en los pushes a main (karajan-code lo ejecuta desde su propio `kj-main-guard.yml`).
+
 ## discard
 
 Una sesión no descarta cambios que no hizo. `git checkout -- <ruta>`, `git checkout <ruta>`, `git checkout .`, `git checkout -f`, `git restore` (del árbol de trabajo), `git reset --hard`, `git switch --discard-changes` y cualquier `git clean` que no sea un simulacro se deniegan cuando lo que tirarían incluye un fichero que no era de la sesión. Un fichero es de la sesión si estaba limpio, o no existía, la primera vez que la sesión lo tocó. Una edición encima de tu trabajo sin commitear no lo convierte en suyo: sigue siendo tuyo. Para `git clean` el Sentinel le pregunta a git qué se iría (`git clean -n` con las mismas opciones), así que también cuentan los ignorados con `-x` y los repositorios anidados con `-ff`. `git stash drop` y `git stash clear` se deniegan siempre, porque lo guardado puede no ser de la sesión. Un descarte git metido en `$( )`, backticks, `eval`, `xargs` o `sh -c` no se puede leer, así que también se deniega: ejecútalo como comando simple.
