@@ -18,7 +18,7 @@ const RULES = [
   "6. PR atómica: unas 150 líneas, 200 como máximo; mídela con kj pr-size y parte antes, no en el gate.",
   "7. Conventional Commits, cabecera de 100 caracteres como máximo y sin atribución a IA.",
   "8. Card sin terminar con PR mergeada: pártela antes de mergear; tras el merge, muévela con sus commits.",
-  "9. Dentro del repo se escribe solo con Edit/Write; los escapes KJ_ALLOW_* son de tu usuario, no tuyos.",
+  "9. Dentro del repo se escribe solo con Edit/Write; no hay escapes (ADR 0015): un gate que te para se obedece, y lo que es de tu usuario lo hace él en su terminal.",
 ];
 
 let raw = "";
