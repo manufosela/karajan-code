@@ -8,6 +8,8 @@ import { join } from "node:path";
 import yaml from "js-yaml";
 import { setAgent } from "../../src/commands/agents.js";
 
+const human = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (n) => n };
+
 describe("kj agents set --global writes only the global file", () => {
   const saved = { home: process.env.KARAJAN_HOME, cwd: process.cwd() };
   let home;
@@ -29,7 +31,7 @@ describe("kj agents set --global writes only the global file", () => {
   });
 
   it("keeps the repo's settings out of ~/.karajan/kj.config.yml", async () => {
-    await setAgent("solomon", "agy", { global: true });
+    await setAgent("solomon", "agy", { global: true, deps: human });
     const written = yaml.load(readFileSync(join(home, "kj.config.yml"), "utf8"));
     expect(written).toEqual({ coder: "claude", reviewer: "agy", roles: { solomon: { provider: "agy" } } });
   });

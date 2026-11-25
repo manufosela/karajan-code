@@ -7,9 +7,15 @@ description: Lista o cambia qué proveedor de IA respalda cada rol del pipeline 
 
 ## Qué hace
 
-`kj agents` lee las asignaciones rol-a-proveedor de tu config y o las lista (`kj agents` / `kj agents list`) o fija una (`kj agents set <role> <provider>`). Opera sobre el mismo `karajan.config.yml` que [`kj init`](./init/) escribe — pero donde `init` es un wizard interactivo completo, `kj agents set` es una edición puntual única. Desde la CLI el cambio se persiste globalmente (`--global` es el default de la CLI), así que pega entre runs.
+`kj agents` lee las asignaciones rol-a-proveedor de tu config y o las lista (`kj agents` / `kj agents list`) o fija una (`kj agents set <role> <provider>`). Por defecto `kj agents set` escribe el panel del repo en el que estás, `.karajan/kj.config.yml` (`--local`); `--global` escribe el compartido, `~/.karajan/kj.config.yml`, que usan los repos sin panel propio. Fuera de un repo con carpeta `.karajan/`, `kj agents set` sin `--global` se para y lo dice.
 
-Es el comando "quiero Gemini revisando en vez de Codex de ahora en adelante". Cambia el binding *por defecto*; un override puntual para un solo run sigue siendo `kj run --reviewer gemini`, que no toca la config.
+Es el comando "quiero Gemini revisando en vez de Codex de ahora en adelante".
+
+## Un acto humano
+
+El panel es tuyo: decide quién escribe el código, quién lo revisa y quién arbitra. `kj agents set` es un acto humano (ADR 0009, ADR 0018), como `kj hooks set`. kj lo rechaza si corre dentro de una sesión de agente o desciende de un proceso de agente, y lo confirmas tecleando el código que enseña en tu terminal. Si el nivel de seguridad del repo lo pide, también lo firma tu móvil. Tecléalo en tu propia terminal, nunca en un script.
+
+La herramienta MCP `kj_agents` lista el panel; su acción `set` se niega y te nombra el comando `kj agents set` para que lo teclees. `kj agents` (el listado) sigue libre.
 
 ## Cuándo usarlo
 
@@ -20,7 +26,7 @@ Es el comando "quiero Gemini revisando en vez de Codex de ahora en adelante". Ca
 
 ## Cuándo NO usarlo
 
-- **Cambio solo para un run** — usa `kj run --coder <name>` / `--reviewer <name>`; `kj agents set` es permanente.
+- **Desde una sesión de agente** — kj lo rechaza; el agente te dice el comando y lo tecleas tú.
 - **Setup de primera vez** — [`kj init`](./init/) detecta lo instalado y recorre cada rol; `kj agents` asume que ya sabes el nombre del proveedor.
 - **Activar/desactivar un rol** — eso son toggles del pipeline (`--enable-X` / config), no mapeo de proveedor. `kj agents` solo responde "qué proveedor", no "corre este rol".
 - **Leer qué *hace* un rol** — eso es [`kj roles`](./roles/), no `kj agents`.
@@ -34,7 +40,8 @@ Es el comando "quiero Gemini revisando en vez de Codex de ahora en adelante". Ca
 
 | Flag | Default | Cuándo activarla |
 | --- | --- | --- |
-| `--global` | on (default CLI) | Persiste el cambio a `kj.config.yml`. Ya es el default desde la CLI; el flag es explícito para claridad en scripts. |
+| `--local` | on | Escribe el `.karajan/kj.config.yml` de este repo. |
+| `--global` | off | Escribe el compartido, `~/.karajan/kj.config.yml`, para los repos sin panel propio. Excluyente con `--local`. |
 
 ## Ejemplos
 
@@ -52,7 +59,7 @@ Qué pasa: imprime la tabla rol→proveedor (p.ej. `coder → claude`, `reviewer
 kj agents set reviewer gemini
 ```
 
-Qué pasa: `karajan.config.yml` se actualiza; cada `kj run` posterior usa Gemini para review hasta que lo cambies otra vez. Sin wizard, sin tocar otros roles.
+Qué pasa: kj enseña un código, lo tecleas, y el `.karajan/kj.config.yml` de este repo queda con `reviewer: gemini`; `kj review` en este repo usa Gemini hasta que lo cambies otra vez. No se toca ningún otro rol.
 
 ### Tuning de coste
 
@@ -65,14 +72,13 @@ Qué pasa: el coding se mueve a un proveedor, el review a otro — un par cross-
 
 ## Cómo funciona por dentro
 
-`kj agents` existe porque **el binding rol/proveedor es un dial que se toca con frecuencia y no debería requerir el wizard de setup**. `kj init` es correcto para "no tengo config"; es exceso para "cambia un mapeo". Sacar la edición puntual mantiene el ajuste común en un one-liner y mantiene la config como única fuente de verdad — `kj agents set` es solo una escritura tipada y validada al mismo fichero que podrías editar a mano.
+`kj agents set` comprueba el rol y el proveedor, pasa el acto humano y solo entonces escribe el fichero de config de su ámbito. Un acto rechazado no escribe nada. El proveedor tiene que ser uno que kj conozca o un binario de tu PATH.
 
-La separación deliberada de los flags por-run codifica una distinción de la que depende el resto de Karajan: `--coder` en `kj run` es *intención efímera* ("solo esta vez"), `kj agents set` es *política permanente* ("este es el default ahora"). Colapsarlos haría que cada experimento se volviera accidentalmente permanente. Mantener `kj agents` (el proveedor tras un rol) distinto de [`kj roles`](./roles/) (qué es el rol) y de los toggles del pipeline (si corre) refleja tres ejes genuinamente independientes — confundir dos cualesquiera hace la config más difícil de razonar, no más fácil.
+Mantener `kj agents` (el proveedor tras un rol) aparte de [`kj roles`](./roles/) (qué es el rol) separa dos preguntas independientes: quién respalda un rol y qué hace el rol.
 
 ## Relacionado
 
 - [`kj roles`](./roles/) — qué *es* cada rol; `kj agents` solo fija *quién* lo respalda.
 - [`kj init`](./init/) — el wizard que establece el mapeo inicial.
-- [`kj config`](./maintenance/#kj-config) — ver/editar el `karajan.config.yml` subyacente directamente.
-- [`kj run`](./run/) — `--coder` / `--reviewer` para overrides puntuales que no persisten.
+- [`kj config`](./maintenance/#kj-config) — ver el `kj.config.yml` subyacente.
 - [Roles del pipeline](../pipeline-roles/) — el catálogo completo de roles que puedes reasignar.

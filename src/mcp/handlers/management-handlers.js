@@ -32,9 +32,8 @@ export async function handleAgents(a) {
     if (!a.role || !a.provider) {
       return failPayload("Missing required fields: role and provider");
     }
-    const { setAgent } = await import("../../commands/agents.js");
-    const result = await setAgent(a.role, a.provider, { global: false });
-    return { ok: true, ...result, message: `${result.role} now uses ${result.provider} (scope: ${result.scope})` };
+    // HU-4894 (ADR 0009): the panel is the person's; an agent never sets it.
+    return failPayload(`kj agents set ${a.role} ${a.provider} is a human act: the person runs it in their own terminal (ADR 0009), not through kj_agents`);
   }
   const config = await buildConfig(a);
   const { listAgents } = await import("../../commands/agents.js");
