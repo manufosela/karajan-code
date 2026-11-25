@@ -164,7 +164,7 @@ Tras una compactación o al reanudar, el Sentinel le devuelve al agente las regl
 
 ## governance
 
-Karajan gobierna y se le obedece. Una sesión no edita las reglas que la gobiernan: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` y `.karajan/rules.local.yml` (las reglas de los MD compiladas en gates, ADR 0016 y 0017), `.karajan/security-level.json` y cualquier `.ragignore` son del humano, como los ficheros del propio supervisor, y Edit o Write sobre ellos se deniega incluso con el Sentinel apagado. Dos comandos de kj que cambian el gobierno no son actos humanos, así que una sesión aún puede ejecutarlos: `kj policy add --yes` escribe `policy.yml` y `kj policy grant` registra una excepción (ADR 0012). Si un gate parece equivocado, el remedio es proponer el cambio al usuario o reportarlo con `kj report-issue`, nunca relajar la regla. Toda denegación del PreToolUse termina con la misma línea que lo dice.
+Karajan gobierna y se le obedece. Una sesión no edita las reglas que la gobiernan: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` y `.karajan/rules.local.yml` (las reglas de los MD compiladas en gates, ADR 0016 y 0017), `.karajan/security-level.json` y cualquier `.ragignore` son del humano, como los ficheros del propio supervisor, y Edit o Write sobre ellos se deniega incluso con el Sentinel apagado. Un comando de kj que cambia el gobierno no es un acto humano, así que una sesión aún puede ejecutarlo: `kj policy add --yes` escribe `policy.yml` (ADR 0012). `kj policy grant`, que registra una excepción, es un acto humano. Si un gate parece equivocado, el remedio es proponer el cambio al usuario o reportarlo con `kj report-issue`, nunca relajar la regla. Toda denegación del PreToolUse termina con la misma línea que lo dice.
 
 ## team
 
@@ -203,7 +203,7 @@ La atribución a IA está prohibida por una regla determinista del proyecto, en 
 
 ADR 0060: lo que una persona firma en el móvil depende del nivel de seguridad del proyecto, en `.karajan/security-level.json`.
 
-- `critical`, el de por defecto. El móvil firma solo lo que cambia quién gobierna: enrolar un móvil, bajar el nivel, aflojar un gate y la excepción de main-guard. Los demás actos humanos (`kj harden --commit`, `kj rules approve`, `kj hooks set`, `kj agents set`, `kj release approve`) se confirman en tu terminal. Un sello de lo que genera kj (hooks, harness, un workflow cuyo único cambio es la versión de kj que fija) se renueva solo en `kj harden`. Un sello que gobierna (la configuración de gobierno, un borrado, cualquier otro cambio de workflow) sigue pidiendo el móvil, y también uno que el CI de la rama base juzgaría con un kj anterior a 5.27.1: el primer resello de cada repo a 5.27.1 o posterior se firma una vez.
+- `critical`, el de por defecto. El móvil firma solo lo que cambia quién gobierna: enrolar un móvil, bajar el nivel, aflojar un gate, una concesión de policy y la excepción de main-guard. Los demás actos humanos (`kj harden --commit`, `kj rules approve`, `kj hooks set`, `kj agents set`, `kj release approve`) se confirman en tu terminal. Un sello de lo que genera kj (hooks, harness, un workflow cuyo único cambio es la versión de kj que fija) se renueva solo en `kj harden`. Un sello que gobierna (la configuración de gobierno, un borrado, cualquier otro cambio de workflow) sigue pidiendo el móvil, y también uno que el CI de la rama base juzgaría con un kj anterior a 5.27.1: el primer resello de cada repo a 5.27.1 o posterior se firma una vez.
 - `max`, el modo paranoico. Todo acto humano se firma en el móvil. `kj security max` lo activa, gratis; un repo cuyo registro ya dice `max` lo mantiene.
 - `normal`. Sin móvil enrolado, todo acto, también los críticos, se confirma en la terminal; con uno enrolado, el móvil sigue firmando cada acto. Bajar a él es un acto firmado.
 
@@ -219,7 +219,7 @@ Una issue para karajan-code sale por `kj report-issue`, nunca por `gh issue crea
 
 ## escapes
 
-Dentro de la sesión no hay ninguno (ADR 0015): ningún gate lee una bandera que el agente pueda poner. Dos cosas quedan fuera de esa regla. Tu usuario puede apagar el Sentinel entero arrancando el anfitrión con `KJ_SENTINEL_OFF=1` en su entorno; aun así siguen vigilados los ficheros del supervisor, la configuración de gobierno, la clave del móvil, la atribución a IA, las issues para karajan-code y descartar cambios que la sesión no hizo. Y `kj policy grant` no es un acto humano: una sesión puede concederse una excepción con fecha a una regla que no sea de seguridad, y el gate de commit la respeta (ADR 0012 señala este hueco). Cada decisión que de verdad es del proyecto tiene su cauce, fuera de la sesión:
+Dentro de la sesión no hay ninguno (ADR 0015): ningún gate lee una bandera que el agente pueda poner. Una cosa queda fuera de esa regla. Tu usuario puede apagar el Sentinel entero arrancando el anfitrión con `KJ_SENTINEL_OFF=1` en su entorno; aun así siguen vigilados los ficheros del supervisor, la configuración de gobierno, la clave del móvil, la atribución a IA, las issues para karajan-code y descartar cambios que la sesión no hizo. Una excepción con fecha a una regla que no sea de seguridad también es tuya: `kj policy grant` es un acto humano, tecleado en tu terminal. Cada decisión que de verdad es del proyecto tiene su cauce, fuera de la sesión:
 
 | Caso | Cauce |
 | --- | --- |

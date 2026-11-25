@@ -22,6 +22,8 @@ import { budgetedNet, movedLines, showSpec } from "../review/loc-budget.js";
 import { sealPanel } from "../environment/panel.js";
 import { policyFileHash, recordGateDecision } from "../policy/decisions.js";
 import { readIdentity } from "../identity/store.js";
+import { humanAct } from "../harden/human-act.js";
+import { signAct } from "../harden/act-sign.js";
 import { verifyDecisionChain } from "@karajan-family/governance";
 
 const execFileAsync = promisify(execFile);
@@ -123,11 +125,22 @@ function isUnexemptable(rule, { policy, errors }) {
   return rule.startsWith("defaults.") || errors.length > 0 || Boolean(m && policy.roles?.[m[1]]?.[m[2]]?.class === "security");
 }
 
+// HU-4897 (KJC-BUG-0661, ADR 0015): an exception lifts a gate, so only a person grants it:
+// refused to an agent session, confirmed at the terminal and signed by the phone at critical.
+async function grantAct({ projectDir, summary, logger, deps }) {
+  humanAct("policy-grant", { env: deps.env ?? process.env, tty: deps.tty ?? process.stdout.isTTY, ancestry: deps.ancestry ?? {}, confirm: deps.confirm });
+  await signAct("policy-grant", {
+    projectDir, home: deps.home, logger, deps, kjVersion: deps.kjVersion ?? "unknown",
+    files: [{ file: ".karajan/policy-exceptions.jsonl", sha256: "" }],
+    changes: [{ file: ".karajan/policy-exceptions.jsonl", status: "modified", summary, diff: summary, truncated: false }],
+  });
+}
+
 // GOV-B (KJC-TSK-0746): conceder una excepción PERMANENTE con el modelo
 // probatorio completo — quién (identidad), regla exacta, justificación en
 // el momento y caducidad obligatoria. Los defaults.* del consumidor son
 // inexcepcionables: no se conceden ni desde aquí.
-function grantAction({ projectDir, policy, errors, flags, logger, deps }) {
+async function grantAction({ projectDir, policy, errors, flags, logger, deps }) {
   const { rule, until, reason } = flags;
   if (!rule || !until || !reason?.trim()) {
     logger.error?.("policy grant: --rule, --until (ISO) y --reason son obligatorios — una excepción sin quién/por qué/hasta cuándo no es una excepción, es un agujero");
@@ -135,6 +148,12 @@ function grantAction({ projectDir, policy, errors, flags, logger, deps }) {
   }
   if (isUnexemptable(rule, { policy, errors })) {
     logger.error?.(`policy grant: "${rule}" es inexcepcionable (default del proyecto o clase security) o la policy no es verificable — no se concede, ni con razón`);
+    return 1;
+  }
+  try {
+    await grantAct({ projectDir, summary: `[${rule}] hasta ${until}${flags.global ? " (ámbito global)" : ""}: ${reason.trim()}`, logger, deps });
+  } catch (err) {
+    logger.error?.(`policy grant: ${err.message}`);
     return 1;
   }
   try {

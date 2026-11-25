@@ -161,13 +161,15 @@ export const HUMAN_ACTS = Object.freeze({
   "agents-set": { label: "kj agents set", module: "src/commands/agents.js" },
   // HU-4188 (ADR 0057): only a person approves a version for publishing and tags it.
   "release-approve": { label: "kj release approve", module: "src/commands/release-approve.js" },
+  // HU-4897 (ADR 0015): a standing exception lifts a gate, so only a person grants it.
+  "policy-grant": { label: "kj policy grant", module: "src/commands/policy.js" },
 });
 
 /**
  * KJC-TSK-1654 (ADR 0060): the acts that change who governs. At `critical` only these are signed
  * on the phone; the rest of the catalog is confirmed at the person's terminal. `max` signs them all.
  */
-export const CRITICAL_ACTS = Object.freeze(new Set(["phone-enroll", "security-level-down", "gates-loosen", "main-guard-except"]));
+export const CRITICAL_ACTS = Object.freeze(new Set(["phone-enroll", "security-level-down", "gates-loosen", "main-guard-except", "policy-grant"]));
 
 /** HU-4306: labels of the acts this process got past the refusal of; read once the command ends. */
 export const attempted = new Set();

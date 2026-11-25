@@ -21,6 +21,7 @@ vi.mock("../../src/review/card-first.js", async (orig) => ({
 import { loadStandingExceptions } from "../../src/policy/exceptions.js";
 import { policyCommand } from "../../src/commands/policy.js";
 import { reviewGateCommand } from "../../src/commands/review-gate.js";
+import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 let dir;
 const cwd0 = process.cwd();
@@ -64,7 +65,12 @@ describe("loadStandingExceptions", () => {
 
 });
 
+// HU-4897: grant is a human act; the test is the person at their terminal, at the normal level.
+const HUMAN = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (n) => n, phone: { enrolled: () => false } };
+
 describe("kj policy grant", () => {
+  beforeEach(() => { setNormalLevel(dir); });
+
   it("crea la permanente completa en el jsonl, con la identidad en grade declarada", async () => {
     const logs = [];
     const code = await policyCommand({
@@ -72,6 +78,7 @@ describe("kj policy grant", () => {
       config: { projectDir: dir },
       flags: { rule: "roles.coder.write.deny", until: "2027-01-01T00:00:00Z", reason: "campaña Q3 autorizada" },
       logger: { info: (m) => logs.push(m), error: (m) => logs.push(m) },
+      deps: HUMAN,
     });
     expect(code).toBe(0);
     const rec = JSON.parse(fs.readFileSync(JSONL(dir, ".karajan", "policy-exceptions.jsonl"), "utf8").trim());
@@ -82,7 +89,7 @@ describe("kj policy grant", () => {
   it("la renovacion como señal (GOV-E): la 3ª concesion sobre la MISMA regla lo dice y sugiere cambiar la politica", async () => {
     const logs = [];
     const logger = { info: (m) => logs.push(m), warn: (m) => logs.push(m), error: (m) => logs.push(m) };
-    const grant = (rule, until) => policyCommand({ action: "grant", config: { projectDir: dir }, flags: { rule, until, reason: "r" }, logger });
+    const grant = (rule, until) => policyCommand({ action: "grant", config: { projectDir: dir }, flags: { rule, until, reason: "r" }, logger, deps: HUMAN });
     expect(await grant("roles.coder.write.deny", "2026-01-01T00:00:00Z")).toBe(0);
     expect(await grant("roles.coder.shell.deny", "2026-02-01T00:00:00Z")).toBe(0); // otra regla: no cuenta
     expect(logs.join("\n")).not.toMatch(/concesión/);

@@ -164,7 +164,7 @@ After a compaction or a resume, the Sentinel gives the agent back the project's 
 
 ## governance
 
-Karajan governs, and it is obeyed. A session does not edit the rules that govern it: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` and `.karajan/rules.local.yml` (the rules of the MD files compiled into gates, ADR 0016 and 0017), `.karajan/security-level.json` and any `.ragignore` belong to the human, like the supervisor's own files, and Edit or Write on them is denied even with the Sentinel switched off. Two kj commands that change governance are not human acts, so a session can still run them: `kj policy add --yes` writes `policy.yml`, and `kj policy grant` records an exception (ADR 0012). If a gate looks wrong, the remedy is to propose the change to the user or file it with `kj report-issue`, never to loosen the rule. Every deny of the PreToolUse gate ends with the same line saying so.
+Karajan governs, and it is obeyed. A session does not edit the rules that govern it: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` and `.karajan/rules.local.yml` (the rules of the MD files compiled into gates, ADR 0016 and 0017), `.karajan/security-level.json` and any `.ragignore` belong to the human, like the supervisor's own files, and Edit or Write on them is denied even with the Sentinel switched off. One kj command that changes governance is not a human act, so a session can still run it: `kj policy add --yes` writes `policy.yml` (ADR 0012). `kj policy grant`, which records an exception, is a human act. If a gate looks wrong, the remedy is to propose the change to the user or file it with `kj report-issue`, never to loosen the rule. Every deny of the PreToolUse gate ends with the same line saying so.
 
 ## team
 
@@ -203,7 +203,7 @@ AI attribution is forbidden by a deterministic project rule — everywhere, with
 
 ADR 0060: what a person signs on the phone depends on the project's security level, in `.karajan/security-level.json`.
 
-- `critical`, the default. The phone signs only what changes who governs: enrolling a phone, lowering the level, loosening a gate and the main-guard exception. The other human acts (`kj harden --commit`, `kj rules approve`, `kj hooks set`, `kj agents set`, `kj release approve`) are confirmed at your terminal. A seal of what kj generates (hooks, harness, a workflow whose only change is the kj it pins) renews itself in `kj harden`. A seal that governs (the governance config, a deletion, any other workflow change) still asks the phone, and so does a seal the base branch's CI would judge with a kj older than 5.27.1, so each repo's first re-seal onto 5.27.1 or later is signed once.
+- `critical`, the default. The phone signs only what changes who governs: enrolling a phone, lowering the level, loosening a gate, a policy grant and the main-guard exception. The other human acts (`kj harden --commit`, `kj rules approve`, `kj hooks set`, `kj agents set`, `kj release approve`) are confirmed at your terminal. A seal of what kj generates (hooks, harness, a workflow whose only change is the kj it pins) renews itself in `kj harden`. A seal that governs (the governance config, a deletion, any other workflow change) still asks the phone, and so does a seal the base branch's CI would judge with a kj older than 5.27.1, so each repo's first re-seal onto 5.27.1 or later is signed once.
 - `max`, the paranoid mode. Every human act is signed on the phone. `kj security max` turns it on, free; a repo whose record already says `max` keeps it.
 - `normal`. With no phone enrolled, every act, the critical ones included, is confirmed at the terminal; with one enrolled, the phone still signs each act. Lowering to it is a signed act.
 
@@ -219,7 +219,7 @@ An issue for karajan-code goes through `kj report-issue`, never through `gh issu
 
 ## escapes
 
-There is none inside the session (ADR 0015): no gate reads a flag the agent can set. Two things sit outside that rule. Your user can switch the whole Sentinel off by starting the host with `KJ_SENTINEL_OFF=1` in its environment; even then the supervisor's files, the governance config, the phone key, AI attribution, issues for karajan-code and discarding changes the session did not make stay guarded. And `kj policy grant` is not a human act: a session can grant a dated exception to a rule that is not security, and the commit gate honours it (ADR 0012 names this gap). Each decision that really is the project's has its own channel, outside the session:
+There is none inside the session (ADR 0015): no gate reads a flag the agent can set. One thing sits outside that rule. Your user can switch the whole Sentinel off by starting the host with `KJ_SENTINEL_OFF=1` in its environment; even then the supervisor's files, the governance config, the phone key, AI attribution, issues for karajan-code and discarding changes the session did not make stay guarded. A dated exception to a rule that is not security is yours too: `kj policy grant` is a human act, typed in your terminal. Each decision that really is the project's has its own channel, outside the session:
 
 | Case | Channel |
 | --- | --- |

@@ -10,6 +10,7 @@ import { evaluateGate } from "@karajan-family/governance";
 import { loadStandingExceptions, recordPolicyException } from "../../src/policy/exceptions.js";
 import { policyCommand } from "../../src/commands/policy.js";
 import { loadPolicy } from "../../src/policy/engine.js";
+import { setNormalLevel } from "../_fixtures/set-normal-level.js";
 
 const DENY_POLICY = "version: 1\nroles:\n  coder:\n    write: { deny: ['**/*.secret'], enforcement: deny }\n";
 const SEC_POLICY = "version: 1\nroles:\n  coder:\n    write: { deny: ['**/*.secret'], enforcement: deny, class: security }\n";
@@ -28,14 +29,18 @@ beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-scoped-home-"));
 });
 
+// HU-4897: grant is a human act; the test is the person at their terminal, at the normal level.
+const HUMAN = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (n) => n, phone: { enrolled: () => false } };
+
 describe("kj policy grant --global", () => {
   it("escribe en <home>/.karajan y NO en el proyecto, y el mensaje dice el ámbito", async () => {
+    setNormalLevel(dir);
     const logs = [];
     const code = await policyCommand({
       action: "grant", config: { projectDir: dir },
       flags: { rule: RULE, until: FAR, reason: "flota entera de esta máquina", global: true },
       logger: { info: (m) => logs.push(m), warn: (m) => logs.push(m), error: (m) => logs.push(m) },
-      deps: { readFile: () => DENY_POLICY, home },
+      deps: { readFile: () => DENY_POLICY, home, ...HUMAN },
     });
     expect(code).toBe(0);
     const rec = JSON.parse(fs.readFileSync(jsonl(home), "utf8").trim());

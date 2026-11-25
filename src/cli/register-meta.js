@@ -807,7 +807,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--global", "Ámbito global (~/.karajan): vale para todos tus proyectos de esta máquina — KJC-TSK-0813")
     .action(async (flags) => {
       await withConfig(pkgVersion, "policy-grant", flags, async ({ config }) => {
-        process.exitCode = await policyCommand({ action: "grant", config, flags });
+        process.exitCode = await policyCommand({ action: "grant", config, flags, deps: { kjVersion: pkgVersion } });
       });
     });
   policyCmd.command("add")
