@@ -42,6 +42,13 @@ describe("SessionStart hook", () => {
     }
   });
 
+  // HU-4899 (KJC-BUG-0662): the rules given back after a compaction name no retired escape.
+  it("after a compaction, rule 9 says there is no escape (ADR 0015)", () => {
+    const ctx = JSON.parse(run("compact").stdout).hookSpecificOutput.additionalContext;
+    expect(ctx).not.toMatch(/KJ_ALLOW_/);
+    expect(ctx).toMatch(/9\. Dentro del repo[^\n]*no hay escapes \(ADR 0015\)/);
+  });
+
   it("a new session says nothing: CLAUDE.md already brings the rules", () => {
     expect(run("startup").stdout).toBe("");
   });

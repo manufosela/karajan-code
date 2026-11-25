@@ -72,5 +72,6 @@ Register each one with `kj handoff add '<exact command>' --why '<what for>'`, wa
 ## When kj is wrong
 
 A gate that looks wrong is reported, not bypassed: diagnose it and `kj report-issue` (ask your
-user before `--publish`). Never edit policies, gate config or exclusions to get through, and
-never use the `KJ_ALLOW_*` escapes yourself: they are your user's.
+user before `--publish`). Never edit policies, gate config or exclusions to get through. There is
+no escape (ADR 0015): what is your user's (a seal, an approval, a grant) they type in their own
+terminal.
