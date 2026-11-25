@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.37.1: un sello se firma con una clave del padrón del repo (actual)
+### v5.37.2: la review ve el diff entero; cambiar el panel o conceder una excepción es cosa tuya (actual)
+
+`kj review --staged` ya no aprueba código que el revisor no ha leído: un diff mayor que un prompt del revisor se recortaba a 12000 caracteres, y ahora se revisa entero en lotes de ficheros completos, aprobado solo si lo está cada lote; un fichero demasiado grande para un prompt rechaza el veredicto y se nombra. `kj agents set` (quién escribe el código, quién revisa y quién arbitra) y `kj policy grant` (una excepción que levanta un gate) son actos humanos: kj los rechaza en una sesión de agente, se confirman en tu terminal y, en `critical`, los firma tu móvil. `kj report` cuenta los rechazos de los gates propios de kj aparte de los revisores, el recordatorio de sesión ya no nombra los escapes `KJ_ALLOW_*` retirados, y la ayuda de `kj security` y `kj brief` dice lo que hace el código.
+
+### v5.37.1: un sello se firma con una clave del padrón del repo
 
 Con un padrón en el repo (`.karajan/supervisor-signers.json`), `kj harden --commit` solo acepta una clave de móvil de ese padrón, el mismo conjunto contra el que la CI verifica el sello. Antes, en un repo cuyo padrón solo tenía una passkey, el sello podía firmarse con la clave del móvil guardada en la máquina, y la CI lo rechazaba. El rechazo nombra el padrón y, si tiene passkeys, dice que se firme con la passkey en la página. Sin padrón, la clave del móvil de la máquina firma como antes.
 

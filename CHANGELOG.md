@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.37.2] - 2026-11-26
+
+The review sees the whole diff before it approves, and changing the panel or granting an exception is a human act.
+
+### Fixed
+- **A diff larger than one reviewer prompt is reviewed whole**: the reviewer prompt clipped the diff at 12000 characters and told the reviewer to review only what it saw, so `kj review --staged` could approve code the reviewer never read (`git diff` puts `apps/` before `src/`). A larger diff is now cut into batches of whole files, one question per batch; the verdict is approved only when every batch is, a file too large for one prompt rejects it by name, and the verdict keeps the coverage (#4908).
+- **`kj agents set` is a human act**: it changes who codes, reviews and arbitrates, so it is refused to an agent session, confirmed at your terminal and, at `critical` (the default), signed by your phone, on the file it writes (the repo's or, with `--global`, the shared one). The MCP `kj_agents` set refuses and names the command; listing stays free (#4896, #4906).
+- **`kj policy grant` is a human act**: a standing exception lifts a gate, so only a person grants it, signed by the phone at `critical`. A refused grant records nothing (#4898).
+- **`kj report` counts gate rejections apart**: a rejection signed by kj's own gates (sonar, rag-first, mutation...) is no reviewer row and no correction round; the review truth block prints them on their own line (#4902).
+- **The session reminder says there are no escapes**: the rules the Sentinel gives back after a compaction, and the agent guide, no longer name the retired `KJ_ALLOW_*` escapes (#4900).
+- **The help of `kj security` and `kj brief` says what the code does**: `kj brief` lists every role, `board` included; `kj security` says `critical` is the default, that a lower level with no phone is recorded unsigned, and that `normal` still signs with an enrolled phone (#4904).
+- A board start test no longer depends on whether a process with pid 4242 exists on the machine (#4910).
+
 ## [5.37.1] - 2026-11-25
 
 A seal is signed with a key of the repo's roster, the same set CI verifies it against.
