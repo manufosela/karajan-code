@@ -8,6 +8,9 @@
 
 const FILE_HEAD = /^diff --git a\/(.+?) b\//;
 
+// KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
+export const MAX_REVIEW_BATCHES = 10;
+
 /** The diff cut at each file, with the number of changed lines in each. */
 export function splitByFile(diff) {
   const parts = [];
