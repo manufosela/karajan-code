@@ -28,6 +28,8 @@ import { branchOf } from "./correction-rounds.js";
 import { isQuotaExhausted, candidateStatus, pickQuotaFallback, formatCandidateMenu, reviewerFailureMessage } from "./reviewer-fallback.js";
 import { recordRoleActing } from "./active-panel.js";
 import { projectFileReader, splitFindings, unanchoredNote } from "./unanchored-findings.js";
+import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
+import { batchDiff, MAX_REVIEW_BATCHES } from "./diff-batches.js";
 
 // Cross-AI preference when the configured reviewer IS the host.
 const CROSS_ORDER = ["codex", "claude", "gemini", "opencode", "aider"];
@@ -123,11 +125,12 @@ export async function runOneShotReview({
   const { rules } = await resolveReviewProfile({ mode: "standard", projectDir });
   // KJC-TSK-1380 (#3207): facts computed without a model; the reviewer starts from them.
   const facts = diffFacts(diff, { readFile: (p) => readFileSync(join(projectDir || process.cwd(), p), "utf8") });
-  const attempt = async (who, cfg = config, note = "") => {
+  // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
+  const shownText = summarizeGeneratedFiles(shown ?? diff);
+  const attempt = async (who, cfg = config, note = "", text = shownText) => {
     const prompt = await buildReviewerPrompt({
       task: task || "Review the following diff for correctness, security and maintainability.",
-      // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
-      diff: summarizeGeneratedFiles(shown ?? diff), reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
+      diff: text, reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
       factsBlock: formatDiffFacts(facts),
     }) + note;
     // KJC-TSK-1344: with two subscriptions per CLI, say which account reviews.
@@ -138,10 +141,10 @@ export async function runOneShotReview({
 
   // HU-4837: every question to the reviewer, the one asked again included, fails over the same
   // way on exhausted quota, and its verdict names the reviewer that actually answered it.
-  const ask = async (who, note = "") => {
-    const answer = await attempt(who, who === reviewer ? config : withoutModelPin(config), note);
+  const ask = async (who, note = "", text = shownText) => {
+    const answer = await attempt(who, who === reviewer ? config : withoutModelPin(config), note, text);
     const { result, activeReviewer } = needsQuotaFailover(answer, config)
-      ? await quotaFailover({ reviewer: who, declared: reviewer, hostAgent, config, logger, candidateStatusFn, attempt: (fallback, cfg) => attempt(fallback, cfg, note) })
+      ? await quotaFailover({ reviewer: who, declared: reviewer, hostAgent, config, logger, candidateStatusFn, attempt: (fallback, cfg) => attempt(fallback, cfg, note, text) })
       : { result: answer, activeReviewer: who };
     if (!result?.ok) {
       throw new Error(reviewerFailureMessage(activeReviewer, result?.error, { account: accountLabel(activeReviewer, { env }) }));
@@ -155,15 +158,24 @@ export async function runOneShotReview({
     return { activeReviewer, parsed: await parseVerdictAnswer(result, { config, projectDir, diff, reviewer: activeReviewer }) };
   };
 
-  let { activeReviewer, parsed } = await ask(reviewer);
   // HU-4837: what does not anchor is kept apart; a rejection made only of it is asked again once.
   const readFile = projectFileReader(projectDir);
   const splitOf = (verdict) => (verdict.approved ? { blocking: [], unanchored: [] } : splitFindings(verdict.blocking_issues, { diff, readFile }));
-  let split = splitOf(parsed);
-  if (onlyUnanchored(split)) {
-    ({ activeReviewer, parsed } = await ask(activeReviewer, unanchoredNote(split.unanchored)));
-    split = splitOf(parsed);
-  }
+  const reviewText = async (text) => {
+    let { activeReviewer, parsed } = await ask(reviewer, "", text);
+    let split = splitOf(parsed);
+    if (onlyUnanchored(split)) {
+      ({ activeReviewer, parsed } = await ask(activeReviewer, unanchoredNote(split.unanchored), text));
+      split = splitOf(parsed);
+    }
+    return { activeReviewer, parsed, split };
+  };
+
+  // HU-4907: a diff larger than one prompt is reviewed whole, in batches of whole files.
+  const plan = shown ? null : planBatches(shownText, logger);
+  const { activeReviewer, parsed, split } = plan
+    ? mergeBatches(await reviewEach(plan.batches, reviewText), plan.coverage, reviewer)
+    : await reviewText(shownText);
 
   const record = await verdictRecord(parsed, { reviewer: activeReviewer, hostAgent, projectDir, sonar, rag, ui });
   if (!parsed.approved) {
@@ -171,8 +183,54 @@ export async function runOneShotReview({
     record.unanchored = split.unanchored;
     if (onlyUnanchored(split)) record.reason = "unanchored-only";
   }
+  if (plan) Object.assign(record, { coverage: plan.coverage, batches: plan.batches.length });
   if (facts.length > 0) record.facts = facts;
   return persist ? saveVerdict(projectDir, diff, record) : record;
+}
+
+/** The batches of a text too large for one prompt, or null when it fits (or has no file to cut at). */
+function planBatches(text, logger) {
+  if (text.length <= DIFF_CLIP_CHARS) return null;
+  const plan = batchDiff(text, { limit: DIFF_CLIP_CHARS, maxBatches: MAX_REVIEW_BATCHES });
+  if (plan.coverage.files.total === 0) return null;
+  logger?.info?.(`kj review: the diff is larger than one reviewer prompt, reviewed whole in ${plan.batches.length} batch(es)`);
+  return plan;
+}
+
+async function reviewEach(batches, reviewText) {
+  const results = [];
+  for (const batch of batches) results.push(await reviewText(batch.text));
+  return results;
+}
+
+const unreviewedIssue = (file, n) => ({
+  id: `unreviewed-${n + 1}`, severity: "high", category: "correctness", file, line: 1,
+  description: `${file} is larger than one reviewer prompt: kj could not show it to the reviewer, so it is not reviewed. Split the change.`,
+  suggested_fix: "Split the change so each file's diff fits one prompt.",
+});
+
+const minConfidence = (values) => {
+  const known = values.filter((v) => typeof v === "number");
+  return known.length > 0 ? Math.min(...known) : null;
+};
+
+/** One verdict from every batch: approved only when each batch is and no file was left out. */
+function mergeBatches(results, coverage, reviewer) {
+  const unreviewed = coverage.unreviewed.map(unreviewedIssue);
+  const verdicts = results.map((r) => r.parsed);
+  const parsed = {
+    approved: verdicts.every((v) => v.approved) && !coverage.truncated,
+    blocking_issues: [...verdicts.flatMap((v) => v.blocking_issues ?? []), ...unreviewed],
+    non_blocking_suggestions: verdicts.flatMap((v) => v.non_blocking_suggestions ?? []),
+    summary: verdicts.map((v) => v.summary || v.raw_summary || "").filter(Boolean).join("\n"),
+    confidence: minConfidence(verdicts.map((v) => v.confidence)),
+  };
+  const split = {
+    // The files no prompt could hold are blocking as they are: they anchor to no hunk by design.
+    blocking: [...results.flatMap((r) => r.split.blocking), ...unreviewed],
+    unanchored: results.flatMap((r) => r.split.unanchored),
+  };
+  return { activeReviewer: results.at(-1)?.activeReviewer ?? reviewer, parsed, split };
 }
 
 async function parseVerdictAnswer(result, { config, projectDir, diff, reviewer }) {
