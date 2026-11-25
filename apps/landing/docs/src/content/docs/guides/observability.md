@@ -36,6 +36,8 @@ When you run `kj code --retry`, the findings that hold go to the coder as the re
 - correction rounds: the mean number of rejections before an approval;
 - Solomon arbitrations: how many, and how many ruled approve or reject.
 
+The rejections signed by kj's own gates (sonar, rag-first, mutation...) are counted on their own line, never as a reviewer or a correction round.
+
 A rejection saved before this check existed has no anchoring data. It is counted apart as "not measured", never as anchored. A high not-anchored share for a reviewer is a reason to look at that reviewer, not a verdict on it.
 
 ## `kj stage`

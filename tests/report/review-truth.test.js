@@ -36,7 +36,7 @@ describe("reviewTruth", () => {
   });
 
   it("an empty history is zeros, never a division by zero", () => {
-    expect(reviewTruth([])).toEqual({ verdicts: 0, byReviewer: {}, arbitrations: { total: 0, approve: 0, reject: 0 }, correctionRounds: { approvals: 0, mean: 0 } });
+    expect(reviewTruth([])).toEqual({ verdicts: 0, byReviewer: {}, arbitrations: { total: 0, approve: 0, reject: 0 }, correctionRounds: { approvals: 0, mean: 0 }, gates: { total: 0, byGate: {} } });
   });
 });
 

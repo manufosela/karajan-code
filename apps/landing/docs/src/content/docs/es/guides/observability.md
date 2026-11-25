@@ -36,6 +36,8 @@ Cuando ejecutas `kj code --retry`, los hallazgos que se sostienen llegan al code
 - rondas de corrección: la media de rechazos antes de una aprobación;
 - arbitrajes de Solomon: cuántos, y cuántos dictaminaron approve o reject.
 
+Los rechazos firmados por los gates propios de kj (sonar, rag-first, mutation...) se cuentan en su propia línea, nunca como un revisor ni como una ronda de corrección.
+
 Un rechazo guardado antes de existir esta comprobación no tiene datos de anclaje. Se cuenta aparte como «no medido», nunca como anclado. Un porcentaje alto de no anclados en un revisor es un motivo para mirarlo, no un veredicto sobre él.
 
 ## `kj stage`
