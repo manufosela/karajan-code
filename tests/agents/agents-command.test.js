@@ -46,6 +46,8 @@ const { tmpdir } = await import("node:os");
 const { join } = await import("node:path");
 const { setRuntimeOverride } = await import("../../src/session/runtime-overrides.js");
 
+const human = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (n) => n };
+
 describe("agents command", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -79,7 +81,7 @@ describe("agents command", () => {
       loadGlobalConfigFile.mockResolvedValue({ roles: { coder: { provider: "claude" } } });
       writeConfig.mockResolvedValue(undefined);
 
-      const result = await setAgent("coder", "gemini", { global: true });
+      const result = await setAgent("coder", "gemini", { global: true, deps: human });
 
       expect(result.role).toBe("coder");
       expect(result.provider).toBe("gemini");
@@ -101,7 +103,7 @@ describe("agents command", () => {
       // the same process) AND mirrors to .karajan/kj.config.yml so the
       // next CLI invocation picks it up.
       writeConfig.mockResolvedValue(undefined);
-      const result = await setAgent("coder", "gemini");
+      const result = await setAgent("coder", "gemini", { deps: human });
 
       expect(result.role).toBe("coder");
       expect(result.provider).toBe("gemini");
@@ -120,7 +122,7 @@ describe("agents command", () => {
 
     it("falls back to session scope when project config is not writable", async () => {
       writeConfig.mockRejectedValueOnce(new Error("EACCES"));
-      const result = await setAgent("coder", "gemini");
+      const result = await setAgent("coder", "gemini", { deps: human });
       expect(result.scope).toBe("session");
       expect(setRuntimeOverride).toHaveBeenCalledWith("coder", "gemini");
     });
@@ -137,7 +139,7 @@ describe("agents command", () => {
       loadGlobalConfigFile.mockResolvedValue({ roles: {} });
       writeConfig.mockResolvedValue(undefined);
 
-      const result = await setAgent("planner", "codex", { global: true });
+      const result = await setAgent("planner", "codex", { global: true, deps: human });
 
       expect(result.provider).toBe("codex");
       expect(result.scope).toBe("global");
@@ -161,7 +163,7 @@ describe("agents command", () => {
       getProjectConfigPath.mockReturnValue(configPath);
       return configPath;
     };
-    const set = (flags) => agentsCommand({ config: {}, subcommand: "set", role: "reviewer", provider: "codex", ...flags });
+    const set = (flags) => agentsCommand({ config: {}, subcommand: "set", role: "reviewer", provider: "codex", ...flags }, human);
 
     it("writes the project's config when no scope is given", async () => {
       const configPath = projectWithKarajan();

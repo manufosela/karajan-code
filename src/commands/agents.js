@@ -2,6 +2,8 @@ import { loadGlobalConfigFile, writeConfig, getConfigPath, getProjectConfigPath,
 import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { humanAct } from "../harden/human-act.js";
+import { signAct } from "../harden/act-sign.js";
 
 // Exportados para que el --help se autoalimente de las constantes reales
 // (KJC-TSK-0755, hallazgo de campo: la firma genérica obligaba a preguntar).
@@ -29,7 +31,18 @@ export function listAgents(config, sessionOverrides = {}, projectConfig = null) 
   });
 }
 
-export async function setAgent(role, provider, { global: isGlobal = false } = {}) {
+// ADR 0018: the full human act (the panel is the person's), then signed by the phone if enrolled.
+async function signPanelChange(role, provider, deps) {
+  humanAct("agents-set", { env: deps.env ?? process.env, tty: deps.tty ?? process.stdout.isTTY, ancestry: deps.ancestry ?? {}, confirm: deps.confirm });
+  const change = `${role}: ${provider}`;
+  await signAct("agents-set", {
+    projectDir: path.dirname(path.dirname(getProjectConfigPath())), home: deps.home, logger: deps.logger ?? console, deps, kjVersion: deps.kjVersion ?? "unknown",
+    files: [{ file: ".karajan/kj.config.yml", sha256: "" }],
+    changes: [{ file: ".karajan/kj.config.yml", status: "modified", summary: change, diff: change, truncated: false }],
+  });
+}
+
+export async function setAgent(role, provider, { global: isGlobal = false, deps = {} } = {}) {
   if (!ASSIGNABLE_ROLES.includes(role)) {
     throw new Error(`Unknown role "${role}". Valid roles: ${ASSIGNABLE_ROLES.join(", ")}`);
   }
@@ -39,6 +52,7 @@ export async function setAgent(role, provider, { global: isGlobal = false } = {}
       throw new Error(`Provider "${provider}" not found. Available: ${VALID_PROVIDERS.join(", ")}`);
     }
   }
+  await signPanelChange(role, provider, deps);
 
   if (isGlobal) {
     const config = await loadGlobalConfigFile();
@@ -90,7 +104,7 @@ function assertWritableScope(isLocal, isGlobal) {
   }
 }
 
-export async function agentsCommand({ config, subcommand, role, provider, local: isLocal, global: isGlobal }) {
+export async function agentsCommand({ config, subcommand, role, provider, local: isLocal, global: isGlobal }, deps = {}) {
   if (subcommand === "set") {
     if (!role || !provider) {
       console.log("Usage: kj agents set <role> <provider> [--local | --global]");
@@ -99,7 +113,7 @@ export async function agentsCommand({ config, subcommand, role, provider, local:
       return;
     }
     assertWritableScope(isLocal, isGlobal);
-    const result = await setAgent(role, provider, { global: Boolean(isGlobal) });
+    const result = await setAgent(role, provider, { global: Boolean(isGlobal), deps });
     console.log(`Set ${result.role} -> ${result.provider} (scope: ${result.scope})`);
     return result;
   }

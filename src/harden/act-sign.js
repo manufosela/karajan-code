@@ -51,6 +51,11 @@ const EXPLAIN = {
     "El agente no puede cambiar qué comprueban los hooks que le vigilan: solo tú decides qué comando los ejecuta (ADR 0051).",
     "Un comando fijado sin tu firma dejaría al agente vaciar o falsear la comprobación que le frena.",
   ],
+  "agents-set": [
+    "Se cambia quién ocupa un rol del panel (kj agents set), por ejemplo quién revisa o quién arbitra.",
+    "El panel es tuyo: un agente no puede elegir a su propio revisor ni a su árbitro (ADR 0018).",
+    "Un panel cambiado sin tu firma dejaría al agente poner como revisor a quien le conviene.",
+  ],
 };
 
 /** What the phone shows beside the files: what, why, and if another did it. */
