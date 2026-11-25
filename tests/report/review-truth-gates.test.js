@@ -47,6 +47,11 @@ describe("gate rejections are not reviewers (HU-4901)", () => {
     expect(lines).toContain("  gate rejections (not reviewers): 3 (sonar 2, rag-first 1)");
   });
 
+  it("without a gate rejection the line says 0, with no empty detail", () => {
+    const lines = formatReviewTruth(reviewTruth(RECORDS.filter((r) => r.reviewer === "codex")));
+    expect(lines).toContain("  gate rejections (not reviewers): 0");
+  });
+
   it("every gate that signs a rejection in src/ is in the catalog", () => {
     const signed = new Set();
     for (const file of sources(join(ROOT, "src"))) {

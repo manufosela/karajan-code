@@ -72,7 +72,8 @@ export function formatReviewTruth(truth) {
   lines.push(`  arbitrations: ${a.total} (${a.approve} approve, ${a.reject} reject)`);
   const { total, byGate } = truth.gates;
   const detail = Object.entries(byGate).map(([g, n]) => `${g} ${n}`).join(", ");
-  lines.push(`  gate rejections (not reviewers): ${total}${total ? ` (${detail})` : ""}`);
+  const perGate = total ? ` (${detail})` : "";
+  lines.push(`  gate rejections (not reviewers): ${total}${perGate}`);
   return lines;
 }
 
