@@ -19,24 +19,31 @@ function parseDiff(diff) {
   const files = new Map();
   let current = null;
   let line = 0;
+  let baseLine = 0;
   let name;
   for (const raw of String(diff).split("\n")) {
     if (raw.startsWith("diff --git ")) {
       name = / b\/(.+)$/.exec(raw)?.[1] ?? null;
-      current = name ? { added: [], removed: 0 } : null;
+      current = name ? { added: [], removed: 0, removedLines: [], isNew: false } : null;
       if (current) files.set(name, current);
       line = 1;
+    } else if (current && (raw.startsWith("new file mode") || raw === "--- /dev/null")) {
+      current.isNew = true; // HU-4872: a new file has no base to weaken
     } else if (raw.startsWith("+++ ")) {
       continue; // file header, not an added line (the file was named by "diff --git")
     } else if (raw.startsWith("@@")) {
       line = Number(/\+(\d+)/.exec(raw)?.[1] ?? 1);
+      baseLine = Number(/-(\d+)/.exec(raw)?.[1] ?? 1);
     } else if (current && raw.startsWith("+")) {
       current.added.push({ line, text: raw.slice(1) });
       line += 1;
     } else if (current && raw.startsWith("-") && !raw.startsWith("---")) {
       current.removed += 1;
+      current.removedLines.push({ line: baseLine, text: raw.slice(1) });
+      baseLine += 1;
     } else if (current && raw.startsWith(" ")) {
       line += 1;
+      baseLine += 1;
     }
   }
   return files;
@@ -77,6 +84,39 @@ function secretFacts(name, added, list) {
     .map((f) => ({ kind: "secret-shape", file: name, line, text: `${f.type}: ${f.masked}` })));
 }
 
+const ASSERTION = /^\s*(?:await\s+)?(expect|assert(?:\.\w+|[A-Z]\w*)?)\s*\(/;
+
+/** HU-4872: what an assertion is about: expect(<subject>) or the assert call with its first argument. */
+function assertionSubject(text) {
+  const m = ASSERTION.exec(text);
+  if (!m) return null;
+  let depth = 1;
+  let end = m[0].length;
+  for (; end < text.length && depth > 0; end += 1) {
+    if ("([{".includes(text[end])) depth += 1;
+    else if (")]}".includes(text[end])) depth -= 1;
+    else if (text[end] === "," && depth === 1 && m[1] !== "expect") break;
+  }
+  return `${m[1]}(${text.slice(m[0].length, end)}`;
+}
+
+/**
+ * HU-4872: an assertion an existing test loses. Added back as is to any test file of the diff (kept), it moved: no fact.
+ * Another one added on its subject in the same file rewrites it: assertion-rewritten, for the reviewer. Neither: test-weakened.
+ */
+function testWeakenedFacts(name, f, kept) {
+  if (!TEST_FILE.test(name) || f.isNew) return [];
+  const addedBySubject = Map.groupBy(f.added, (a) => assertionSubject(a.text));
+  return f.removedLines.flatMap(({ line, text }) => {
+    const subject = assertionSubject(text);
+    const removed = text.trim();
+    if (!subject || kept.has(removed)) return [];
+    const rewrite = addedBySubject.get(subject)?.[0].text.trim();
+    if (rewrite) return [{ kind: "assertion-rewritten", file: name, line, text: `rewrites the assertion ${removed} as ${rewrite}` }];
+    return [{ kind: "test-weakened", file: name, line, text: `removes the assertion ${removed}` }];
+  });
+}
+
 /**
  * @param {string} diff unified diff
  * @param {{ readFile?: (path: string) => string, list?: object }} [opts] readFile reads a file as it is after the diff
@@ -93,9 +133,10 @@ export function diffFacts(diff, { readFile = null, list } = {}) {
   if (code.length > 0 && !names.some((n) => TEST_FILE.test(n))) {
     facts.push({ kind: "no-tests", text: `code changes in ${code.length} file(s) and no test file is touched` });
   }
+  const kept = new Set([...files].filter(([n]) => TEST_FILE.test(n)).flatMap(([, f]) => f.added.map((a) => a.text.trim())));
   for (const [name, f] of files) {
     facts.push(...dependencyFacts(name, f.added, readFile), ...dynamicImportFacts(name, f.added, readFile),
-      ...secretFacts(name, f.added, privacy));
+      ...secretFacts(name, f.added, privacy), ...testWeakenedFacts(name, f, kept));
   }
   return facts;
 }

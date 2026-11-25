@@ -43,6 +43,14 @@ describe("diffFacts", () => {
     expect(secret).toMatchObject({ file: "src/c.js", line: 1 });
     expect(secret.text).not.toContain(key);
   });
+
+  it("HU-4872: an assertion a test loses did not move when it reappears only outside the tests", () => {
+    const test = file("tests/sum.test.js", [], { removed: ["    expect(sum(1, 2)).toBe(3);"], start: 10 });
+    const facts = diffFacts(`${test}\n${file("src/sum.js", ["    expect(sum(1, 2)).toBe(3);"])}`, noList);
+    expect(facts.filter((f) => f.kind === "test-weakened")).toEqual([
+      { kind: "test-weakened", file: "tests/sum.test.js", line: 10, text: "removes the assertion expect(sum(1, 2)).toBe(3);" },
+    ]);
+  });
 });
 
 describe("formatDiffFacts", () => {
