@@ -9,13 +9,13 @@ Casi nunca tecleas `kj` tú. Lo hace tu agente, el playbook que instala `kj env 
 
 ## Afirmaciones con fuente
 
-**Desde tu agente:** cada hecho firme que tu agente va a publicar, un número en un PR, un "los tests pasan" en un resumen, se contrasta con lo que su propia sesión ejecutó de verdad. Respaldado, sin respaldo, o *desmentido por su propio terminal*, y un hecho que su propio terminal desmiente es una alucinación probada, cazada antes de salir. Lees el PR sabiendo que sus afirmaciones sobrevivieron a esa comprobación.
+**Desde tu agente:** cuando el proyecto lo activa (`kj gates set claims warn` o `block`; viene apagado), cada hecho firme del mensaje final de tu agente, un número o un "los tests pasan", se contrasta con lo que su propia sesión ejecutó de verdad; `kj claims check --file` hace lo mismo con el cuerpo de una PR o una card. Cada dato sale respaldado, sin respaldo o *desmentido por su propio terminal*; con `block`, uno desmentido para el turno antes de salir, y con `warn` solo se informa. Lees el PR sabiendo que sus afirmaciones sobrevivieron a esa comprobación.
 
 **Bajo el capó:** `kj claims check` corre el contraste sobre el transcript de la sesión, el transcript ES el registro de fuentes, así que "¿esto pasó de verdad?" es una pregunta con respuesta, no un acto de fe.
 
 ## La confianza caduca, el Steward
 
-**Desde tu agente:** el proyecto declara sus garantías ("la suite pasa", "hay una auditoría reciente"), y el **Steward** las re-verifica de forma periódica. La evidencia vieja deja de contar, una garantía caducada se lee como *desconocida*, nunca como verde, y cada rotura aterriza en el board como trabajo PROPUESTO que nada ejecuta sin revisar. Los proyectos se pudren justo cuando nadie mira; esto mira.
+**Desde tu agente:** el proyecto declara sus garantías ("la suite pasa", "hay una auditoría reciente"), y el **Steward** las re-verifica cada vez que corre `kj steward sweep`, a demanda o, si el proyecto lo activa, de forma periódica. La evidencia vieja deja de contar, una garantía caducada se lee como *desconocida*, nunca como verde, y cada rotura aterriza en el board como trabajo PROPUESTO que nada ejecuta sin revisar. Los proyectos se pudren justo cuando nadie mira; esto mira.
 
 **Bajo el capó:** `kj steward sweep` corre la comprobación a demanda, o como una Action programada opcional.
 
@@ -51,4 +51,4 @@ La primera vez que tu agente va a escribir él el código de una card planificad
 
 ## Por qué revisa una IA distinta
 
-La auto-revisión sella en falso. En v4 el reviewer es siempre una familia de modelos distinta del orquestador (Claude orquesta → Codex revisa, y viceversa), y su veredicto se liga al sha256 del diff exacto: cambia un byte y el veredicto caduca. No es una convención, lo fuerza el gate de pre-commit. En el desarrollo de este mismo repo, el reviewer cruzado ha rechazado varias veces la primera versión del autor con hallazgos reales. Funciona con nosotros; funcionará contigo.
+La auto-revisión sella en falso. En v4 el reviewer es siempre un agente distinto del que orquesta: el reviewer de tu panel, u otro CLI instalado si ese es el anfitrión (Claude orquesta → Codex revisa, y viceversa), y su veredicto se liga al sha256 del diff exacto: cambia un byte y el veredicto caduca. No es una convención: con `.karajan/review-gate` commiteado (lo crean `kj env install` o `kj review --install-gate`), lo fuerza el gate de pre-commit, y la CI lo vuelve a comprobar. En el desarrollo de este mismo repo, el reviewer cruzado ha rechazado varias veces la primera versión del autor con hallazgos reales. Funciona con nosotros; funcionará contigo.

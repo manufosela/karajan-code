@@ -64,13 +64,10 @@ needs my permission, an account, or kj exits with code 3.
 
 ```bash
 kj init                    # config, rules, quality tooling (agent-safe without a TTY)
-kj env install             # method into CLAUDE.md/AGENTS.md/GEMINI.md + RAG index (exit 3 if it cannot index)
-kj harden                  # git hooks: lint, commit policy, the review gate runner
-kj review --install-gate   # commits now REQUIRE a cross-AI verdict
-git config core.hooksPath .karajan/hooks
+kj env install             # method into AGENTS.md + hooks + review gate + RAG index (exit 3 if it cannot index)
 ```
 
-Commit the generated contract files (`.karajan/review-gate`, `.karajan/hooks/`, `.karajan/adrs/`, the agent rule files) — everyone who clones inherits the environment (each clone repeats the `core.hooksPath` config once).
+`kj env install` runs `kj harden` and `kj review --install-gate` itself (skip them with `--no-enforce`), and commits the contract files it generated (`.karajan/review-gate`, `.karajan/hooks/`, AGENTS.md...) on your work branch; on the base branch it commits nothing and prints the commands. Everyone who clones inherits the environment; each clone runs `kj harden` once to point git at the hooks.
 
 </TabItem>
 </Tabs>
@@ -93,8 +90,7 @@ anything needs my permission or kj exits with code 3.
 ```bash
 git switch -c chore/adopt-karajan   # never on the default branch
 kj onboard                          # brownfield analysis → Architecture Brief
-kj init && kj env install && kj harden && kj review --install-gate
-git config core.hooksPath .karajan/hooks
+kj init && kj env install
 ```
 
 kj seeds configs only when NO variant exists — your `eslint.config.mjs`, `.prettierrc` or biome.json stay untouched (`covered`). The RAG index over your existing code is the main prize: your agent queries it instead of guessing. Land the contract files through your repo's normal flow (branch + PR).
@@ -124,4 +120,4 @@ Each binary also ships with its `.sha256` file: the hash `sha256sum kj-linux-x64
 
 ## Uninstalling / opting out
 
-Every gate is a file you can see: remove `.karajan/review-gate` to disable the review gate, unset `core.hooksPath` to disable the hooks, delete the managed block in the rule files to remove the method. Nothing is hidden.
+Every gate is a file you can see: remove `.karajan/review-gate` to disable the local review gate (the `kj-*.yml` workflows in `.github/workflows/` keep checking in CI until you remove them), unset `core.hooksPath` to disable the hooks, and delete the managed block in AGENTS.md to remove the method. Nothing is hidden.

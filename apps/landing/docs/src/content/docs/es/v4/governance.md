@@ -35,7 +35,7 @@ invariants:
 - `enforcement` es `warn` (por defecto) o `deny`. `class: security` marca una regla que ninguna excepción ni ningún arbitraje puede levantar.
 - Los **invariantes** miran el diff entero. Hoy hay un tipo: `diff-threshold` sobre `net_lines_added`.
 
-Un rol, una capacidad, una clave o un valor que el motor no conoce es un error de carga, nunca un valor por defecto silencioso: `kj policy` sale con 1, el gate de commit falla con `policy.load` y el Sentinel deniega hasta que se arregla el fichero.
+Una capacidad, una clave o un valor que el motor no conoce es un error de carga, nunca un valor por defecto silencioso (los nombres de rol no se comprueban): `kj policy` sale con 1, el gate de commit falla con `policy.load` y el Sentinel deniega hasta que se arregla el fichero.
 
 No hace falta aprender el vocabulario para escribir una regla. Dila con tus palabras:
 
@@ -50,11 +50,11 @@ La misma policy se comprueba en hasta tres momentos. Cuáles tienes depende de t
 
 | Nivel | Cuándo | Requiere | Qué garantiza |
 | --- | --- | --- | --- |
-| A | Al usar una herramienta | Claude Code como anfitrión, con los hooks de Karajan | El Sentinel ejecuta `kj policy eval --strict` en cada llamada a una herramienta y para la acción prohibida antes de que ocurra. |
-| B | Al commitear | Cualquier anfitrión | `kj review --staged` y el hook pre-commit comprueban el diff preparado. Un commit que rompe una regla `deny` no entra. |
+| A | Al usar una herramienta | Claude Code como anfitrión, con los hooks de Karajan | El Sentinel ejecuta `kj policy eval --strict` en cada comando de Bash y cada edición de fichero, y para la acción prohibida antes de que ocurra. |
+| B | Al commitear | Cualquier anfitrión, con los hooks de git de Karajan (`kj harden`) y `.karajan/review-gate` commiteado | `kj review --staged` y el hook pre-commit comprueban el diff preparado. Un commit que rompe una regla `deny` no entra. |
 | C | Al mergear | GitHub Actions, sembrado por `kj harden` | El workflow `kj-policy.yml` ejecuta `kj policy check --range --strict` en la pull request. Una violación bloquea el merge. |
 
-El nivel B es el suelo: se cumple con cualquier anfitrión. Las reglas de seguridad no admiten excepción en ningún nivel. `kj doctor` te dice qué niveles están activos en tu repo.
+El nivel B es el suelo: con los hooks instalados y el gate de review commiteado, se cumple con cualquier anfitrión. Las reglas de seguridad no admiten excepción en ningún nivel. `kj doctor` te dice qué niveles están activos en tu repo.
 
 Puedes lanzar las mismas comprobaciones a mano:
 
@@ -76,7 +76,7 @@ kj policy grant --rule roles.coder.write.deny \
   --reason "los scripts de despliegue pasan a infra/ en este sprint"
 ```
 
-- Los tres parámetros son obligatorios y `--until` es una fecha ISO-8601 estricta. Cuando pasa, el gate deja de aplicar la excepción por sí solo.
+- Los tres parámetros son obligatorios y `--until` es una fecha ISO-8601 estricta. Solo el gate de commit (`kj review`) respeta una concesión, y cuando pasa la fecha deja de aplicarla por sí solo; ni la comprobación del Sentinel al usar herramientas ni `kj policy check` en la CI leen las concesiones. Hoy `kj policy grant` no es un acto humano: lo puede ejecutar una sesión de agente (ADR 0012).
 - No se pueden conceder excepciones a reglas de seguridad ni a los valores por defecto de Karajan, y no se puede conceder nada mientras el fichero de policy sea inválido.
 - Las concesiones se añaden a `.karajan/policy-exceptions.jsonl`. Con `--global` van a `~/.karajan` y valen para todos los proyectos de tu máquina.
 - Cada concesión registra quién la hizo, a partir de tu usuario de git y del sistema. Esa identidad es declarada, no autenticada: el registro dice quién dijo que la concedía.

@@ -13,20 +13,9 @@ El comando de diagnóstico integrado comprueba toda tu instalación:
 kj doctor
 ```
 
-Realiza **8 comprobaciones**:
+Ejecuta comprobaciones agrupadas por área (sistema, config, CLIs de agente, Sonar, embedder del RAG, CI, tokens, servidores MCP, puertos, Node y más); `kj doctor --verbose` muestra cada una con su solución.
 
-| Check | Qué verifica |
-|-------|-------------|
-| Config file | `~/.karajan/kj.config.yml` o `.karajan/kj.config.yml` existe |
-| Git repository | Estás dentro de un repo git |
-| Docker | `docker --version` responde |
-| SonarQube | `http://localhost:9000` es accesible y healthy |
-| Agent CLIs | Cada binario de agente (claude, codex, gemini, aider) responde a `--version` |
-| Core binaries | node, npm, git están instalados |
-| Serena MCP | Opcional — verifica `serena --version` cuando está habilitado |
-| Rule files | Existen ficheros `.md` en directorios `.karajan/` |
-
-Cada comprobación muestra `OK` o `MISS` con una solución sugerida.
+Cada comprobación acaba en `OK`, `FIXED`, `WARN`, `FAIL`, `SKIPPED` o `TIMEOUT`, con una solución sugerida cuando falla.
 
 ---
 
@@ -34,7 +23,7 @@ Cada comprobación muestra `OK` o `MISS` con una solución sugerida.
 
 ### Binario del agente no encontrado
 
-**Síntoma:** `kj doctor` muestra `MISS` para un agente, o `kj run` falla con "agent not found".
+**Síntoma:** `kj doctor` da por ausente el CLI de un agente, o `kj code` / `kj review --staged` fallan nombrando el agente.
 
 **Causa:** El CLI del agente no está instalado o no está en tu PATH.
 
@@ -47,6 +36,7 @@ which claude    # o codex, gemini, aider
 # Si no lo encuentra, instala globalmente
 npm install -g @anthropic-ai/claude-code   # Claude
 npm install -g @openai/codex               # Codex
+kj install-tools                           # instala los CLIs de agente que kj necesita
 ```
 
 Karajan busca binarios en estos directorios:
@@ -66,21 +56,6 @@ kj init
 
 Esto crea `~/.karajan/kj.config.yml` con defaults sensatos. Para config específica del proyecto, crea `.karajan/kj.config.yml` en la raíz de tu proyecto.
 
-### Valores de configuración inválidos
-
-**Síntoma:** Error sobre `review_mode` o `methodology` inválido.
-
-**Solución:** Asegura valores válidos:
-
-```yaml
-# review_mode debe ser uno de:
-mode: standard   # paranoid | strict | standard | relaxed | custom
-
-# methodology debe ser uno de:
-development:
-  methodology: tdd   # tdd | standard
-```
-
 ---
 
 ## Problemas con SonarQube
@@ -95,11 +70,9 @@ development:
 # Comprueba si Docker está corriendo
 docker ps
 
-# Arranca SonarQube
-docker start sonarqube-db sonarqube
-
-# Si los contenedores no existen, créalos
-docker compose -f ~/sonarqube/docker-compose.yml up -d
+# Arranca el contenedor de SonarQube que gestiona kj (karajan-sonarqube)
+kj sonar start
+kj sonar status
 
 # Espera ~30 segundos a que SonarQube inicialice
 ```
@@ -131,23 +104,16 @@ O establece via variable de entorno: `export KJ_SONAR_TOKEN=squ_...`
 
 ### Quality gate falla repetidamente
 
-**Síntoma:** El pipeline se bloquea en el quality gate de SonarQube incluso para issues menores.
+**Síntoma:** `kj review --staged` se para una y otra vez en el pre-gate de Sonar.
 
 **Opciones de solución:**
 
 ```bash
-# Saltar SonarQube para esta ejecución
-kj run "Mi tarea" --no-sonar
-
-# O usar enforcement lenient en config
+# Salta el pre-gate de Sonar en esta review
+kj review --staged --no-sonar
 ```
 
-```yaml
-sonarqube:
-  enforcement_profile: lenient   # En lugar del default "strict"
-```
-
-El quality gate por defecto bloquea en: reliability rating E, security rating E, maintainability rating E, coverage por debajo de 80%, líneas duplicadas por encima del 5%.
+Lo que bloquea es `sonarqube.gate_block_on` (por defecto: rating E nuevo de fiabilidad, seguridad o mantenibilidad, cobertura nueva por debajo del 80%, líneas duplicadas nuevas por encima del 5%).
 
 ### Timeout del scan
 
@@ -165,60 +131,15 @@ sonarqube:
 
 ## Problemas con Agentes
 
-### El agente da timeout durante la ejecución
-
-**Síntoma:** El agente no completa dentro del límite de tiempo por iteración.
-
-**Solución:** Aumenta el timeout por iteración (default: 15 minutos):
-
-```bash
-kj run "Tarea compleja" --max-iteration-minutes 30
-```
-
-O en config:
-
-```yaml
-session:
-  max_iteration_minutes: 30
-```
-
 ### El reviewer rechaza código repetidamente
 
-**Síntoma:** El bucle coder/reviewer se ejecuta múltiples iteraciones sin aprobación.
+**Síntoma:** `kj review --staged` rechaza el mismo cambio más de una vez.
 
-**Causa:** El reviewer encuentra los mismos problemas en cada iteración (la detección de repeticiones se activa tras 2 conjuntos consecutivos de issues idénticos).
+**Solución:** que el coder aplique los hallazgos (`kj code --card <id> --retry --brief`) o, si tu agente no está de acuerdo, que arbitre una tercera IA: `kj solomon --position "<por qué>"` (los hallazgos de seguridad no se anulan nunca).
 
-**Opciones de solución:**
+### Elegir otro reviewer
 
-1. **Reducir max iterations** para fallar rápido:
-   ```bash
-   kj run "Tarea" --max-iterations 3
-   ```
-
-2. **Usar modo de revisión relaxed** para código menos crítico:
-   ```bash
-   kj run "Tarea" --mode relaxed
-   ```
-
-3. **Reanudar con guía** si la sesión se pausa:
-   ```bash
-   kj resume --session <id> --answer "Enfócate en el issue de seguridad, ignora sugerencias de estilo"
-   ```
-
-### Fallo al parsear output del reviewer
-
-**Síntoma:** `Reviewer output must be a JSON object` o `missing boolean field: approved`.
-
-**Causa:** El agente reviewer devolvió JSON malformado en lugar del formato de review esperado.
-
-**Solución:** Normalmente es un problema transitorio. El pipeline reintenta automáticamente. Si persiste:
-- Prueba un reviewer diferente: `--reviewer claude` en lugar de `--reviewer codex`
-- Usa la config de reviewer fallback:
-
-```yaml
-reviewer: codex
-reviewer_fallback: claude
-```
+Elige otro reviewer para una review con `kj review --staged --reviewer <agente>`, o fija `reviewer_options.fallback_reviewer`; a un reviewer sin cuota lo releva otro solo en esa review, nunca el anfitrión.
 
 ---
 
@@ -226,7 +147,7 @@ reviewer_fallback: claude
 
 ### `Transport closed` tras actualizar Karajan Code
 
-**Síntoma:** Las llamadas MCP fallan al instante (incluso `kj_config` / `kj_plan`) y tu host muestra `Transport closed`.
+**Síntoma:** Las llamadas MCP fallan al instante (incluso `kj_config` / `kj_doctor`) y tu host muestra `Transport closed`.
 
 **Causa:** El host MCP sigue conectado a un proceso antiguo de `karajan-mcp`. Tras un cambio de versión, Karajan cierra procesos MCP obsoletos para que el host reinicie con código actualizado.
 
@@ -239,7 +160,7 @@ reviewer_fallback: claude
 codex mcp list
 
 # 3) smoke check antes de ejecuciones largas
-# llama a kj_config y luego a un kj_plan corto
+# llama a kj_config y luego a kj_doctor
 ```
 
 ### Servidor MCP no responde
@@ -271,7 +192,7 @@ kill <pid>
 
 ### Códigos de error MCP
 
-Cuando `kj_run` u otras herramientas MCP devuelven errores, el campo `errorType` indica qué ocurrió:
+Cuando una herramienta MCP falla, el campo `category` de su respuesta dice qué ocurrió, y `suggestion` cómo arreglarlo:
 
 | Error Type | Significado | Solución |
 |-----------|------------|----------|
@@ -280,7 +201,9 @@ Cuando `kj_run` u otras herramientas MCP devuelven errores, el campo `errorType`
 | `config_error` | Configuración inválida | Ejecuta `kj_doctor` o `kj_init` |
 | `agent_missing` | CLI no encontrado | Instala el agente, ejecuta `kj_doctor` |
 | `timeout` | Límite de tiempo excedido | Aumenta `timeoutMs` o `maxIterationMinutes` |
-| `rate_limit` | Agente alcanzó su límite de uso | Espera al reset de la ventana de tokens, luego `kj resume` |
+| `branch_error` | Estás en la rama base | Crea una rama de trabajo y reintenta |
+| `agent_stall` | El agente dejó de producir salida | Reintenta con una tarea más pequeña |
+| `bootstrap_error` | Faltan requisitos del entorno | Ejecuta `kj_doctor` y arregla lo que liste |
 | `git_error` | No es un repo git | Ejecuta `git init` o navega a la raíz del proyecto |
 
 ---
@@ -301,7 +224,7 @@ cd /ruta/a/tu/proyecto
 
 ### Fallo al crear PR
 
-**Síntoma:** `gh pr create` falla durante auto-commit.
+**Síntoma:** `kj review --publish-pr` o `--verify-pr` fallan con un error de `gh`.
 
 **Solución:** Asegúrate de que el GitHub CLI está instalado y autenticado:
 
@@ -317,113 +240,26 @@ gh auth login
 gh repo view
 ```
 
-### La rama base divergió durante la ejecución
-
-**Síntoma:** Warning sobre la rama base detrás del remoto.
-
-**Solución:**
-
-```bash
-# Rebase manual
-git rebase origin/main
-
-# O usar auto-rebase
-kj run "Tarea" --auto-rebase
-```
-
 ---
 
 ## Violaciones de Política TDD
 
 ### Cambios en source sin tests
 
-**Síntoma:** `source_changes_without_tests` — la política TDD detectó cambios en ficheros fuente sin cambios correspondientes en tests.
+**Síntoma:** `kj review --staged` avisa (o, con `kj gates set tests-with-code block`, rechaza) que el diff staged toca ficheros fuente sin tocar ningún test.
 
 **Opciones de solución:**
 
 1. **Escribe tests primero** (recomendado): modifica ficheros de test antes de la implementación
-2. **Desactiva TDD para esta ejecución:**
-   ```bash
-   kj run "Fix rápido" --methodology standard
-   ```
-3. **Desactiva en config:**
-   ```yaml
-   development:
-     methodology: standard
-     require_test_changes: false
-   ```
+2. Los borrados y las limpiezas de solo comentarios pasan sin test; todo lo demás lo necesita.
 
 Patrones de ficheros de test reconocidos: `/tests/`, `/__tests__/`, `.test.`, `.spec.`
 
 ---
 
-## Presupuesto y Control de Costes
+## Coste
 
-### ¿Cómo funciona el tracking de presupuesto?
-
-**Importante:** El tracking de costes de Karajan es **estimado, no facturación real**. Dado que Karajan ejecuta agentes CLI (Claude Code, Codex CLI, etc.) que usan tus suscripciones existentes, los costes reportados son una aproximación de lo que *gastarías* si usaras las APIs directamente. Se calculan a partir del conteo de tokens (input/output) multiplicados por las tarifas publicadas de cada modelo.
-
-Esto es útil para:
-- Comparar coste relativo entre distintas combinaciones de agente/modelo
-- Entender qué etapas del pipeline consumen más tokens
-- Establecer guardarraíles para evitar sesiones descontroladas
-
-Ver desglose con:
-
-```bash
-kj report --trace
-```
-
-### ¿Cuál es la ventaja de usar agentes CLI vs APIs?
-
-Una ventaja clave del enfoque CLI de Karajan es el **coste predecible**. Tus agentes IA se ejecutan bajo tus planes de suscripción existentes (Claude Pro, Codex, etc.), así que nunca pagas más que la tarifa de tu plan independientemente de cuántas tareas ejecutes.
-
-Si un agente CLI alcanza su límite de ventana de uso (ej: el tope de tokens de Claude), el proceso del agente se detiene — Karajan detecta automáticamente el mensaje de rate-limit en la salida del agente y pausa la sesión en lugar de marcarla como fallida. Puedes reanudar cuando la ventana de tokens se restablezca:
-
-```bash
-kj resume --session <session-id>
-```
-
-Karajan reconoce patrones de rate-limit de todos los agentes soportados (Claude, Codex, Gemini, Aider), incluyendo errores HTTP 429 y mensajes específicos de límite de uso de cada proveedor.
-
-También puedes configurar un **agente de fallback automático** para que el pipeline continúe sin interrupción:
-
-```yaml
-coder_options:
-  fallback_coder: codex   # Cambiar a Codex si Claude llega a su límite
-```
-
-O por ejecución: `kj run "Tarea" --coder-fallback codex`
-
-Cuando el agente primario llega a su límite y hay un fallback configurado, Karajan cambia automáticamente al agente alternativo para esa iteración. Si todos los agentes están limitados, la sesión se pausa.
-
-### ¿Cómo establezco un límite de presupuesto?
-
-Los límites de presupuesto actúan como guardarraíles sobre costes estimados:
-
-```yaml
-budget:
-  max_budget_usd: 50
-  warn_threshold_pct: 80   # Avisa al 80% gastado
-```
-
-O por ejecución:
-
-```bash
-kj run "Tarea" --max-budget-usd 10
-```
-
-Cuando el presupuesto estimado alcanza el 100%, la sesión termina con razón `budget_exceeded`.
-
-### ¿Cómo veo costes en EUR?
-
-```yaml
-budget:
-  currency: eur
-  exchange_rate_eur: 0.92
-```
-
-O: `kj report --currency eur`
+Karajan funciona con las suscripciones CLI de tus agentes; la página **Usage** del HU Board (`/usage.html`) suma cada llamada a un agente que lanzó kj, por proyecto y cuenta, con un CSV por proyecto y mes. Mira [Observabilidad](/docs/es/guides/observability/).
 
 ---
 
@@ -449,7 +285,7 @@ O: `kj report --currency eur`
 
 3. El fichero es un módulo ES válido (usa `import`/`export`, no `require`/`module.exports`)
 
-**Debug:** Activa logging de depuración para ver detalles de carga de plugins: `--log-level debug`
+**Debug:** hoy kj no imprime los errores de carga de plugins; carga el fichero tú con `node -e 'import("./.karajan/plugins/my-plugin.js").then((m) => console.log(Object.keys(m)))'` para ver qué exporta.
 
 ### "No register() export found"
 
@@ -461,7 +297,7 @@ O: `kj report --currency eur`
 // Correcto
 export function register(api) { ... }
 
-// Incorrecto — export default
+// También vale: un export default con register
 export default { register(api) { ... } }
 
 // Incorrecto — CommonJS
@@ -474,38 +310,15 @@ module.exports = { register(api) { ... } }
 
 ### ¿Qué agentes de IA soporta Karajan Code?
 
-Claude, Codex, Gemini, Aider y OpenCode de serie. Puedes combinarlos — usa uno como coder y otro como reviewer. También puedes crear [agentes custom via plugins](/docs/es/guides/plugins/).
+Claude, Codex, Gemini, Aider, OpenCode, Qwen, Copilot, Kimi y agy de serie (`kj agents` los lista, `kj doctor` dice cuáles están instalados). Puedes combinarlos: usa uno como coder y otro como reviewer. También puedes crear [agentes custom via plugins](/docs/es/guides/plugins/).
 
 ### ¿Puedo elegir qué modelo usa cada rol?
 
-Sí. Karajan soporta **selección de modelo per-role** a tres niveles:
-
-**Flags CLI** (por ejecución):
-```bash
-kj run "Tarea" --coder-model claude/opus --reviewer-model codex/o4-mini
-```
-
-**Fichero de config** (persistente):
-```yaml
-roles:
-  coder:
-    provider: claude
-    model: claude/sonnet
-  reviewer:
-    provider: codex
-    model: codex/o3
-  planner:
-    provider: gemini
-    model: gemini/pro
-```
-
-**Smart model selection** (automático): Cuando `--smart-models` está habilitado (por defecto), triage clasifica la complejidad de la tarea y auto-selecciona el modelo óptimo por rol — modelos ligeros (haiku, flash, o4-mini) para tareas triviales, potentes (opus, o3, pro) para complejas. Los flags explícitos `--*-model` siempre prevalecen sobre la selección automática.
-
-Usa `kj agents` para ver la asignación actual de modelo para cada rol.
+Sí. El modelo del coder sigue el nivel de la card (`kj hu add --tier trivial|standard|deep`) salvo que fijes uno (`roles.coder.model` en la config); el del reviewer sale de `roles.reviewer.model` o de `kj review --staged --reviewer-model <modelo>`. `kj agents` muestra qué proveedor ocupa cada rol.
 
 ### ¿Tiene coste?
 
-Karajan Code es gratuito y open source (AGPL-3.0). Funciona con tus suscripciones CLI existentes de agentes IA (Claude Pro, Codex, etc.) — no necesita API keys adicionales. Solo pagas tu plan actual, independientemente de cuántas tareas ejecutes. Usa `kj report --trace` para ver el desglose estimado de costes por ejecución.
+Karajan Code es gratuito y open source (AGPL-3.0). Funciona con tus suscripciones CLI existentes de agentes IA (Claude Pro, Codex, etc.), sin API keys adicionales. Solo pagas tu plan actual, independientemente de cuántas tareas ejecutes. La página Usage del HU Board enseña cada llamada a un agente que lanzó kj, con sus tokens y el coste que informó su agente.
 
 ### ¿Necesito Docker?
 
@@ -520,50 +333,15 @@ sonarqube:
   enabled: false
 ```
 
-O por ejecución: `kj run "Tarea" --no-sonar`
-
-### ¿Qué modos de revisión hay disponibles?
-
-| Modo | Descripción |
-|------|-------------|
-| `paranoid` | Más estricto — todas las reglas activas, requiere 100% aprobación |
-| `strict` | Muy estricto — la mayoría de reglas, estándares altos |
-| `standard` | Equilibrado — reglas pragmáticas (default) |
-| `relaxed` | Permisivo — menos reglas, aprobación más rápida |
-| `custom` | Reglas definidas por el usuario en `.karajan/` |
-
-### ¿Puedo reanudar una sesión pausada?
-
-Sí. Cuando una sesión se pausa (detección de repeticiones, aviso de presupuesto, escalado humano):
-
-```bash
-kj resume --session <session-id> --answer "Tu guía aquí"
-```
+O para una review: `kj review --staged --no-sonar`
 
 ### ¿Qué pasa cuando el coder y el reviewer no se ponen de acuerdo?
 
-Tras rechazos idénticos repetidos (default: 2 iteraciones), Karajan puede:
-1. **Escalado Solomon** — un árbitro IA media (si `pipeline.solomon.enabled: true`)
-2. **Escalado humano** — pausa la sesión para tu input
-3. **Max iteraciones alcanzado** — para y reporta el conflicto
+Cuando tu agente no está de acuerdo con una review rechazada, `kj solomon --position "<por qué>"` pide a una tercera IA que arbitre; los hallazgos de seguridad no se anulan nunca.
 
-### ¿Cómo funciona la lógica de retry?
-
-Karajan reintenta automáticamente en errores transitorios: timeouts de conexión, conexiones rechazadas, HTTP 429/500/502/503/504. Usa backoff exponencial (1s → 2s → 4s, máximo 30s). Configura en:
-
-```yaml
-retry:
-  max_retries: 3
-  backoff_multiplier: 2
-  max_backoff_ms: 30000
-```
-
-### ¿Dónde se guardan los logs de sesión?
-
-Las sesiones se almacenan localmente. Consúltalas con:
+### ¿Dónde veo lo que ha medido kj?
 
 ```bash
-kj report                  # Resumen de la última sesión
-kj report --trace          # Desglose detallado de costes
-kj report --session <id>   # Sesión específica
+kj report                       # los bloques del proyecto: veracidad de las reviews, panel, modelos del coder (y la última sesión, si la hay)
+kj report --session-id <id>     # una sesión concreta
 ```

@@ -64,13 +64,10 @@ permiso, una cuenta, o kj sale con código 3.
 
 ```bash
 kj init                    # config, reglas, tooling de calidad (seguro para agentes sin TTY)
-kj env install             # método en CLAUDE.md/AGENTS.md/GEMINI.md + índice RAG (exit 3 si no puede indexar)
-kj harden                  # hooks de git: lint, política de commits, runner del gate
-kj review --install-gate   # los commits EXIGEN veredicto de IA cruzada
-git config core.hooksPath .karajan/hooks
+kj env install             # método en AGENTS.md + hooks + gate de review + índice RAG (exit 3 si no puede indexar)
 ```
 
-Commitea los ficheros del contrato (`.karajan/review-gate`, `.karajan/hooks/`, `.karajan/adrs/`, los ficheros de reglas) — quien clone hereda el entorno (cada clon repite el config de `core.hooksPath` una vez).
+`kj env install` ejecuta él mismo `kj harden` y `kj review --install-gate` (se omiten con `--no-enforce`), y commitea los ficheros del contrato que generó (`.karajan/review-gate`, `.karajan/hooks/`, AGENTS.md...) en tu rama de trabajo; en la rama base no commitea nada e imprime los comandos. Quien clone hereda el entorno; cada clon ejecuta `kj harden` una vez para que git apunte a los hooks.
 
 </TabItem>
 </Tabs>
@@ -93,8 +90,7 @@ si algo necesita mi permiso o kj sale con código 3.
 ```bash
 git switch -c chore/adopt-karajan   # nunca sobre la rama por defecto
 kj onboard                          # análisis brownfield → Architecture Brief
-kj init && kj env install && kj harden && kj review --install-gate
-git config core.hooksPath .karajan/hooks
+kj init && kj env install
 ```
 
 kj solo siembra configs cuando NO existe ninguna variante — tu `eslint.config.mjs`, `.prettierrc` o biome.json quedan intactos (`covered`). El índice RAG sobre tu código existente es el premio gordo: tu agente lo consulta en vez de adivinar. Lleva los ficheros del contrato por el flujo normal de tu repo (rama + PR).
@@ -124,4 +120,4 @@ Cada binario trae además su fichero `.sha256`: el hash que imprime `sha256sum k
 
 ## Desinstalar / desactivar
 
-Cada gate es un fichero visible: borra `.karajan/review-gate` para desactivar el gate de revisión, quita `core.hooksPath` para desactivar los hooks, elimina el bloque gestionado de los ficheros de reglas para retirar el método. No hay nada oculto.
+Cada gate es un fichero visible: borra `.karajan/review-gate` para desactivar el gate de revisión local (los workflows `kj-*.yml` de `.github/workflows/` siguen comprobando en la CI hasta que los quites), quita `core.hooksPath` para desactivar los hooks y elimina el bloque gestionado de AGENTS.md para retirar el método. No hay nada oculto.
