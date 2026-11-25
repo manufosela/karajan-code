@@ -7,6 +7,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { GATE_REVIEWERS } from "../review/gate-reviewers.js";
+
+const isGate = (r) => GATE_REVIEWERS.has(r.reviewer);
 const round = (n, digits) => Math.round(n * 10 ** digits) / 10 ** digits;
 const isArbiter = (r) => String(r.reviewer ?? "").startsWith("solomon:");
 const byTime = (a, b) => String(a.timestamp).localeCompare(String(b.timestamp));
@@ -25,7 +28,7 @@ function arbitrationTally(records) {
 
 function correctionRounds(records) {
   const rounds = [];
-  for (const rows of Object.values(Object.groupBy(records.filter((r) => r.branch), (r) => r.branch))) {
+  for (const rows of Object.values(Object.groupBy(records.filter((r) => r.branch && !isGate(r)), (r) => r.branch))) {
     let rejections = 0;
     for (const r of rows.toSorted(byTime)) {
       if (r.verdict === "approved") {
@@ -40,14 +43,20 @@ function correctionRounds(records) {
   return { approvals: rounds.length, mean };
 }
 
+function gateTally(records) {
+  const byGate = {};
+  for (const r of records.filter(isGate).toSorted(byTime)) byGate[r.reviewer] = (byGate[r.reviewer] ?? 0) + 1;
+  return { total: Object.values(byGate).reduce((a, b) => a + b, 0), byGate };
+}
+
 export function reviewTruth(records) {
   const all = (records ?? []).filter(Boolean);
   const byReviewer = {};
-  const own = all.filter((r) => r.reviewer && !isArbiter(r));
+  const own = all.filter((r) => r.reviewer && !isArbiter(r) && !isGate(r));
   for (const [reviewer, rows] of Object.entries(Object.groupBy(own, (r) => r.reviewer))) {
     byReviewer[reviewer] = reviewerRow(rows);
   }
-  return { verdicts: all.length, byReviewer, arbitrations: arbitrationTally(all), correctionRounds: correctionRounds(all) };
+  return { verdicts: all.length, byReviewer, arbitrations: arbitrationTally(all), correctionRounds: correctionRounds(all), gates: gateTally(all) };
 }
 
 export function formatReviewTruth(truth) {
@@ -61,6 +70,10 @@ export function formatReviewTruth(truth) {
   lines.push(`  correction rounds: ${mean} on average over ${approvals} approval(s)`);
   const a = truth.arbitrations;
   lines.push(`  arbitrations: ${a.total} (${a.approve} approve, ${a.reject} reject)`);
+  const { total, byGate } = truth.gates;
+  const detail = Object.entries(byGate).map(([g, n]) => `${g} ${n}`).join(", ");
+  const perGate = total ? ` (${detail})` : "";
+  lines.push(`  gate rejections (not reviewers): ${total}${perGate}`);
   return lines;
 }
 
