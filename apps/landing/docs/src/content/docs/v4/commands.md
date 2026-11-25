@@ -16,22 +16,25 @@ A **human act** is typed by a person in their own terminal; kj refuses it from a
 | `kj go` | Starts Karajan from nothing: detects your agent, prepares the project, opens the board and leaves you in the conversation (`--window` keeps the conversation inside the browser board). |
 | `kj bootstrap` | From an empty directory to the method ready: repository, configuration, harness, gate and RAG, in the order that works. |
 | `kj update` | Updates karajan-code to the latest version from npm. |
-| `kj env install` | Installs or refreshes the method playbook in AGENTS.md, the one file every host agent reads (`--target`), and builds the RAG index (`--no-rag`). |
+| `kj env install` | Installs or refreshes the method playbook in AGENTS.md, the one file every host agent reads (`--target`), builds the RAG index (`--no-rag`) and installs the git hooks and the verdict gate (`--no-enforce` skips them). Exit 3 when the RAG cannot index: an action is pending from you. |
 | `kj harden` | Git hooks (lint, commit policy, gate runner), configs, CI workflows. Chains your previous global hooks. `kj harden --commit` is a human act: typed by a person in their own terminal; kj refuses it from an agent. |
-| `kj review --install-gate` | Enables the pre-commit review gate (tracked marker). |
+| `kj review --install-gate` | Declares the pre-commit review gate (`.karajan/review-gate`, to commit). It is enforced only when the `kj harden` pre-commit hook runs it; otherwise it says so and exits 1. |
 
 ## Daily (run by the agent)
 
 | Command | Does |
 |---|---|
 | `kj hu add\|move\|list` | The [HU Board](/docs/guides/hu-board/) from any host agent, card first. `add "<title>"` puts work on the board (`--tier trivial\|standard\|deep`, `--ac`, `--ref`), `move <id> <status>` moves it (pending, running, done, failed, skipped), `list` shows it. |
-| `kj code --card <id> --brief` | Has the coder declared in your panel write the card, with a clean context. `--brief` returns only the end of the coder's answer; `--retry` after a rejected review gives the coder its findings, on the most capable model. |
+| `kj code --card <id> --brief` | Has the coder declared in your panel write the card, with a clean context. `--brief` returns only the end of the coder's answer; `--retry` after a rejected review gives the coder its findings, on the most capable model. If the coder removed an assertion of an existing test, the run fails, lists each removed assertion and asks to restore it and `--retry`. |
 | `kj handoff` | What a gate denied the agent, or what only the human can do, registered for the human to run by id: `add`, `list`, `show`, `done`, `wait`, `watch`. |
 | `kj rag query "<q>"` | Semantic search over the project (auto-refreshes on drift). |
 | `kj brief <role>` | Mission + invariants + deliverable of a role. No role → list. |
-| `kj review --staged` | Sonar pre-gate on the changed files (BLOCKER/CRITICAL reject deterministically), then cross-AI review; verdict bound to the diff's sha256 and stamped with its workspace. Exit 0/1. |
+| `kj review --staged` | Deterministic pre-gates first, in this order: card first, Steward, PR size, privacy, tests with the code, policy, Sonar on the changed files (BLOCKER/CRITICAL reject), RAG, mutation when declared, the diff's own test files, cooldown. The first rejection ends it without a model. Then the cross-AI review; verdict bound to the diff's sha256 and stamped with its workspace. Exit 0/1. |
 | `kj worktree start\|list\|done <slug>` | Isolated task lanes: worktree + `feat/<slug>` branch + dependency bootstrap; `start --base <branch>` cuts the lane from `origin/<branch>` (an epic branch, say) and keeps it as the lane's base for `pr-size`, `check` and the review gate; `done` removes a merged lane. `list --json` gives each lane's commits ahead of the base and the cards its branch names (by id or reference); `--prs` adds each lane's PR (one `gh` call). The HU Board shows them on each card. |
 | `kj review --check` | Is there an approved verdict for the exact staged diff? (What the hook runs.) |
+| `kj review --range <a..b>` / `--lane <slug>` | Reviews a git range instead of the staged diff / runs the gate in that lane from any directory. |
+| `kj review --publish-pr <n>` / `--verify-pr <n>` | Publishes the verdicts of a PR's commits on it as one GitHub review / the CI check: every commit of the PR is listed, with its diff hash, in the kj review a member published. |
+| `kj review --third-party` | Reviews someone else's PR (`--range base...head`): reviewer only, no own-work gates, no verdict stored (`--lens qa`, `--verifier`, `--reviewers`, `--json`). |
 | `kj solomon --position "<why>"` | Third-AI arbitration of a rejected verdict. Exit 0 approve / 1 reject. |
 | `kj solomon --finding <id> --position "<why>"` | Arbitrate one finding of the verdict. Approving it removes it; the gate opens only when no finding is left. A security finding is never arbitrated. |
 | `kj agent run <agent> "<task>"` | Delegate a task to another AI and print its output. |
@@ -44,7 +47,7 @@ A **human act** is typed by a person in their own terminal; kj refuses it from a
 | `kj check` | Verifies the quality harness installed by `kj harden` (drift gate). |
 | `kj doctor` | Checks the environment requirements and fixes what it can (`--check-only`, `--json`). |
 | `kj report` | Last session's summary, budget, iterations. |
-| `kj board` | HU Board dashboard (when `state_backend: hu-board`). |
+| `kj board` | HU Board dashboard. It does not start when the board is external (`state_backend: external`) or `hu_board.enabled` is false, unless `--force`. |
 
 ## Agents and review
 
@@ -63,7 +66,7 @@ A **human act** is typed by a person in their own terminal; kj refuses it from a
 | `kj discover [task]` | Analyzes a task for gaps, ambiguities and missing information (`--mode gaps\|momtest\|wendel\|classify\|jtbd`). |
 | `kj spec refine` | Proposes a detailed spec, and its e2e tests, from a high-level one, to accept before the plan. Never overwrites the output. |
 | `kj onboard` | Analyzes an existing codebase and produces an Architecture Brief. |
-| `kj brief [role]` | Shows the distilled method of a role: triage, planner, researcher, architect, tester, security or audit. |
+| `kj brief [role]` | Shows the distilled method of a role: triage, planner, researcher, architect, tester, security, board or audit. With no role, lists them. |
 | `kj plan` | Plan management: `list`, `show`, `ready`, `validate`, `delete`, `share`, `unshare`, `add-hu`, `remove-hu`, `license`, `fix`, `migrate-result`. |
 
 ## Search / RAG
@@ -81,7 +84,7 @@ See [Gates](/docs/v4/gates/) for how the gates use these and [Governance](/docs/
 
 | Command | Does |
 |---|---|
-| `kj audit [task]` | Read-only codebase health analysis. `--deterministic-only` spends no tokens; `--security` is a zero-token security pass; `--sbom <file>` writes the CycloneDX SBOM. |
+| `kj audit [task]` | Codebase health analysis; it never changes your code (each run is kept in `.karajan/audit-history.db`). `--deterministic-only` spends no tokens; `--security` is a zero-token security pass; `--sbom <file>` writes the CycloneDX SBOM. |
 | `kj check` | Verifies the quality harness installed by `kj harden` (drift gate). |
 | `kj mutate [path]` | Mutation testing scoped to your diff (`--since`, `--max-survivors`): do your tests catch the mutants of your change? |
 | `kj webperf <url>` | Lighthouse scan of a URL: Core Web Vitals and opportunities (`--mobile`). |
@@ -98,8 +101,8 @@ See [Gates](/docs/v4/gates/) for how the gates use these and [Governance](/docs/
 | `kj main-guard` | Audits a push to the protected branch: merges without their required checks, and the protection. Exit 1 with a markdown report. |
 | `kj main-guard-except <pr>` | A human act: typed by a person in their own terminal; kj refuses it from an agent. Signs on the phone an exception for a PR merged without its required checks (`--why`). |
 | `kj merge-gate` | Whether a `gh pr merge` command may run now: exit 2, with the reason, while the PR's checks run or are red. |
-| `kj gates [set <rule> <value>]` | Lists the rules kj governs with, each adjustable one with its value and who set it; `set` changes an adjustable one (`--from-contributing`). |
-| `kj hooks [set\|unset <step>]` | Lists the command each hook step runs and where it comes from; `set` pins one, `unset` releases it. |
+| `kj gates [value <rule>\|set <rule> <value>]` | Lists the rules kj governs with, each adjustable one with its value and who set it; `value` prints one resolved value (for hooks); `set` changes an adjustable one: tightening is free, loosening is a human act (typed by a person in their own terminal; kj refuses it from an agent). With `--from-contributing "<sentence>"` the value is justified by that exact sentence of the project's CONTRIBUTING, with no human act. Fixed rules never change. |
+| `kj hooks [set <step> <command>\|unset <step>]` | Lists the command each hook step runs and where it comes from; `set` pins one, `unset` releases it. `set` and `unset` are human acts: typed by a person in their own terminal; kj refuses them from an agent. The hooks change only after `kj harden` and its seal. |
 
 ## Session / board
 
@@ -113,9 +116,9 @@ See [Gates](/docs/v4/gates/) for how the gates use these and [Governance](/docs/
 | `kj worktree start\|list\|note\|done\|prune` | Isolated task lanes. `note` leaves a short note on a lane; `prune` retires lanes that are provably abandoned (`--dry-run`). |
 | `kj sentinel status\|verify\|hook\|panel-check\|board-gate` | The [Sentinel](/docs/guides/sentinel/): the deterministic method supervisor wired into the harness hooks. `status` prints the session's facts, `verify` checks the harness scripts against the installed kj. |
 | `kj identity show\|set\|enroll-phone\|phone-invite` | Which gh account and git email this clone is worked with. `kj identity enroll-phone` is a human act: typed by a person in their own terminal; kj refuses it from an agent. |
-| `kj security show\|max\|critical\|normal` | The project's security level. `max` needs no signature. `critical` and `normal` are human acts signed by the enrolled phone: typed by a person in their own terminal; kj refuses them from an agent. |
+| `kj security show\|max\|critical\|normal` | The project's security level. `max` needs no signature. `critical` and `normal` are human acts: typed by a person in their own terminal; kj refuses them from an agent. With a phone enrolled, the phone signs them; with none, the level is recorded unsigned and `max` applies again as soon as a phone is enrolled. |
 | `kj handoff add\|list\|show\|done\|wait\|watch` | Handoffs: `add` registers a denied command, or with `--why` an action only the human can take; `wait <id>` blocks until it is done (exit 0) or the timeout passes (exit 2); `watch` is the human's task window. |
-| `kj link send\|inbox\|threads\|limits\|ceremony` | Agent link: post to `issue:<n>` or `pr:<n>`, or read what arrived (on demand, never pushed). `ceremony` convenes or gathers a daily, refinement or retro. |
+| `kj link send\|inbox\|threads\|limits\|ceremony` | Agent link: post to `issue:<n>` or `pr:<n>`, or read what arrived (on demand, never pushed). `ceremony convene\|gather\|close` convenes a daily, refinement or retro, gathers what was said, or writes its result as a pull request and closes it. |
 
 ## Infra / setup
 
@@ -123,12 +126,12 @@ See [Gates](/docs/v4/gates/) for how the gates use these and [Governance](/docs/
 |---|---|
 | `kj install-tools` | Installs the tools kj needs (git, agent CLIs) and the external audit tools (semgrep, osv-scanner, lighthouse, docker, sonar) with your package manager (`--only`, `--yes`, `--dry-run`). |
 | `kj ollama start\|stop\|status\|pull <model>` | Manages the RAG embedder container (Ollama in Docker). |
-| `kj skills` | Manages the skill cache (`list`, `clear-cache`, `sync-addyosmani`, `list-addyosmani`) and, through atril, the `.karajan` store (`search`, `route`, `scan`, `install`, `remove`, `graph`, `enrich`, `config`). |
+| `kj skills` | Manages the skill cache (`list`, `clear-cache`, `sync-addyosmani`, `list-addyosmani`) and the `.karajan` store: `search` (kj's own, it translates a non-English query first) and, through atril, `route`, `scan`, `install`, `remove`, `graph`, `enrich`, `config`. |
 | `kj atril` | Runs atril's own CLI on the `.karajan` store; every argument goes to atril untouched. |
-| `kj roles [role]` | Lists the pipeline roles or shows a role's template instructions. |
+| `kj roles [show <role>]` | Lists the pipeline roles; `show <role>` prints a role's template instructions. |
 | `kj agents [list\|set <role> <provider>]` | Lists or changes the AI agent of each role (`--local`, `--global`). |
 | `kj account add\|list\|remove\|default\|use\|check\|pace\|rescue` | Agent accounts: the login each provider's agents run on. See [Accounts](/docs/v4/accounts/). |
-| `kj env install` | Installs or refreshes the playbook for host agents in AGENTS.md. |
+| `kj env install` | Installs or refreshes the playbook for host agents in AGENTS.md, and the git hooks and verdict gate (`--no-enforce` skips them). |
 | `kj init` | Config, review rules and SonarQube. Run once per project. |
 | `kj config` | Shows the current config (`--json`, `--edit`, `--check-secrets <file>`). |
 

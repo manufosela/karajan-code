@@ -11,10 +11,10 @@ kj guarda un registro pequeño y local de lo que hace, para que puedas preguntar
 | --- | --- | --- |
 | Uso | `~/.karajan/usage/YYYY-MM.jsonl` (un fichero por mes UTC) | Una línea por llamada a un agente que lanzó kj: cuándo, proyecto, cuenta, rol, duración, tokens, coste, líneas añadidas y quitadas. |
 | Trazas del repo | `.karajan/traces/` en el proyecto | Registros locales de lo que pasó en ese repo, por ejemplo qué agentes trabajan ahora (`agent-activity.jsonl`) y los intentos del gate de commit. |
-| Decision log | `.karajan/policy-decisions.jsonl` | Lo que decidieron los gates de política (aviso, denegación, exención), encadenado por hash para que una cadena rota se detecte. |
+| Decision log | `.karajan/policy-decisions.jsonl` | Lo que decidieron los gates (permiso, aviso, denegación, exención) y los barridos del Steward, encadenado por hash para que una cadena rota se detecte. |
 | Veredictos de review | `.karajan/reviews/` | El veredicto de cada review cruzada, que lee `kj report`. |
 
-Ninguno contiene prompts, código ni claves. El registro de uso dice quién ejecutó qué, cuánto tardó y cuánto costó, y nada más. Todo se queda en tu máquina: kj lee estos ficheros, no los sube.
+El registro de uso no contiene prompts, código ni claves: dice quién ejecutó qué, cuánto tardó y cuánto costó, y nada más. Las trazas del repo sí pueden llevar contenido: una denegación guarda el comando exacto que denegó, y un veredicto de review guarda los hallazgos, que citan código. Todo se queda en tu máquina: kj lee estos ficheros, no los sube.
 
 ## El HU Board: Usage y Accounts
 
@@ -22,11 +22,11 @@ Arranca el board (`kj board start`) y abre dos páginas desde su cabecera.
 
 **Usage** (`/usage.html`) muestra cada llamada a un agente que lanzó kj en un rango de meses. Elige un proyecto (o todos), un rango con **From** y **To**, y agrupa por día, mes, año o total. Cada fila suma, por proyecto y cuenta, las llamadas, los tokens de entrada y salida, los tokens en caché, el coste, la duración y las líneas añadidas y quitadas. Una cifra queda vacía mientras ninguna llamada del grupo la haya informado: nunca se muestra como cero. Con un proyecto elegido, **Export CSV** descarga las llamadas de ese proyecto en el mes de **To**.
 
-**Accounts** (`/accounts.html`) muestra los logins de proveedor que conoce kj (claude y codex), el orden en que cada proyecto los prueba, su ritmo y las reglas de rescate. Lee `~/.karajan/accounts.json`, nombra un proyecto por el último segmento de su ruta en vez de la ruta entera y no lleva nunca una clave: la sección de rescate solo dice si existe una. Cada cambio que haces ahí ejecuta el mismo comando `kj account` que teclearías en una terminal. Mira [Varias cuentas](/docs/es/v4/accounts/).
+**Accounts** (`/accounts.html`) muestra los logins de proveedor que conoce kj (claude y codex), el orden en que cada proyecto los prueba, su ritmo y las reglas de rescate. Lee `~/.karajan/accounts.json`, y de `~/.karajan/rescue.json` solo las reglas y si existe una clave. Nombra un proyecto por el último segmento de su ruta en vez de la ruta entera y no lleva nunca una clave: la sección de rescate solo dice si existe una. Cada cambio que haces ahí ejecuta el mismo comando `kj account` que teclearías en una terminal. Mira [Varias cuentas](/docs/es/v4/accounts/).
 
 ## Veracidad de las reviews en `kj report`
 
-Un revisor puede citar una línea que no existe. kj lo comprueba sin un modelo. Para cada hallazgo bloqueante mira tres cosas: que el fichero está en el proyecto, que la línea está en el diff y que el código que el hallazgo cita entre backticks está ahí. Un hallazgo que no se sostiene se aparta como **no anclado**. No bloquea. Uno de seguridad o crítico sigue bloqueando aunque no ancle. kj nunca convierte un rechazo en una aprobación.
+Un revisor puede citar una línea que no existe. kj lo comprueba sin un modelo. Para cada hallazgo bloqueante mira tres cosas: que el fichero está en el proyecto, que la línea existe en ese fichero y que el código que el hallazgo cita entre backticks está a tres líneas o menos de ella (en cualquier parte del fichero si no cita línea). Un hallazgo fuera del diff también ancla, y uno que no nombra fichero se toma como sobre todo el diff. Un hallazgo que no se sostiene se aparta como **no anclado**. No bloquea. Uno de seguridad o crítico sigue bloqueando aunque no ancle. kj nunca convierte un rechazo en una aprobación.
 
 Cuando ejecutas `kj code --retry`, los hallazgos que se sostienen llegan al coder como la review. Los que no anclan van en una sección aparte, **Not verified**, que dice que no los arregle, porque puede que no estén ahí.
 
@@ -40,7 +40,7 @@ Un rechazo guardado antes de existir esta comprobación no tiene datos de anclaj
 
 ## `kj stage`
 
-`kj stage` es una vista en vivo de quién trabaja ahora en tus repos. Se alimenta de la traza de actividad de los agentes de arriba, y su hook nunca bloquea a tu agente. Es una vista, no un registro: lo que muestra no se guarda en ningún otro sitio.
+`kj stage` es una vista en vivo de quién trabaja ahora en tus repos. Lee los ficheros que kj ya escribe en el repo (las denegaciones del Sentinel, el decision log, el gate de commit, las comprobaciones del método, la actividad de los agentes, las cards, los veredictos de review y los traspasos), y su hook nunca bloquea a tu agente. Es una vista: no guarda nada propio.
 
 ## OpenTelemetry
 
@@ -52,4 +52,4 @@ kj tiene la base para los spans de OpenTelemetry. **Todavía no envía spans.** 
 
 ## Lo que viene
 
-Una sección **Observability** en el HU Board (ADR 0068), construida sobre estos mismos registros. Todavía no está construida.
+Una sección **Observability** en el HU Board (ADR 0068), construida sobre estos mismos registros. La página aún no está construida; sus primeros agregadores (`src/observe/`) sí.
