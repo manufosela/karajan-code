@@ -9,13 +9,13 @@ You almost never type `kj` yourself. Your agent does — the playbook installed 
 
 ## Claims with a source
 
-**From your agent:** every hard fact your agent is about to publish — a number in a PR, a "tests pass" in a summary — is cross-checked against what its own session actually executed. Backed, unbacked, or *disproven by its own terminal* — and a fact its own terminal disproves is a proven hallucination, caught before it ships. You read the PR knowing its claims survived that check.
+**From your agent:** once the project turns it on (`kj gates set claims warn` or `block`, off by default), every hard fact in your agent's final message, a number or a "tests pass", is cross-checked against what its own session actually executed; `kj claims check --file` does the same for a PR body or a card. Each fact comes back backed, unbacked or *disproven by its own terminal*; with `block`, a disproven one stops the turn before it ships, and with `warn` it is only reported. You read the PR knowing its claims survived that check.
 
 **Under the hood:** `kj claims check` runs the cross-check over the session's transcript — the transcript is the register of sources, so "did this actually happen?" is answerable, not trusted.
 
 ## Trust expires — the Steward
 
-**From your agent:** the project declares its guarantees ("the suite passes", "there is a recent audit"), and the **Steward** re-verifies them on a schedule. Stale evidence stops counting — an expired guarantee reads as *unknown*, never green — and every break lands on the board as PROPOSED work that nothing executes unreviewed. Projects rot exactly when nobody is looking; this looks.
+**From your agent:** the project declares its guarantees ("the suite passes", "there is a recent audit"), and the **Steward** re-verifies them each time `kj steward sweep` runs, on demand or, if the project opts in, on a schedule. Stale evidence stops counting (an expired guarantee reads as *unknown*, never green), and every break lands on the board as PROPOSED work that nothing executes unreviewed. Projects rot exactly when nobody is looking; this looks.
 
 **Under the hood:** `kj steward sweep` runs the check on demand, or as an opt-in scheduled Action.
 
@@ -51,4 +51,4 @@ The first time your agent goes to write a planned card's code itself, the Sentin
 
 ## Why a different AI reviews
 
-Self-review rubber-stamps. In v4 the reviewer is always a different model family than the orchestrator (Claude orchestrates → Codex reviews, and vice versa), and its verdict binds to the sha256 of the exact diff: change one byte and the verdict is void. This is not a convention — the pre-commit gate enforces it. In this repo's own development, the cross reviewer has repeatedly rejected the author's first version with real findings. It works on us; it will work on you.
+Self-review rubber-stamps. In v4 the reviewer is always a different agent than the one that orchestrates: your panel's reviewer, or another installed CLI when that one is the host (Claude orchestrates → Codex reviews, and vice versa), and its verdict binds to the sha256 of the exact diff: change one byte and the verdict is void. This is not a convention: once `.karajan/review-gate` is committed (`kj env install` or `kj review --install-gate` creates it), the pre-commit gate enforces it, and CI checks it again. In this repo's own development, the cross reviewer has repeatedly rejected the author's first version with real findings. It works on us; it will work on you.

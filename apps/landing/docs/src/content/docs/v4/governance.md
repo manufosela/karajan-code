@@ -35,7 +35,7 @@ invariants:
 - `enforcement` is `warn` (the default) or `deny`. `class: security` marks a rule that no exception and no arbitration can lift.
 - **Invariants** check the whole diff. Today there is one kind: `diff-threshold` on `net_lines_added`.
 
-A role, a capability, a key or a value the engine does not know is a load error, never a silent default: `kj policy` exits 1, the commit gate fails with `policy.load`, and the Sentinel denies until the file is fixed.
+A capability, a key or a value the engine does not know is a load error, never a silent default (role names are not checked): `kj policy` exits 1, the commit gate fails with `policy.load`, and the Sentinel denies until the file is fixed.
 
 You do not have to learn the vocabulary to write a rule. Say it in your own words:
 
@@ -50,11 +50,11 @@ The same policy is checked at up to three moments. Which ones you get depends on
 
 | Tier | When | Requires | What it guarantees |
 | --- | --- | --- | --- |
-| A | Tool time | Claude Code as host, with Karajan's hooks | The Sentinel runs `kj policy eval --strict` on each tool call and stops a forbidden action before it happens. |
-| B | Commit time | Any host | `kj review --staged` and the pre-commit hook check the staged diff. A commit that breaks a `deny` rule does not enter. |
+| A | Tool time | Claude Code as host, with Karajan's hooks | The Sentinel runs `kj policy eval --strict` on each Bash command and each file edit, and stops a forbidden action before it happens. |
+| B | Commit time | Any host, with Karajan's git hooks (`kj harden`) and `.karajan/review-gate` committed | `kj review --staged` and the pre-commit hook check the staged diff. A commit that breaks a `deny` rule does not enter. |
 | C | Merge time | GitHub Actions, seeded by `kj harden` | The `kj-policy.yml` workflow runs `kj policy check --range --strict` on the pull request. A violation blocks the merge. |
 
-Tier B is the floor: it holds on every host. Security rules cannot be exempted at any tier. `kj doctor` tells you which tiers are active in your repo.
+Tier B is the floor: once the hooks are installed and the review gate is committed, it holds on every host. Security rules cannot be exempted at any tier. `kj doctor` tells you which tiers are active in your repo.
 
 You can run the same checks by hand:
 
@@ -76,7 +76,7 @@ kj policy grant --rule roles.coder.write.deny \
   --reason "the deploy scripts move to infra/ this sprint"
 ```
 
-- All three flags are required, and `--until` is a strict ISO-8601 date. Once it passes, the gate stops honouring the exception on its own.
+- All three flags are required, and `--until` is a strict ISO-8601 date. Only the commit gate (`kj review`) honours a grant, and once the date passes it stops on its own; the Sentinel's tool-time check and CI's `kj policy check` do not read grants. `kj policy grant` is not a human act today: an agent session can run it (ADR 0012).
 - Security rules and Karajan's built-in defaults cannot be granted, and nothing can be granted while the policy file is invalid.
 - Grants are appended to `.karajan/policy-exceptions.jsonl`. With `--global` they go to `~/.karajan` and apply to every project on your machine.
 - Each grant records who made it, from your git and system user. That identity is declared, not authenticated: the record tells you who said they granted it.

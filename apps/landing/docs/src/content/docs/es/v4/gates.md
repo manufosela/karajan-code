@@ -10,18 +10,17 @@ Todo lo demás en Karajan son consejos a una IA. Los gates no: corren en git, so
 No tocas nada de esto. Le pides a Claude Code, Codex, Antigravity o el asistente de VS Code que construya algo. Antes de que su commit pueda entrar, una IA **distinta** revisa el cambio exacto, y ves el veredicto ahí mismo en la sesión:
 
 ```
-✓ APPROVED by codex (diff 82a5504)
-✗ REJECTED, the error path is untested
+✓ APPROVED by codex (diff 82a5504c1e9f) [root]
 ```
 
-Ante un rechazo, tu agente lo corrige y se vuelve a revisar; el commit solo entra cuando una IA distinta ha aprobado **esos bytes exactos**. Abre el [HU-Board](/docs/es/guides/hu-board/) y el mismo veredicto está en la vista **Governance**. No instalas nada ni escribes nada, la garantía simplemente se sostiene mientras trabajas.
+Ante un rechazo, tu agente lo corrige y se vuelve a revisar; el commit solo entra cuando una IA distinta ha aprobado **esos bytes exactos**. Abre el [HU-Board](/docs/es/guides/hu-board/): la vista **Governance** enseña la policy, el acta de decisiones y su ancla, y `kj stage` enseña cada veredicto de review en cuanto llega. No instalas nada ni escribes nada, la garantía simplemente se sostiene mientras trabajas.
 
 ## Bajo el capó, pruébalo tú mismo
 
 ¿Quieres ver el mecanismo? Cada comando corre en tu máquina, nada sale de ella:
 
 ```sh
-kj review --install-gate      # commitea el marcador .karajan/review-gate; el equipo lo hereda
+kj review --install-gate      # escribe el marcador .karajan/review-gate; commitéalo y el equipo lo hereda
 # …prepara un cambio (stage)…
 kj review --staged            # una IA DISTINTA revisa el diff exacto y registra el veredicto
 ls .karajan/reviews/          # un <sha256>.json por diff revisado, el propio almacén de veredictos
@@ -45,7 +44,7 @@ Las reglas que hay detrás de esas decisiones, las excepciones y la propia caden
 
 ## El gate de revisión (pre-commit)
 
-Con `.karajan/review-gate` presente (lo instala `kj review --install-gate`, trackeado en git para que todo el equipo lo herede):
+Con `.karajan/review-gate` commiteado (lo escribe `kj review --install-gate`; el gate actúa cuando el marcador está en HEAD, así que todo el equipo lo hereda):
 
 1. Tu agente prepara un diff y ejecuta `kj review --staged` → SonarQube escanea primero los ficheros cambiados (pre-gate determinista: los findings BLOCKER/CRITICAL rechazan en el acto, sin gastar un token del reviewer), después una IA **distinta de él** revisa y registra el veredicto en `.karajan/reviews/<sha256-del-diff>.json`, estampado con el workspace desde el que corrió (`[root]` o `[worktree:<nombre>]`).
 2. `git commit` dispara el pre-commit → `kj review --check` verifica que existe un veredicto **approved** para los bytes staged **exactos**.
@@ -55,10 +54,10 @@ Con `.karajan/review-gate` presente (lo instala `kj review --install-gate`, trac
 
 ## Los otros gates
 
-- **Rama primero**, los commits directos en la rama base se rechazan (`KJ_ALLOW_BASE_COMMIT=1` es la escotilla explícita para días de release).
+- **Rama primero**: el hook pre-commit rechaza los commits directos en la rama base, sin escape (ADR 0015); la rama base solo avanza por PR.
 - **Garantía de board**, `kj env install` verifica que existe vía de acceso operativa al board declarado del proyecto (el HU Board de kj, el MCP del Planning Game, o un board externo vía MCP/token de API) y bloquea con los pasos exactos cuando no la hay. No existe `none`: Karajan no funciona sin board.
-- **Política de commits**, cabecera Conventional Commits, tope de longitud, sin atribución a IA.
+- **Política de commits**: cabecera de 100 caracteres como máximo y sin atribución a IA, siempre; también la cabecera Conventional Commits, salvo que la convención del proyecto sea `free` o su propio commitlint (`kj gates value commit-convention`).
 - **Guards personales encadenados**, si tu máquina tenía hooks globales de git antes de Karajan, los hooks generados también los llaman. Activar Karajan añade protecciones; jamás quita las tuyas en silencio.
 ## Opt-outs honestos
 
-Cada gate es visible y reversible, borra el marcador, quita `core.hooksPath`, o no instales el gate. La promesa de Karajan no es que no puedas desactivarlo; es que **puedes verificar, en el repo, que nada saltó la revisión mientras estuvo activo**. La confianza pasa a ser una pregunta de `git log`.
+Cada gate es visible y reversible desde tu propia terminal: commitea el borrado del marcador, quita `core.hooksPath` o no instales el gate. Borrar el marcador sin commitearlo no cambia nada, y a una sesión de agente se le deniega todo esto. La promesa de Karajan no es que no puedas desactivarlo; es que **puedes verificar, en el repo, que nada saltó la revisión mientras estuvo activo**. La confianza pasa a ser una pregunta de `git log`.

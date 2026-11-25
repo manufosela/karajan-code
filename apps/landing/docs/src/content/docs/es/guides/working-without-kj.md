@@ -7,8 +7,8 @@ Usar kj es decisión de cada persona. Las reglas del repo obligan a todos y la C
 
 ## Qué pide la CI a todos
 
-- El cambio es una PR pequeña y atómica, con sus tests, y la suite está en verde.
-- Toda PR recibe una review cruzada de IA, atada al último commit de la PR.
+- Toda PR pasa la comprobación de veredictos (kj-verdicts), el escaneo de secretos y datos personales (kj-secrets) y la de atribución a IA; el límite de tamaño (perfil strict), la suite de calidad y la comprobación de política (con `.karajan/policy.yml`) corren donde kj harden los instaló.
+- Toda PR recibe una review cruzada de IA: con kj, un veredicto por commit atado al hash de su diff; sin kj, la review del bot sobre el último commit de la PR.
 - **Con kj**: `kj review --staged` antes de cada commit y después `kj review --publish-pr <n>`. La CI ejecuta `kj review --verify-pr <n>`.
 - **Sin kj**: una review automática de IA sobre la PR, escrita por un bot que kj puede verificar por su login (`github-actions[bot]`). La misma comprobación, `kj review --verify-pr <n> --automatic-review codex-state`, la cuenta.
 - Una review manual o un "Approve" normal de GitHub no cuentan: nada prueba qué miraron.
@@ -41,13 +41,13 @@ Después ejecuta `kj harden` y sella. El `kj-verdicts.yml` que escribe ejecuta `
 
 ## El formato que kj lee (codex-state)
 
-El comentario del bot tiene que tener exactamente esta forma. Cualquier otra cosa falla cerrada: la review no cuenta.
+El comentario del bot tiene que tener esta estructura. Una estructura rota, o un hallazgo con un estado desconocido, falla cerrada: la review no cuenta.
 
 - La primera línea es `<!-- codex-review-lifecycle:v1 -->`.
 - Exactamente una línea es `**Recommendation: APPROVE**` o `**Recommendation: REQUEST_CHANGES**`.
 - La última línea es `<!-- codex-state:<base64 de un JSON> -->`, exactamente una vez.
 - El JSON lleva las cadenas `status`, `reviewed.head`, `reviewed.base` y `observedHead`, y el array `findings[]`.
-- Cada hallazgo lleva `id`, `severity` (`CRITICAL`, `MAJOR` o `MINOR`), `status` (`active`, `fixed` o `dismissed`), `path` y `line`. Uno descartado lleva además `dismissal.by`.
+- Cada hallazgo lleva `status` (`active`, `fixed` o `dismissed`), que kj comprueba; `severity` (`CRITICAL`, `MAJOR` o `MINOR`) y `dismissal.by` deciden si cuenta uno descartado, y `id`, `path` y `line` lo nombran en los mensajes de kj.
 
 ## Montar el bot en un repo que no lo tiene
 

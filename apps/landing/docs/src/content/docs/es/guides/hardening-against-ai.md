@@ -239,4 +239,4 @@ Las capas fuertes (aislamiento por kernel + backups fiables) hacen el trabajo de
 
 ## Siguiente: los ficheros concretos para tu disco
 
-Esta página es el *por qué*. Para el *cómo*, config concreta de git hooks, permisos de agentes (Claude / Codex / Gemini) y SSH multi-cuenta, mira [Configuración Recomendada](/es/guides/recommended-setup/).
+Esta página es el *por qué*. Para el *cómo*, config concreta de git hooks, permisos de agentes (Claude / Codex / Gemini) y SSH multi-cuenta, mira [Configuración Recomendada](/docs/es/guides/recommended-setup/).

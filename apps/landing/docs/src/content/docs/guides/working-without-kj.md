@@ -7,8 +7,8 @@ Using kj is each person's choice. The repo's rules bind everyone, and CI enforce
 
 ## What CI asks of everyone
 
-- The change is a small, atomic PR, with its tests, and the suite is green.
-- Every PR gets a cross-AI review, bound to the PR's last commit.
+- Every PR passes the verdict check (kj-verdicts), the secrets and personal-data scan (kj-secrets) and the no-AI-attribution check; the size budget (strict profile), the quality suite and the policy check (with `.karajan/policy.yml`) run where kj harden installed them.
+- Every PR gets a cross-AI review: with kj, a verdict for each commit bound to the hash of its diff; without kj, the bot's review of the PR's last commit.
 - **With kj**: `kj review --staged` before each commit, then `kj review --publish-pr <n>`. CI runs `kj review --verify-pr <n>`.
 - **Without kj**: an automatic AI review on the PR, from a bot that kj can verify by its login (`github-actions[bot]`). The same check, `kj review --verify-pr <n> --automatic-review codex-state`, counts it.
 - A manual review or a plain GitHub "Approve" does not count: nothing proves what it looked at.
@@ -41,13 +41,13 @@ Then run `kj harden` and seal it. The `kj-verdicts.yml` it writes runs `kj revie
 
 ## The format kj reads (codex-state)
 
-The comment of the bot has to be exactly this shape. Anything else fails closed: the review does not count.
+The comment of the bot has to have this structure. A broken structure, or a finding with an unknown status, fails closed: the review does not count.
 
 - The first line is `<!-- codex-review-lifecycle:v1 -->`.
 - Exactly one line is `**Recommendation: APPROVE**` or `**Recommendation: REQUEST_CHANGES**`.
 - The last line is `<!-- codex-state:<base64 of JSON> -->`, exactly once.
 - The JSON has the strings `status`, `reviewed.head`, `reviewed.base` and `observedHead`, and the array `findings[]`.
-- Each finding has `id`, `severity` (`CRITICAL`, `MAJOR` or `MINOR`), `status` (`active`, `fixed` or `dismissed`), `path` and `line`. A dismissed one also has `dismissal.by`.
+- Each finding has `status` (`active`, `fixed` or `dismissed`), which kj checks; `severity` (`CRITICAL`, `MAJOR` or `MINOR`) and `dismissal.by` decide whether a dismissed one counts, and `id`, `path` and `line` name it in kj's messages.
 
 ## Set up the bot in a repo that has none
 

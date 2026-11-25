@@ -11,7 +11,7 @@ Un dashboard web que visualiza todas las historias de usuario (HU) y sesiones de
 
 Más allá del kanban, el board tiene una vista **Governance**, el acta encadenada por hash del proyecto, en vivo. Cada decisión que toma el entorno (un deny, una excepción con su caducidad y su ámbito, un veredicto de revisión, un resellado del supervisor) aterriza ahí sellada, y cada entrada lleva la huella criptográfica de la anterior. Así, mientras tu agente trabaja, puedes leer, en un navegador, sin terminal, exactamente qué se decidió y por quién, con la certeza de que nadie reescribió el registro de ayer sin que se note.
 
-El trabajo en paralelo también se ve. Una card que se trabaja en un carril de `kj worktree` lleva una etiqueta con el carril, su rama, sus commits por delante de la base y su PR. La vista Governance lista los carriles fuera del método: una rama que no nombra ninguna card y un carril cuya PR ya está mergeada, con el `kj worktree done <slug>` exacto que lo despeja. Todo se lee de git cada vez, no se guarda nada.
+El trabajo en paralelo también se ve. Una card que se trabaja en un carril de `kj worktree` lleva una etiqueta con el carril, su rama, sus commits por delante de la base y su PR. La vista Governance lista los carriles fuera del método: una rama que no nombra ninguna card y un carril cuya PR ya está mergeada, con el `kj worktree done <slug>` exacto que lo despeja. Todo sale de git y de GitHub (`kj worktree list`); el board guarda la respuesta un minuto y no almacena nada más.
 
 La vista Governance muestra también las **reglas del método**, la misma lista que `kj gates`: las fijas con candado, y cada ajustable con su valor y quién lo puso (el valor por defecto, el proyecto, tú o una skill), más cualquier frase del CONTRIBUTING del proyecto que contradiga una regla fija. Un clic endurece una regla ajustable. Aflojarla es solo cosa tuya: el board te enseña el comando `kj gates set` para que lo teclees en tu terminal.
 
@@ -29,17 +29,16 @@ Una vez commiteado el head-hash (`kj policy anchor` escribe `.karajan/policy-anc
 
 ## Inicio Rápido
 
-### Sin Docker
+### Arrancarlo
+Las dependencias del board vienen con karajan-code, así que no se instala nada más:
 ```bash
-cd $(npm root -g)/karajan-code/packages/hu-board
-npm install
 kj board start
 ```
 
-### Con Docker
+### Con Docker (desde un clon del repo)
+El paquete npm no lleva los ficheros de Docker; están en el repositorio:
 ```bash
-cd $(npm root -g)/karajan-code/packages/hu-board
-docker compose up -d
+cd packages/hu-board && docker compose up -d
 ```
 
 ### Desde el CLI
@@ -52,7 +51,7 @@ kj board open     # Abrir en el navegador
 
 ## Configuración
 
-Activar en `kj.config.yml`:
+Viene activado; este es el bloque, y `enabled: false` lo apaga (`kj board start --force` lo arranca igualmente):
 ```yaml
 hu_board:
   enabled: true
@@ -61,18 +60,18 @@ hu_board:
 
 O activar durante el setup:
 ```bash
-kj init  # Seleccionar "Enable HU Board" cuando se pregunte
+kj init  # responde sí a "Enable the HU Board" (el valor por defecto)
 ```
 
 ## Características
 
-- **Tablero Kanban**: Historias en columnas (Pending → Certified → Coding → Done)
+- **Tablero Kanban**: Historias en tres columnas (Pending → Running → Done)
 - **Puntuaciones de Calidad**: Puntuaciones en 6 dimensiones con barras de progreso visuales
 - **Timeline de Sesiones**: Desglose etapa por etapa con duraciones
 - **Multi-Proyecto**: Auto-descubre todos los proyectos desde ~/.karajan/
 - **Auto-Sincronización**: Vigila ficheros JSON para actualizaciones en tiempo real
 - **Tema Oscuro**: Coincide con el diseño de Karajan Code
-- **Fallback de Puerto**: Arranca en el puerto 4000 por defecto; prueba automáticamente 4001–4009 si el puerto primario está ocupado
+- **Fallback de Puerto**: Arranca en el puerto 4000 por defecto; prueba automáticamente del 4001 al 4010 si el puerto primario está ocupado
 - **Carriles y Gobierno**: cada card muestra su carril, rama, commits por delante y PR; la vista de Gobierno lista los carriles fuera del método
 
 ### Páginas Usage y Accounts
@@ -94,14 +93,14 @@ La revisión y el commit siguen siendo tuyos o de tu agente, dentro del carril. 
 
 ## Cómo Funciona
 
-El board lee ficheros JSON desde `~/.karajan/hu-stories/` y `~/.karajan/sessions/`. SQLite se usa como índice para consultas rápidas, si se elimina, se reconstruye desde los ficheros JSON en el siguiente arranque.
+El board lee los ficheros de sesión de `~/.karajan/sessions/` y los de plan de `~/.karajan/plans/` y `<proyecto>/.karajan-shared/plans/` (un tablero compartido lee sus issues de GitHub). SQLite es solo un índice: cada escaneo completo lo vacía y lo reconstruye desde esos ficheros.
 
 ## Tablero compartido
 
 Un equipo puede trabajar sobre un mismo tablero: sus HUs viven como GitHub Issues del repo (etiqueta `kj:hu`) y todos ven las mismas.
 
 - **Activarlo**: `kj hu backend github` escribe `.karajan/board.yml` con el repo de `origin`. Ese fichero va en una PR; quien haga pull lo hereda.
-- **Trabajar con él**: `kj hu list` lo lee, `kj hu move <HU> <estado>` cambia una HU. Cada HU tiene asignada a la persona que la tiene en marcha.
+- **Trabajar con él**: `kj hu list` lo lee, `kj hu move <HU> <estado>` cambia una HU. Cada HU queda asignada a la persona que la tiene en marcha.
 - **Verlo en el board**: el proyecto muestra un plan `github` con esas HUs y un aviso que explica que es el tablero compartido, con un enlace a sus issues. Desde la web es de solo lectura: lo que cuenta son las issues, y se cambian con `kj hu move`.
 
 ## Herramienta MCP
@@ -109,7 +108,6 @@ Un equipo puede trabajar sobre un mismo tablero: sus HUs viven como GitHub Issue
 Disponible como herramienta MCP `kj_board`:
 ```
 kj_board({ action: "start", port: 4000 })
-kj_board({ action: "open" })
 kj_board({ action: "status" })
 kj_board({ action: "stop" })
 ```

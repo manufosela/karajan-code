@@ -226,4 +226,4 @@ The strong layers (kernel-enforced isolation + reliable backups) do the real wor
 
 ## Next: actual files to drop on disk
 
-This page is the *why*. For the *how* — concrete config for git hooks, agent permissions (Claude / Codex / Gemini), and multi-account SSH — see [Recommended Setup](/guides/recommended-setup/).
+This page is the *why*. For the *how* (concrete config for git hooks, agent permissions for Claude, Codex and Gemini, and multi-account SSH), see [Recommended Setup](/docs/guides/recommended-setup/).

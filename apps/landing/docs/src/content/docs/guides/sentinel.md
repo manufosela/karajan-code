@@ -24,10 +24,10 @@ The Sentinel is a set of synchronous git/harness hooks. See where they live, and
 
 ```sh
 cat .karajan/hooks/pre-commit          # the generated guards (do not hand-edit — kj harden owns them)
-git commit -m "wip" -- .               # on main, or without a card → blocked, with the rule link
+git commit -m "wip"                    # on main → the pre-commit hook rejects it: direct commits on main are not allowed
 ```
 
-Every block is sealed into the decision log, so "what did the Sentinel stop?" is a `kj policy report` away.
+Every block is written to `.karajan/traces/denials.jsonl` in the gate's own words; only policy denies are also sealed in the decision log that `kj policy report` reads.
 
 ## card-first
 
@@ -35,11 +35,11 @@ Work needs a tracked card before it starts. Editing sources on the base branch, 
 
 ## delegate
 
-A card planned with a tier (`kj hu add --tier`) is written by `kj code`, in a clean context and on the model of its tier, as `kj run` did before 5.0: it costs fewer tokens than writing it in your agent's long conversation. The first time your agent goes to write that card's code itself, the Sentinel stops it once with the command: `kj code --card <id> --brief`, then `kj review --staged`, and `kj code --card <id> --retry --brief` if the review rejects it. If your agent tries again, the write passes and the decision is recorded in the session. Tests stay out, so your agent can write them first. A card planned without a tier is never stopped, nor is `kj code`'s own coder. `kj hu tier <id>` says a card's tier.
+A card planned with a tier (`kj hu add --tier`) is written by `kj code`, in a clean context and on the model of its tier, as `kj run` did before 5.0: it costs fewer tokens than writing it in your agent's long conversation. The first time in a session that your agent goes to write that card's code itself, the Sentinel stops it once with the command: `kj code --card <id> --brief`, then `kj review --staged`, and `kj code --card <id> --retry --brief` if the review rejects it. If your agent tries again, the write passes and the decision is recorded in the session. Tests stay out, so your agent can write them first. A card planned without a tier is never stopped, nor is `kj code`'s own coder. `kj hu tier <id>` says a card's tier.
 
 ## rag-first
 
-The RAG must have answered about a zone before the session touches it (ADR 0010). Every `kj_rag_query` / `kj rag query` of the session leaves a ledger of the sources it returned; editing a source none of them returned (nor a sibling in its directory) is blocked with the query to run. A new file only needs the session to have consulted at all. Docs, config and tests stay out, like card-first. A file the index cannot hold, or an empty index, is decided by the gate itself. A file the index could hold but does not, the gate indexes on the spot (the hook runs outside the host sandbox, where the embedder is reachable) and then asks for the query; when kj cannot index it, the gate says why and the command to run from your terminal. No escape (ADR 0015).
+The RAG must have answered about a zone before the session touches it (ADR 0010). Every `kj_rag_query` / `kj rag query` of the session leaves a ledger of the sources it returned; editing a source none of them returned (nor a sibling in its directory) is blocked with the query to run. A new file only needs the session to have consulted at all. Tests and docs stay out, like card-first, and so does JSON or TOML config; YAML, shell, Terraform, a Dockerfile or a Makefile count as source. A file the index cannot hold, or an empty index, is decided by the gate itself. A file the index could hold but does not, the gate indexes on the spot (the hook runs outside the host sandbox, where the embedder is reachable) and then asks for the query; when kj cannot index it, the gate says why and the command to run from your terminal. No escape (ADR 0015).
 
 ## cross-lane
 
@@ -51,7 +51,7 @@ The identity lock (ADR 0005): `gh` and its per-account wrappers must run under t
 
 ## board-sync
 
-A merged card must be moved in the tracker before anything else advances — commit, push, new PR, another merge, or ending the turn. Clear it with the real tracker call (`update_card` via MCP, or `kj hu move`). An epic and a card split across PRs are decided by the gate. No escape (ADR 0015).
+A merged card must be moved in the tracker before anything else advances: a commit, a new PR or another merge is denied, and the turn cannot end. `git push` is not read (ADR 0015). Clear it with the real tracker call (`update_card` via MCP, or `kj hu move`). An epic and a card split across PRs are decided by the gate. No escape (ADR 0015).
 
 ## merge
 
@@ -59,7 +59,7 @@ A merged card must be moved in the tracker before anything else advances — com
 
 ## policy
 
-`.karajan/policy.yml` is evaluated on every tool call. A deny names its rule and reason. Security-tagged rules have NO escape and NO arbitration. The rest have no escape either (ADR 0015): a rule that misfires is fixed in `.karajan/policy.yml` by your user, through a PR.
+Where `.karajan/policy.yml` exists, it is evaluated on every Bash command and every file edit (Write, Edit, MultiEdit, NotebookEdit). A deny names its rule and reason. Security-tagged rules have NO escape and NO arbitration. The rest have no escape here either (ADR 0015): a rule that misfires is fixed in `.karajan/policy.yml` by your user, through a PR. An exception granted with `kj policy grant` lifts a rule only at the commit gate, never in this check.
 
 ## rules
 
@@ -81,13 +81,13 @@ The Steward's sweep can declare the project state bad enough that starting new w
 
 ## claims
 
-A hard datum in a PR body or final message that is DENIED by this turn's own outputs is a proven hallucination — the PR is refused before it exists. Verify the datum or mark it unverified. Detail: `kj claims check`.
+With `method_gates.claims: block` (the default is `off`), a hard datum that this turn's own outputs DENY is a proven hallucination: in a PR body passed with `--body-file` to `gh pr create` or `gh pr edit`, the PR is refused before it exists, and in the final message, the turn cannot end. Verify the datum or mark it unverified. Detail: `kj claims check`.
 
 ## release
 
 `kj release check` must be green before the package is released (`npm publish`, `gh release create`), and the guard recognizes the verb wherever the flags sit (`npm --prefix x publish` is a publish). A deploy is not read (KJC-BUG-0373): deploying database rules or a site is not a release of the package, and gating it kept an open database from being closed.
 
-A red check never blocks the command that **repairs** it. The chicken-and-egg used to be the landing: the check wanted the site deployed with the new version, the guard blocked the deploy, and the only way out was switching the whole gate off. Now the item declares its own remedy:
+Since a deploy is not read, a red check no longer blocks the deploy that repairs it. `remedied_by` still exists, but only `kj release check --for-command <cmd>` uses it: the Sentinel asks the check only about `npm publish` and `gh release create`, which no remedy covers. An item declares its remedy like this:
 
 ```yaml
 release_check:
@@ -97,11 +97,11 @@ release_check:
       remedied_by: firebase deploy
 ```
 
-The lifted check stays red in the report, because the fact has not changed; it just stops blocking its own fix, and the gate says which item it lifted rather than doing it in silence. Any other red check still blocks. A package publication is never excused: `npm publish` and `gh release create` are irreversible, so no declared remedy covers them, and there is no escape (ADR 0015): what the check names is repaired first.
+Run by hand, `kj release check --for-command "firebase deploy"` lifts that item, keeps it red in the report because the fact has not changed, and says which item it lifted. Any other red check still fails. A package publication is never excused: `npm publish` and `gh release create` are irreversible, so no declared remedy covers them, and there is no escape (ADR 0015): what the check names is repaired first.
 
 ## commit-gate
 
-The review runs in the commit hook, so a flag that skips the hook skips the verdict, the policy and the privacy scan with it. `git commit --no-verify` is denied, and so is any abbreviation git would accept (`--no-ver`, `-n`, a short-flag cluster carrying it). Naming `core.hooksPath` is denied too, in any of git's doors to it (`-c`, `config`, `--config-env`, `GIT_CONFIG_KEY_n`, `GIT_CONFIG_PARAMETERS`), because moving that key switches off every hook at once. Even reading it: exempting reads invited slipping one in behind the change, and reading it again costs you one escape while losing the gate costs the verdict.
+The review runs in the commit hook, so a flag that skips the hook skips the verdict, the policy and the privacy scan with it. `git commit --no-verify` is denied, and so is any abbreviation git would accept (`--no-ver`, `-n`, a short-flag cluster carrying it). Naming `core.hooksPath` is denied too, in any of git's doors to it (`-c`, `config`, `--config-env`, `GIT_CONFIG_KEY_n`, `GIT_CONFIG_PARAMETERS`), because moving that key switches off every hook at once. Even reading it, or a grep or a message that only mentions it: the key is looked for anywhere in the command, in any case, because exempting reads invited slipping a change in behind one. Staging everything (`git add -A`, `git add .`, `git add -u`) or staging the agent's runtime files (`.claude` locks, `.kj/`, the local identity, the Sentinel's state) is denied too: stage by name.
 
 If the hook is broken, fixing it is the answer. There is no escape (ADR 0015): if the commit really has to go in without it, your user runs it in their own terminal. The `--no-verify` that `kj harden --commit` uses internally is not affected, because it never goes through a tool call.
 
@@ -118,7 +118,7 @@ The Sentinel's own files (`.karajan/harness`, hooks) are read-only from inside a
 
 A Bash command that names them is denied unless the name is only text: the quoted title or body of `gh pr|issue|release create|edit|comment|review`, a commit message, or a heredoc with a quoted delimiter (`<<'EOF'`) that such a command reads from stdin (`--body-file -`, `-F -`). So a PR can describe a seal. Anything the Sentinel cannot prove is only text is still denied: a redirection, a chain, an unquoted heredoc (it expands `$( )`), or a heredoc that repeats its delimiter before the end.
 
-A command that only reads may name them too, and the governance config (`.karajan/policy.yml`, `.karajan/rules.yml`, `.github/workflows/*.yml`): every simple command in it is a known reader (`cat`, `head`, `tail`, `grep`, `ls`, `wc`, `diff`, `cmp`, `stat`, `jq`, `sha1sum`, `sha256sum` or `md5sum`; never `git`, whose reads can run what its config names), and its output goes to the session, `/dev/null` or another descriptor. A redirection to a file, a substitution, a variable, a heredoc or any other program is judged by what it names, as before.
+A command that only reads may name them too, and, in a repo with `.karajan/policy.yml`, the governance config the policy guards (`.karajan/policy.yml`, `.karajan/rules.yml`, `.github/workflows/*.yml`): every simple command in it is a known reader (`cat`, `head`, `tail`, `grep`, `ls`, `wc`, `diff`, `cmp`, `stat`, `jq`, `sha1sum`, `sha256sum` or `md5sum`; never `git`, whose reads can run what its config names), and its output goes to the session, `/dev/null` or another descriptor. A redirection to a file, a substitution, a variable, a heredoc or any other program is judged by what it names, as before.
 
 When they differ, kj tells three cases apart. If the file is exactly what `kj harden` wrote (it records a sha256 per file in `.karajan/harness/installed.json`) and no human sealed it, kj has simply moved on: it regenerates the file itself and says so in one line. If a human sealed it, it is left alone and you are told that advancing it is theirs. Anything else was changed after installation, and that blocks. Forging the record gains nothing: the only thing it enables is restoring the file from the installed kj.
 
@@ -132,7 +132,7 @@ There is no escape, because it is data loss. The remedy never loses anything: `g
 
 ## bash-write
 
-Inside the repo, files are written through the Edit and Write tools only, because that is the path every other gate guards (card-first, rag-first, no whole-file overwrite). A Bash command that writes a repo file is denied: redirections (`>`, `>>`, `>|`, `2>`), `tee`, `sed -i`, `perl -i`, `cp`, `mv`, `install`, `ln`, `dd of=`, `truncate` and `touch`, also behind `env`, `sudo` or `command`. A target the Sentinel cannot read (`$VAR`, backticks) is denied too. An inline script (`node -e`, `python -c`...) that names a write API is denied as well. Outside the repo (`/tmp`, a scratchpad, `/dev/null`) Bash stays free, and `git mv` renames inside it. The limit, said plainly: a program you run can write files (a script, a build), and a hook that reads commands cannot stop that; only a sandbox can. This gate closes the shell's own ways of writing, which is where an agent routes around Edit/Write. Born from a real bypass: blocked by rag-first, a coder wrote the same change with `cat >` heredocs, including a whole-file overwrite (issue #1886).
+Inside the repo, files are written through the Edit and Write tools only, because that is the path every other gate guards (card-first, rag-first, no whole-file overwrite). A Bash command that writes a repo file is denied (where `kj harden --sandbox` is on and commands cannot leave the sandbox, this gate steps aside and the sandbox guards the supervisor, `kj.config.yml` and `.ragignore` instead): redirections (`>`, `>>`, `>|`, `2>`), `tee`, `sed -i`, `perl -i`, `cp`, `mv`, `install`, `ln`, `dd of=`, `truncate` and `touch`, also behind `env`, `sudo` or `command`. A target the Sentinel cannot read (`$VAR`, backticks) is denied too. An inline script (`node -e`, `python -c`...) that names a write API is denied as well. Outside the repo (`/tmp`, a scratchpad, `/dev/null`) Bash stays free, and `git mv` renames inside it. The limit, said plainly: a program you run can write files (a script, a build), and a hook that reads commands cannot stop that; only a sandbox can. This gate closes the shell's own ways of writing, which is where an agent routes around Edit/Write. Born from a real bypass: blocked by rag-first, a coder wrote the same change with `cat >` heredocs, including a whole-file overwrite (issue #1886).
 
 ## reminders
 
@@ -149,7 +149,7 @@ After a compaction or a resume, the Sentinel gives the agent back the project's 
 
 ## governance
 
-Karajan governs, and it is obeyed. A session does not change the rules that govern it: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` (the rules of the MD files compiled into gates, ADR 0016) and any `.ragignore` belong to the human, like the supervisor's own files, and Edit or Write on them is denied before any escape. If a gate looks wrong, the remedy is to propose the change to the user or file it with `kj report-issue`, never to loosen the rule. Every deny of the PreToolUse gate ends with the same line saying so.
+Karajan governs, and it is obeyed. A session does not edit the rules that govern it: `.karajan/policy.yml`, `.karajan/kj.config.yml`, `.karajan/rules.yml` and `.karajan/rules.local.yml` (the rules of the MD files compiled into gates, ADR 0016 and 0017), `.karajan/security-level.json` and any `.ragignore` belong to the human, like the supervisor's own files, and Edit or Write on them is denied even with the Sentinel switched off. Two kj commands that change governance are not human acts, so a session can still run them: `kj policy add --yes` writes `policy.yml`, and `kj policy grant` records an exception (ADR 0012). If a gate looks wrong, the remedy is to propose the change to the user or file it with `kj report-issue`, never to loosen the rule. Every deny of the PreToolUse gate ends with the same line saying so.
 
 ## team
 
@@ -163,7 +163,7 @@ If a gate fails while it checks a command (a file it cannot read, a state it can
 
 ## stop-gate
 
-The turn cannot end while the method is red: suite failing, unreviewed diffs, pending board moves, unbacked claims. Every lane the session wrote in is judged with its own branch and tree, and its violations name the lane. Resolve the listed violations. State: `kj sentinel status`.
+The turn cannot end while the method is red: merged cards not yet moved, sources edited on the base branch or on a branch that names no card, sources edited without touching a test, a supervisor changed outside `kj harden`, or, with `method_gates.claims: block`, a datum the turn's own outputs deny. It does not run the suite or look at reviews. After 3 blocks in a row it steps aside and records it, except for a changed supervisor, which always blocks. Every lane the session wrote in is judged with its own branch and tree, and its violations name the lane. Resolve the listed violations. State: `kj sentinel status`.
 
 ## continuation
 
@@ -174,7 +174,7 @@ ADR 0059: with the method green, the turn still does not end while the cards thi
 What only the user can do (a publish, a seal) is registered with `kj handoff add`, and the agent minds it so the user does not have to:
 
 - At the end of a turn, at most once every 30 minutes per lane, the turn is held once: the agent checks each pending handoff, closes with `kj handoff done <id>` the ones already done or no longer needed, and ends its message with the rest as its last lines, with the one step each needs. Work is never stopped for these.
-- A handoff registered with `--blocking` is one the agent cannot go on without. While it is pending, every action but reading, asking and `kj handoff` is denied: the agent stops and asks about that handoff alone, and closes it once the user did it or says to go on without it.
+- A handoff registered with `--blocking` is one the agent cannot go on without. While it is pending, every Bash command but `kj handoff` and every file edit is denied (other tools, such as MCP calls, are not stopped): the agent stops and asks about that handoff alone, and closes it once the user did it or says to go on without it.
 
 ## push-gate
 
@@ -188,9 +188,9 @@ AI attribution is forbidden by a deterministic project rule — everywhere, with
 
 ADR 0060: what a person signs on the phone depends on the project's security level, in `.karajan/security-level.json`.
 
-- `critical`, the default. The phone signs only what changes who governs: enrolling a phone, lowering the level, loosening a gate and the main-guard exception. The other human acts (`kj harden --commit`, `kj rules approve`, `kj hooks set`, `kj release approve`) are confirmed at your terminal. A seal of what kj generates (hooks, harness, a workflow whose only change is the kj it pins) renews itself in `kj harden`. A seal that governs (the governance config, a deletion, any other workflow change) still asks the phone, and so does a seal the base branch's CI would judge with a kj older than 5.27.0, so each repo's first re-seal onto 5.27.0 is signed once.
+- `critical`, the default. The phone signs only what changes who governs: enrolling a phone, lowering the level, loosening a gate and the main-guard exception. The other human acts (`kj harden --commit`, `kj rules approve`, `kj hooks set`, `kj release approve`) are confirmed at your terminal. A seal of what kj generates (hooks, harness, a workflow whose only change is the kj it pins) renews itself in `kj harden`. A seal that governs (the governance config, a deletion, any other workflow change) still asks the phone, and so does a seal the base branch's CI would judge with a kj older than 5.27.1, so each repo's first re-seal onto 5.27.1 or later is signed once.
 - `max`, the paranoid mode. Every human act is signed on the phone. `kj security max` turns it on, free; a repo whose record already says `max` keeps it.
-- `normal`. Every act, the critical ones included, is confirmed at the terminal. Lowering to it is a signed act.
+- `normal`. With no phone enrolled, every act, the critical ones included, is confirmed at the terminal; with one enrolled, the phone still signs each act. Lowering to it is a signed act.
 
 `kj security show` says the level in force and where it comes from.
 
@@ -204,7 +204,7 @@ An issue for karajan-code goes through `kj report-issue`, never through `gh issu
 
 ## escapes
 
-There are none (ADR 0015). A gate that needs an escape is a gate to fix, and an exception the agent could raise for itself would not be an exception. Each decision that really is the project's has its own channel, outside the session:
+There is none inside the session (ADR 0015): no gate reads a flag the agent can set. Two things sit outside that rule. Your user can switch the whole Sentinel off by starting the host with `KJ_SENTINEL_OFF=1` in its environment; even then the supervisor's files, the governance config, the phone key, AI attribution, issues for karajan-code and discarding changes the session did not make stay guarded. And `kj policy grant` is not a human act: a session can grant a dated exception to a rule that is not security, and the commit gate honours it (ADR 0012 names this gap). Each decision that really is the project's has its own channel, outside the session:
 
 | Case | Channel |
 | --- | --- |
@@ -213,3 +213,4 @@ There are none (ADR 0015). A gate that needs an escape is a gate to fix, and an 
 | A large PR is justified | your user's `large-pr-justified` label, judged in CI |
 | A privacy false positive | the `allow` list of `~/.karajan/privacy.yml` |
 | A crossing between lanes, or a skipped hook | your user, in their own terminal |
+| Switch the whole Sentinel off | your user starts the host with `KJ_SENTINEL_OFF=1` |
