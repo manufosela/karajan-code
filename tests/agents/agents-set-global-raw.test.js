@@ -8,7 +8,9 @@ import { join } from "node:path";
 import yaml from "js-yaml";
 import { setAgent } from "../../src/commands/agents.js";
 
-const human = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (n) => n };
+// HU-4905: at critical (the default) the phone signs the change too.
+const phone = { enrolled: () => true, request: async () => ({ ok: true, block: { signer: "k", signature: "s" } }) };
+const human = { env: {}, tty: true, ancestry: { readProc: () => ({ ppid: 1, cmd: "bash" }) }, confirm: (n) => n, phone };
 
 describe("kj agents set --global writes only the global file", () => {
   const saved = { home: process.env.KARAJAN_HOME, cwd: process.cwd() };

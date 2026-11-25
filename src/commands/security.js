@@ -9,7 +9,7 @@ import { lowerSecurityLevel, raiseSecurityLevel, readSecurityLevel, SECURITY_LEV
 
 const MEANING = {
   max: "máxima: todo acto del catálogo (sello, reglas, enrolar un móvil) se firma con el móvil",
-  critical: "critical: el móvil firma lo que cambia quién gobierna (enrolar, bajar el nivel, aflojar un gate, una concesión de policy, excepción de main-guard); el resto se confirma en tu terminal",
+  critical: "critical: el móvil firma lo que cambia quién gobierna (enrolar, bajar el nivel, aflojar un gate, una concesión de policy, excepción de main-guard, cambiar el panel); el resto se confirma en tu terminal",
   normal: "normal: las cuatro capas de ADR 0009 y un código tecleado, y la firma del móvil solo si hay uno enrolado; la garantía es menor",
 };
 const sourceLine = (level) => {

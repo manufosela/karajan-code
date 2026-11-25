@@ -158,6 +158,7 @@ export const HUMAN_ACTS = Object.freeze({
   // HU-3773 (ADR 0051): pinning or releasing a hook step replaces a quality step.
   "hooks-set": { label: "kj hooks set|unset", module: "src/commands/hooks.js" },
   // HU-4894 (ADR 0018): the panel is the person's, an agent never changes its own reviewer.
+  // HU-4905: it decides who reviews and arbitrates, so it is in CRITICAL_ACTS too.
   "agents-set": { label: "kj agents set", module: "src/commands/agents.js" },
   // HU-4188 (ADR 0057): only a person approves a version for publishing and tags it.
   "release-approve": { label: "kj release approve", module: "src/commands/release-approve.js" },
@@ -169,7 +170,7 @@ export const HUMAN_ACTS = Object.freeze({
  * KJC-TSK-1654 (ADR 0060): the acts that change who governs. At `critical` only these are signed
  * on the phone; the rest of the catalog is confirmed at the person's terminal. `max` signs them all.
  */
-export const CRITICAL_ACTS = Object.freeze(new Set(["phone-enroll", "security-level-down", "gates-loosen", "main-guard-except", "policy-grant"]));
+export const CRITICAL_ACTS = Object.freeze(new Set(["phone-enroll", "security-level-down", "gates-loosen", "main-guard-except", "policy-grant", "agents-set"]));
 
 /** HU-4306: labels of the acts this process got past the refusal of; read once the command ends. */
 export const attempted = new Set();
