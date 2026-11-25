@@ -466,11 +466,25 @@ async function handlePgTaskReport({ dir, pgTask, list, sessionId, format, trace,
   await printSentinelEscapes({ projectDir: report.project_dir, format });
 }
 
+/**
+ * HU-4878 (KJC-BUG-0659): kj 5 runs no sessions, so a missing session report
+ * still shows the project blocks (review truth, panel, escapes) for this project.
+ * With --format json it prints one parseable document, never an empty stream.
+ */
+async function printNoSessionReport(format) {
+  if (format === "json") {
+    console.log(JSON.stringify({ session: null, reason: "no session report" }, null, 2));
+    return;
+  }
+  console.log("No session report (kj 5 runs no sessions); project blocks follow.");
+  await printSentinelEscapes({ projectDir: process.cwd(), format });
+}
+
 async function handleSingleSessionReport({ dir, entries, sessionId, format, trace, currency }) {
   const ids = [...entries].sort((a, b) => a.localeCompare(b));
   const selectedSessionId = sessionId || ids.at(-1);
   if (!selectedSessionId) {
-    console.log("No reports yet");
+    await printNoSessionReport(format);
     return;
   }
   if (sessionId && !ids.includes(sessionId)) {
@@ -494,7 +508,8 @@ async function handleSingleSessionReport({ dir, entries, sessionId, format, trac
 export async function reportCommand({ list = false, sessionId = null, format = "text", trace = false, currency = "usd", pgTask = null }) {
   const dir = getSessionRoot();
   if (!(await exists(dir))) {
-    console.log("No reports yet");
+    if (sessionId) throw new Error(`Session not found: ${sessionId}`);
+    await printNoSessionReport(format);
     return;
   }
 
