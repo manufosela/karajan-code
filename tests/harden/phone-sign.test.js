@@ -132,6 +132,18 @@ describe("requestPhoneSignature (KJC-TSK-0822)", () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
+  // HU-4887 (KJC-BUG-0665): a roster with other keys refuses the machine's legacy key, naming the roster.
+  it("refuses the legacy home key when the repo roster holds only other keys", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "kj-signers-"));
+    const other = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
+    addSigner(other, { projectDir, label: "alice" });
+    enrollPhone(rawPub, { home });
+    const res = await request(fakePhone(), { home, projectDir });
+    expect(res.ok).toBe(false);
+    expect(res.reason).toMatch(/padrón del repo/);
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
   // KJC-BUG-0432: 60 s was too short to scan, read the files and sign; 150 s stays under the relay's 3 min.
   it("expires after 150s of pending state", async () => {
     enrollPhone(rawPub, { home });

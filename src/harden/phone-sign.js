@@ -282,9 +282,18 @@ export async function requestPhoneSignature({ project, files, kjVersion, changes
   }
   // KJC-TSK-0831 (ADR 0010): la clave que firma debe estar en el PADRÓN
   // autorizado (repo ∪ legacy). El doc es transporte; la verdad es el padrón.
-  const authorized = readEnrolledKeys({ projectDir: deps.projectDir, home: deps.home });
+  // HU-4887 (KJC-BUG-0665): with a roster in the repo, only its keys sign (CI verifies against it alone).
+  // Without an explicit projectDir there is no repo to judge by (the roster lookup would fall to the cwd).
+  const rosterKeys = deps.projectDir ? readSigners({ projectDir: deps.projectDir }) : [];
+  const rosterPasskeys = deps.projectDir ? readPasskeyCredentials({ projectDir: deps.projectDir }) : [];
+  const hasRoster = rosterKeys.length > 0 || rosterPasskeys.length > 0;
+  const authorized = hasRoster ? new Set(rosterKeys) : readEnrolledKeys({ projectDir: deps.projectDir, home: deps.home });
   const signerKey = fields.publicKey?.stringValue;
   if (!signerKey || !authorized.has(signerKey)) {
+    if (hasRoster) {
+      const hint = rosterPasskeys.length > 0 ? ": firma con la passkey del padrón en la página" : "";
+      return { ok: false, reason: `la publicKey que firma no está en el padrón del repo, y CI solo verifica contra él${hint}` };
+    }
     return { ok: false, reason: "la publicKey que firma no está en el padrón autorizado — el doc es transporte, la verdad es el padrón" };
   }
   const payload = canonicalPayload({ cid, nonce, project, files, ...signed2 });
