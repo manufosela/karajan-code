@@ -13,7 +13,7 @@ import { splitAdvice } from "./split-advice.js";
 import { isGenerated } from "./loc-budget.js";
 import { prSecurityChecks } from "./pr-security.js";
 import { sonarCheck } from "./pr-sonar.js";
-import { batchDiff, splitByFile } from "./diff-batches.js";
+import { batchDiff, splitByFile, MAX_REVIEW_BATCHES } from "./diff-batches.js";
 import { ceilingOf, isTooLarge, measureCode, tooLargeSummary } from "./third-party-size.js";
 import { lensTask } from "./review-lens.js";
 import { thirdPartyTask, THIRD_PARTY_INSTRUCTION } from "./untrusted-context.js";
@@ -29,9 +29,6 @@ import { assertCrossFamily, verifyFindings } from "./run-verifier.js";
 import { reconcileReviews } from "./dual-review.js";
 import { dropFalseAbsences } from "./absence-claims.js";
 import { batchNotes, summaryOf } from "./review-summary.js";
-
-// KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
-const MAX_REVIEW_BATCHES = 10;
 
 const gitDiffOf = async (projectDir, range) => {
   const res = await runCommand("git", ["diff", range], { cwd: projectDir });
