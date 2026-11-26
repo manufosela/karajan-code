@@ -11,10 +11,12 @@ const read = (f) => readFileSync(join(dir, f), "utf8");
 
 // KJC-BUG-0137: eslint/prettier configs only seed when their tool is actually
 // installed — most fixtures here declare both so the classic behavior holds.
+// KJC-BUG-0668: commitlint too, with the preset its config extends.
+const COMMITLINT = { "@commitlint/cli": "^19", "@commitlint/config-conventional": "^19" };
 const withTools = (extra = {}) =>
   writeFileSync(
     join(dir, "package.json"),
-    JSON.stringify({ name: "x", devDependencies: { eslint: "^9", prettier: "^3" }, ...extra }),
+    JSON.stringify({ name: "x", devDependencies: { eslint: "^9", prettier: "^3", ...COMMITLINT }, ...extra }),
   );
 
 beforeEach(() => {
@@ -105,9 +107,28 @@ describe("installConfigs", () => {
   });
 
   it("a javascript project still gets commitlint, where Node is already there", () => {
-    withTools({ devDependencies: { eslint: "^9", prettier: "^3", "@commitlint/cli": "^19" } });
+    withTools({ devDependencies: { eslint: "^9", prettier: "^3", ...COMMITLINT } });
     installConfigs({ projectDir: dir, language: "javascript" });
     expect(read("commitlint.config.js")).toContain("config-conventional");
+  });
+
+  // KJC-BUG-0668 (#4891): the seeded config extends @commitlint/config-conventional; without it
+  // installed, `npx commitlint --edit` fails on a clean install. No preset, no config.
+  it("a javascript project without the commitlint preset gets no commitlint config, and the install command", () => {
+    withTools({ devDependencies: { eslint: "^9", prettier: "^3", "@commitlint/cli": "^19" } });
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    expect(existsSync(join(dir, "commitlint.config.js"))).toBe(false);
+    expect(res.configs.find((c) => c.file === "commitlint.config.js")).toMatchObject({
+      action: "omitted",
+      note: expect.stringContaining("npm i -D @commitlint/config-conventional"),
+    });
+  });
+
+  it("a javascript project without commitlint at all is told to install the cli first", () => {
+    withTools({ devDependencies: { eslint: "^9", prettier: "^3" } });
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    expect(existsSync(join(dir, "commitlint.config.js"))).toBe(false);
+    expect(res.configs.find((c) => c.file === "commitlint.config.js").note).toContain("npm i -D @commitlint/cli");
   });
 
   it("is idempotent on the markered files", () => {

@@ -23,7 +23,7 @@ afterEach(() => {
 
 describe("installConfigsForRoots (monorepo)", () => {
   it("seeds universal at root and each language inside its own root", () => {
-    seed("frontend/package.json", '{"devDependencies":{"eslint":"^9","prettier":"^3"}}');
+    seed("frontend/package.json", '{"devDependencies":{"eslint":"^9","prettier":"^3","@commitlint/cli":"^19","@commitlint/config-conventional":"^19"}}');
     seed("backend/pyproject.toml", "");
     const roots = detectStackRoots(root);
     const res = installConfigsForRoots({ projectDir: root, roots });
