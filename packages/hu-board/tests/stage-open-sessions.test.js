@@ -36,13 +36,15 @@ describe('the Sentinel\'s presence line', () => {
 });
 
 describe('the sessions open when the stage opens', () => {
-  it('an open session that is not at work waits at its desk, however long ago it ended', () => {
+  it('an open session that is not at work stays at its desk, however long ago it ended', () => {
     writeFileSync(traces(), jsonl(
       line('2026-11-21T06:00:00Z', 'open', 's1', { pid: 42 }),
       line('2026-11-21T06:01:00Z', 'start', 's1', { tool: 'Bash' }),
       line('2026-11-21T06:02:00Z', 'end', 's1'),
     ));
-    expect(state().working).toMatchObject([{ agent: 'claude', role: 'host', id: 's1', waiting: 'person' }]);
+    // KJC-TSK-1805: resting when its last stop asks nothing; waiting for what it asks otherwise.
+    expect(state().working).toMatchObject([{ agent: 'claude', role: 'host', id: 's1', waiting: 'rest' }]);
+    expect(state({ waitOf: () => 'person' }).working[0].waiting).toBe('person');
     expect(state({ waitOf: () => 'process' }).working[0].waiting).toBe('process');
   });
 
@@ -83,17 +85,17 @@ describe('the sessions open when the stage opens', () => {
 describe('the live stream', () => {
   const event = (phase, extra = {}) => ({ type: 'agent-activity', agent: 'claude', role: 'host', phase, id: 's1', lane: 'main', at: 'x', ...extra });
 
-  it('a session that opens sits waiting; one already there stays as it is; one that closes leaves', () => {
+  it('a session that opens sits resting; one already there stays as it is; one that closes leaves', () => {
     let workers = withActivity([], event('open'), 0);
-    expect(workers).toMatchObject([{ id: 's1', waiting: 'person' }]);
+    expect(workers).toMatchObject([{ id: 's1', waiting: 'rest' }]);
     workers = withActivity(workers, event('start'), 1000);
     expect(withActivity(workers, event('open'), 2000)).toBe(workers);
     expect(withActivity(workers, event('close'), 3000)[0].leftAt).toBe(3000);
   });
 
-  it('the lane\'s state keeps an open session waiting and drops a closed one', () => {
+  it('the lane\'s state keeps an open session resting and drops a closed one', () => {
     let lane = withEvent({}, event('open'));
-    expect(lane.working).toMatchObject([{ id: 's1', waiting: 'person' }]);
+    expect(lane.working).toMatchObject([{ id: 's1', waiting: 'rest' }]);
     lane = withEvent(withEvent(lane, event('start')), event('open'));
     expect(lane.working[0]).not.toHaveProperty('waiting');
     expect(withEvent(lane, event('close')).working).toEqual([]);

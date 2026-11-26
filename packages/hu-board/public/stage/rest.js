@@ -55,8 +55,8 @@ function workingAfter(working, event) {
   const moved = (w) => event.phase === 'start' && event.id && w.id === event.id;
   const others = working.filter((w) => !same(w) && !moved(w));
   const now = workerOf(event, lane);
-  // KJC-TSK-1715: a session that opens is there, waiting, unless it already was.
-  if (event.phase === 'open') return working.some(same) ? working : [...working, { ...now, waiting: 'person' }];
+  // KJC-TSK-1715: a session that opens is there, unless it already was; KJC-TSK-1805: resting.
+  if (event.phase === 'open') return working.some(same) ? working : [...working, { ...now, waiting: 'rest' }];
   if (event.phase === 'start') {
     // KJC-TSK-1610: an id-less start of a host already there keeps it, with its id, at work again.
     const kept = event.id ? null : working.find((w) => same(w) && w.id);
@@ -145,10 +145,11 @@ export function statusOrder(entries) {
 // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
 const usingOf = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
 const whereOf = (w) => (w.lane && w.lane !== 'main' ? ['in', w.lane] : []);
+const WAITS = { person: 'waits for you', process: 'waits for a process', rest: 'resting' };
 // KJC-TSK-1435: the host says the tool it uses; a subagent, its type.
 function whatOf(w) {
   // KJC-TSK-1607: a host that waits says for what.
-  if (w.role === 'host' && w.waiting) return [w.waiting === 'person' ? 'waits for you' : 'waits for a process'];
+  if (w.role === 'host' && w.waiting) return [WAITS[w.waiting] ?? WAITS.process];
   if (w.role === 'host') return w.tool ? ['working', `(${w.tool})`] : ['working'];
   if (w.role === 'subagent') return ['subagent', ...(w.kind ? [w.kind] : [])];
   return [DOING[w.role] ?? w.role];

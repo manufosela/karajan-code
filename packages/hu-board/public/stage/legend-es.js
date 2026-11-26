@@ -18,7 +18,7 @@ const BACKPACK = ['Mochila', 'Del color de la persona para la que trabaja y con 
 const ES = {
   host: ['Anfitrión', 'Tu propia sesión de IA (Claude Code y similares): trabaja el carril y llama a los demás.', 'Mientras tu sesión trabaja en ese carril; sale por la puerta cuando la sesión acaba.', 'Tú, al abrir una sesión. Antes de una card va al atril a por sus skills.', [
     ['Tamaño', 'Más grande que todos los demás.'], COLOUR, ['Holograma sobre la cabeza', 'Tu emblema (o tu inicial), girando despacio: de quién es el anfitrión.'],
-    ['Placa del pecho', 'Tu emblema otra vez, en tu color.'], BACKPACK, ['Rótulo', 'El login de su dueño. «waits for you» en ámbar, «waits for a process» en azul.'],
+    ['Placa del pecho', 'Tu emblema otra vez, en tu color.'], BACKPACK, ['Rótulo', 'El login de su dueño. «waits for you» en ámbar, «waits for a process» en azul, «resting» en gris (abierta, sin nada que hacer).'],
     ['Mano levantada y «!» ámbar', 'Te espera a ti: se gira hacia ti, levanta la mano y el «!» late.'],
     ['Reloj de arena azul', 'Espera a un proceso (CI, un job, una tarea en segundo plano); el reloj gira.']]],
   teammate: ['Anfitrión de un compañero', 'El anfitrión de otra persona del mismo repositorio, en directo desde su board.', 'Mientras su sesión trabaja; está en el carril de su card.', 'Tu compañero. Su board solo comparte rol, carril, card, modelo y avatar.', [

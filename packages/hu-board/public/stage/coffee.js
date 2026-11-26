@@ -18,7 +18,8 @@ const lastOf = (trips, host) => trips.findLast((t) => t.host === host);
  * but each host's last one stays, which says whether it holds its cup.
  */
 export function withCoffee(trips, hosts, now) {
-  const called = hosts.flatMap(({ key, waiting, spot }) => {
+  const called = hosts.flatMap(({ key, waiting: wait, spot }) => {
+    const waiting = wait && wait !== 'rest'; // KJC-TSK-1805: a resting host waits for nothing, so no cup
     const last = lastOf(trips, key);
     if (waiting && !last?.serve) return [{ host: key, serve: true, at: now, spot }];
     if (!waiting && last?.serve && now >= last.at + HAND_AT_MS) return [{ host: key, serve: false, at: now, spot }];
