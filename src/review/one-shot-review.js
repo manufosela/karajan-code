@@ -127,11 +127,11 @@ export async function runOneShotReview({
   const facts = diffFacts(diff, { readFile: (p) => readFileSync(join(projectDir || process.cwd(), p), "utf8") });
   // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
   const shownText = summarizeGeneratedFiles(shown ?? diff);
-  const attempt = async (who, cfg = config, note = "", text = shownText) => {
+  const attempt = async (who, cfg = config, note = "", text = shownText, batch = null) => {
     const prompt = await buildReviewerPrompt({
       task: task || "Review the following diff for correctness, security and maintainability.",
       diff: text, reviewRules: rules, mode: "standard", provider: who, projectDir, roleSkillBlock: skills,
-      factsBlock: formatDiffFacts(facts),
+      factsBlock: factsBlockFor(facts, batch),
     }) + note;
     // KJC-TSK-1344: with two subscriptions per CLI, say which account reviews.
     const account = accountLabel(who, { env });
@@ -141,10 +141,10 @@ export async function runOneShotReview({
 
   // HU-4837: every question to the reviewer, the one asked again included, fails over the same
   // way on exhausted quota, and its verdict names the reviewer that actually answered it.
-  const ask = async (who, note = "", text = shownText) => {
-    const answer = await attempt(who, who === reviewer ? config : withoutModelPin(config), note, text);
+  const ask = async (who, note = "", text = shownText, batch = null) => {
+    const answer = await attempt(who, who === reviewer ? config : withoutModelPin(config), note, text, batch);
     const { result, activeReviewer } = needsQuotaFailover(answer, config)
-      ? await quotaFailover({ reviewer: who, declared: reviewer, hostAgent, config, logger, candidateStatusFn, attempt: (fallback, cfg) => attempt(fallback, cfg, note, text) })
+      ? await quotaFailover({ reviewer: who, declared: reviewer, hostAgent, config, logger, candidateStatusFn, attempt: (fallback, cfg) => attempt(fallback, cfg, note, text, batch) })
       : { result: answer, activeReviewer: who };
     if (!result?.ok) {
       throw new Error(reviewerFailureMessage(activeReviewer, result?.error, { account: accountLabel(activeReviewer, { env }) }));
@@ -161,11 +161,11 @@ export async function runOneShotReview({
   // HU-4837: what does not anchor is kept apart; a rejection made only of it is asked again once.
   const readFile = projectFileReader(projectDir);
   const splitOf = (verdict) => (verdict.approved ? { blocking: [], unanchored: [] } : splitFindings(verdict.blocking_issues, { diff, readFile }));
-  const reviewText = async (text) => {
-    let { activeReviewer, parsed } = await ask(reviewer, "", text);
+  const reviewText = async (text, batch = null) => {
+    let { activeReviewer, parsed } = await ask(reviewer, "", text, batch);
     let split = splitOf(parsed);
     if (onlyUnanchored(split)) {
-      ({ activeReviewer, parsed } = await ask(activeReviewer, unanchoredNote(split.unanchored), text));
+      ({ activeReviewer, parsed } = await ask(activeReviewer, unanchoredNote(split.unanchored), text, batch));
       split = splitOf(parsed);
     }
     return { activeReviewer, parsed, split };
@@ -199,8 +199,17 @@ function planBatches(text, logger) {
 
 async function reviewEach(batches, reviewText) {
   const results = [];
-  for (const batch of batches) results.push(await reviewText(batch.text));
+  for (const [i, batch] of batches.entries()) {
+    results.push(await reviewText(batch.text, { files: batch.files, index: i + 1, total: batches.length }));
+  }
   return results;
+}
+
+/** HU-4944: facts about files a batch does not show make the reviewer reject it as an incomplete diff. */
+function factsBlockFor(facts, batch) {
+  if (!batch) return formatDiffFacts(facts);
+  const note = `This prompt shows batch ${batch.index} of ${batch.total} (files: ${batch.files.join(", ")}); the diff's other files are reviewed in other prompts.`;
+  return formatDiffFacts(facts.filter((f) => !f.file || batch.files.includes(f.file)), note);
 }
 
 const unreviewedIssue = (file, n) => ({

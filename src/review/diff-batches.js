@@ -6,7 +6,8 @@
  * the batch cap, are not reviewed and are named in the coverage, never hidden.
  */
 
-const FILE_HEAD = /^diff --git a\/(.+?) b\//;
+// HU-4944: a file is named by its b/ path, as diffFacts and findings name it, renames included.
+const FILE_HEAD = /^diff --git a\/.+? b\/(.+)$/;
 
 // KJC-BUG-0378: a reviewer call per batch; past this many, files are left out and named.
 export const MAX_REVIEW_BATCHES = 10;
