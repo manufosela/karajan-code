@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.39.0] - 2026-11-26
+
+A review thread left open stops the merge, and a Linear board no longer fails a move it made.
+
+### Added
+- **`kj review --verify-pr` fails while a review thread is unresolved**: a finding left as a line comment, with no request for changes, did not stop the merge. The check reads the PR's review threads and fails, one problem per thread, on each that GitHub marks unresolved and not outdated and that someone other than the PR's author opened. A failed read fails the check (#4931).
+- **kj stage: an open session that asks for nothing rests**, drawn at its desk with a grey «resting» label and no amber badge; the badge stays for a session that asks you and for mailbox handoffs (#4937).
+
+### Fixed
+- **A Linear move or claim survives a stale read-back**: Linear may answer the read right after a write with the value from before it, so `kj hu move` failed with "is running after the move to done" or "held by nobody after a concurrent claim" and passed on retry. While the read-back still shows the pre-write value, kj reads again (250, 500, 1000 and 2000 ms) before judging; a third value still fails at once (#4935).
+
+### Docs
+- **The operating contract says why a security finding's severity is not checkable**: in the `codex-state` format a finding's category is free text that repeats the severity, so nothing marks a finding as security; kj takes the severity the bot gives (#4933).
+
 ## [5.38.0] - 2026-11-26
 
 A review that requests changes stops the merge until it is resolved, and what `kj harden` generates loads and passes the repo's own formatter.
