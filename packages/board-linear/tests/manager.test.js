@@ -17,7 +17,8 @@ const stateOf = (name) => ({ name, type: typeOfState[name] });
 function fakeLinear() {
   const issues = new Map();
   const calls = [];
-  const backend = { reject: false, labels: [], dropState: null };
+  const backend = { reject: false, labels: [], dropState: null, staleReads: 0, winner: null };
+  const stale = new Map(); // per issue: how it looked before its last update, and how many reads still see that
   const view = (i) => ({ ...i, assignee: i.assignee === undefined ? (i.assigneeId ? { id: i.assigneeId, email: i.assigneeId.slice(2) } : null) : i.assignee, labels: { nodes: i.labels } });
   const handlers = {
     [Q.team]: () => ({ teams: { nodes: [{ id: "team-1", states: { nodes: Object.values(states).filter((n) => n !== backend.dropState).map((n) => ({ id: `s-${n}`, name: n })) } }] } }),
@@ -28,9 +29,15 @@ function fakeLinear() {
       issues.set(identifier, { identifier, title: input.title, description: input.description, url: `https://linear.app/acme/issue/${identifier}`, state: stateOf(nameOf(input.stateId)), labels: input.labelIds.map((id) => ({ name: nameOf(id) })) });
       return { issueCreate: { success: true, issue: view(issues.get(identifier)) } };
     },
-    [Q.get]: (v) => ({ issue: issues.has(v.id) ? view(issues.get(v.id)) : null }),
+    [Q.get]: (v) => {
+      const old = stale.get(v.id);
+      if (old?.reads > 0) { old.reads -= 1; return { issue: old.issue }; }
+      return { issue: issues.has(v.id) ? view(issues.get(v.id)) : null };
+    },
     [Q.update]: (v) => {
       const i = issues.get(v.id);
+      stale.set(v.id, { issue: view(i), reads: backend.staleReads });
+      if (backend.winner) i.assignee = backend.winner;
       if (v.input.stateId && !backend.reject) i.state = stateOf(nameOf(v.input.stateId));
       if (v.input.assigneeId) i.assigneeId = v.input.assigneeId;
       return { issueUpdate: { success: true } };
@@ -54,10 +61,12 @@ function fakeLinear() {
   backend.rejectMoves = () => { backend.reject = true; };
   backend.unlabel = (shortId) => { issues.get(shortId).labels = []; };
   backend.assignTo = (shortId, assignee) => { issues.get(shortId).assignee = assignee; };
+  backend.lag = (n) => { backend.staleReads = n; };
+  backend.loseClaimTo = (assignee) => { backend.winner = assignee; };
   return { fetch, backend, calls };
 }
 
-const make = (fetch) => createLinearManager({ config, apiKey: KEY, fetch });
+const make = (fetch) => createLinearManager({ config, apiKey: KEY, fetch, sleep: async () => {} });
 
 runStoryContract("Linear", () => {
   const { fetch, backend } = fakeLinear();
@@ -203,6 +212,42 @@ describe("Linear manager, failures", () => {
     const { manager, backend, short_id } = await seeded();
     backend.rejectMoves();
     await expect(manager.move(short_id, "running")).rejects.toThrow(/TRI-1 is pending after the move to running/);
+  });
+
+  // HU-4934: Linear may answer the read right after a write with the value from before it.
+  const reads = (calls) => calls.filter((c) => c.query === Q.get).length;
+
+  it("a move and a claim that land after 2 stale reads succeed", async () => {
+    const { manager, backend, short_id } = await seeded();
+    backend.lag(2);
+    expect((await manager.move(short_id, "running")).status).toBe("running");
+    expect((await manager.claim(short_id, "alice")).claimed_by).toBe("alice");
+  });
+
+  it("waits a bounded schedule before rejecting a move that never lands", async () => {
+    const fake = await seeded();
+    const sleep = vi.fn(async () => {});
+    fake.backend.rejectMoves();
+    const manager = createLinearManager({ config, apiKey: KEY, fetch: fake.fetch, sleep });
+    await expect(manager.move(fake.short_id, "running")).rejects.toThrow(/TRI-1 is pending after the move to running/);
+    expect(sleep.mock.calls).toEqual([[250], [500], [1000], [2000]]);
+    expect(reads(fake.calls)).toBe(6); // before the write, right after it, and one per wait
+  });
+
+  it("a claim read back with another assignee fails at once", async () => {
+    const { manager, backend, calls, short_id } = await seeded();
+    backend.loseClaimTo({ id: "u-bob@acme.test", email: "bob@acme.test" });
+    await expect(manager.claim(short_id, "alice")).rejects.toThrow(/TRI-1 is held by bob after a concurrent claim/);
+    expect(reads(calls)).toBe(2);
+  });
+
+  it("a write that changes nothing is not waited for", async () => {
+    const { manager, calls, short_id } = await seeded();
+    await manager.claim(short_id, "alice");
+    const before = reads(calls);
+    await manager.claim(short_id, "alice");
+    await manager.move(short_id, "pending");
+    expect(reads(calls) - before).toBe(4);
   });
 
   it("an assignee without an email lists as unclaimed instead of crashing", async () => {
