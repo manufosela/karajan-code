@@ -135,7 +135,8 @@ export const UNIVERSAL_CONFIGS = [
  * tool is decorative, and kj never generates a demand it didn't satisfy.
  */
 export const JS_CONFIGS = [
-  { file: "commitlint.config.js", blockId: "commitlint", style: "slash", body: COMMITLINT_BODY },
+  // KJC-BUG-0668 (#4891): the config extends the preset; without it, commitlint fails.
+  { file: "commitlint.config.js", blockId: "commitlint", style: "slash", body: COMMITLINT_BODY, requires: ["@commitlint/cli", "@commitlint/config-conventional"] },
   { file: "eslint.config.js", blockId: "eslint", style: "slash", body: ESLINT_BODY, requires: "eslint" },
   { file: ".prettierrc.json", json: true, body: PRETTIER_BODY, requires: "prettier" },
 ];

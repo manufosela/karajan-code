@@ -136,7 +136,9 @@ describe("governance flow on a real-shaped repo (KJC-TSK-1645)", () => {
       mkdirSync(join(r.repo, "functions"));
       // Firebase functions in TypeScript: a root of its own beside the JavaScript one. As prettier
       // leaves the files: the repo's hooks check the format.
-      writeFileSync(join(r.repo, "functions", "package.json"), `${JSON.stringify({ name: "functions", private: true, type: "module" }, null, 2)}\n`);
+      // KJC-BUG-0668: the commitlint config only seeds with its packages installed.
+      const devDependencies = { "@commitlint/cli": "^19", "@commitlint/config-conventional": "^19" };
+      writeFileSync(join(r.repo, "functions", "package.json"), `${JSON.stringify({ name: "functions", private: true, type: "module", devDependencies }, null, 2)}\n`);
       writeFileSync(join(r.repo, "functions", "tsconfig.json"), `${JSON.stringify({ compilerOptions: { strict: true } }, null, 2)}\n`);
       r.git("add", "functions/package.json", "functions/tsconfig.json");
     });
