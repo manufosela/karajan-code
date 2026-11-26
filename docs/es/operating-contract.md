@@ -19,7 +19,7 @@ Decidida el 2026-11-21.
 - Hallazgos: ninguno puede estar activo.
   - Los CRITICAL y MAJOR no se pueden descartar nunca.
   - Un MINOR solo lo puede descartar alguien que no sea el autor de la PR y tenga permiso de escritura.
-  - Un hallazgo que el bot clasifica como de seguridad debe ser CRITICAL. kj aún no lo comprueba: toma la severidad que da el bot.
+  - Un hallazgo que el bot clasifica como de seguridad debe ser CRITICAL. kj no lo puede comprobar: en el formato codex-state la `category` de cada hallazgo es texto libre y en la práctica repite la severidad, así que nada marca un hallazgo como de seguridad. kj toma la severidad que da el bot (CRITICAL, MAJOR o MINOR).
 - Una PR que cambia `.github/workflows/` nunca cuenta con la revisión automática.
 
 Dónde vive:
