@@ -160,8 +160,9 @@ export const verdictsWorkflowFor = (kjVersion, kjName = "karajan-code", { automa
   "on:",
   "  pull_request:",
   "    types: [opened, synchronize, reopened]",
+  // HU-4923: a dismissed review that requested changes must rerun the check (HU-4920).
   "  pull_request_review:",
-  "    types: [submitted]",
+  "    types: [submitted, dismissed]",
   "permissions:",
   "  contents: read",
   "  pull-requests: read",

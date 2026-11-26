@@ -14,8 +14,9 @@ describe("verdictsWorkflowFor", () => {
   const parsed = yaml.load(text);
   const job = parsed.jobs.verdicts;
 
-  it("reruns on every PR push and on every submitted review (the verdict is published as one)", () => {
-    expect(parsed.on).toEqual({ pull_request: { types: ["opened", "synchronize", "reopened"] }, pull_request_review: { types: ["submitted"] } });
+  // HU-4923: a dismissed review that requested changes reruns it too, or the check stays red (HU-4920).
+  it("reruns on every PR push and on every submitted or dismissed review (the verdict is published as one)", () => {
+    expect(parsed.on).toEqual({ pull_request: { types: ["opened", "synchronize", "reopened"] }, pull_request_review: { types: ["submitted", "dismissed"] } });
     expect(parsed.permissions).toEqual({ contents: "read", "pull-requests": "read" });
   });
 
