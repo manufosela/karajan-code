@@ -141,11 +141,12 @@ export function diffFacts(diff, { readFile = null, list } = {}) {
   return facts;
 }
 
-/** The facts as a prompt block; empty when there are none. */
-export function formatDiffFacts(facts) {
-  if (!facts?.length) return "";
+/** The facts as a prompt block, with an optional note; empty when there is neither. */
+export function formatDiffFacts(facts, note = "") {
+  if (!facts?.length) return note;
   const where = (f) => (f.file ? `${f.file}${f.line ? `:${f.line}` : ""} ` : "");
   return ["## Verified facts (computed without a model)",
     "Checked mechanically on this diff. Start from them; judging what they mean is yours.",
+    ...(note ? [note] : []),
     ...facts.map((f) => `- ${where(f)}${f.text}`)].join("\n");
 }
