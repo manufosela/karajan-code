@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.39.0: un hilo de review abierto para el merge; los movimientos en Linear aguantan una lectura atrasada (actual)
+### v5.39.1: un diff revisado por lotes recibe solo sus propios hechos (actual)
+
+Cuando un diff no cabe en un prompt y se revisa por lotes de ficheros enteros, el prompt de cada lote lleva ahora los hechos verificados de sus propios ficheros más los de todo el diff, y dice qué lote es. `kj review --range` y `--staged` sobre un diff de varios ficheros ya no se rechazan como "diff incompleto" por hechos de ficheros que el lote no mostraba.
+
+### v5.39.0: un hilo de review abierto para el merge; los movimientos en Linear aguantan una lectura atrasada
 
 `kj review --verify-pr` también falla por cada hilo de review que GitHub marca sin resolver y no desactualizado, abierto por alguien que no es el autor de la PR, así que un hallazgo dejado como comentario de línea ya no se cuela en el merge. En un tablero Linear, `kj hu move` y la reserva vuelven a leer cuando Linear aún responde con el valor de antes de escribir, en lugar de dar por fallido un movimiento que sí se hizo. En kj stage, una sesión abierta que no pide nada descansa en su mesa sin el número ámbar.
 

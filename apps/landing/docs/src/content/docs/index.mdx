@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.39.0: an open review thread stops the merge; Linear moves survive a stale read (current)
+### v5.39.1: a diff reviewed in batches gets only its own facts (current)
+
+When a diff is too large for one prompt and is reviewed in batches of whole files, each batch's prompt now carries the verified facts of its own files plus the diff-wide ones, and says which batch it is. `kj review --range` and `--staged` on a multi-file diff are no longer rejected as "incomplete diff" for facts about files the batch did not show.
+
+### v5.39.0: an open review thread stops the merge; Linear moves survive a stale read
 
 `kj review --verify-pr` also fails on each review thread that GitHub marks unresolved and not outdated, opened by someone other than the PR's author, so a finding left as a line comment no longer slips past the merge. On a Linear board, `kj hu move` and the claim read again when Linear still answers with the value from before the write, instead of failing a move that landed. In kj stage, an open session that asks for nothing rests at its desk without the amber badge.
 

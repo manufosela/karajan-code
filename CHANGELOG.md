@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.39.1] - 2026-11-26
+
+A diff reviewed in batches is no longer rejected for facts about files its batch did not show.
+
+### Fixed
+- **Each review batch gets only the facts of its own files**: since a diff larger than one prompt is reviewed in batches of whole files, every batch prompt carried the verified facts of the whole diff, so `kj review --range` and `--staged` on a multi-file diff were rejected with "incomplete diff: N of the M changed files reported in the verified facts are missing from the Git diff". A batch's prompt now carries the facts of its own files plus the diff-wide ones, and says it is batch i of n; a diff that fits one prompt is unchanged, and the verdict record keeps every fact. A renamed file keeps its facts (#4945).
+
+### Docs
+- **The landing's agent rules say Recent releases go newest first**, as the landing already orders them (#4943).
+
 ## [5.39.0] - 2026-11-26
 
 A review thread left open stops the merge, and a Linear board no longer fails a move it made.
