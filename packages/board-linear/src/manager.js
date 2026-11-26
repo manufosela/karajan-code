@@ -1,4 +1,5 @@
 // HU-3334 (epic #3332, ADR 0029): Linear as a task manager of the story contract, over the client of part 1.
+import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "./client.js";
 import { validateConfig } from "./config.js";
 import { Q } from "./queries.js";
@@ -9,7 +10,10 @@ const section = (title, items) => (items.length ? [`## ${title}\n${items.map((i)
 // HU-3408: Linear's workflow state types, for a state that linear.states does not declare.
 const STATUS_OF_TYPE = { triage: "pending", backlog: "pending", unstarted: "pending", started: "running", completed: "done", canceled: "failed" };
 
-export function createLinearManager({ config: raw, apiKey, fetch, warn = console.warn }) {
+// HU-4934: Linear may answer a read right after a write with the old value; the waits (ms) before reading again.
+const SETTLE_WAITS_MS = [250, 500, 1000, 2000];
+
+export function createLinearManager({ config: raw, apiKey, fetch, warn = console.warn, sleep = delay }) {
   const config = validateConfig(raw);
   const gql = createClient({ apiKey, fetch });
   const idPattern = new RegExp(`^${config.team.replaceAll(/\W/g, String.raw`\$&`)}-\\d+$`, "i");
@@ -50,6 +54,16 @@ export function createLinearManager({ config: raw, apiKey, fetch, warn = console
     if (!issue.labels.nodes.some((l) => l.name === config.label)) throw new BoardRejectedError(`${issue.identifier} is not a kj HU (no ${config.label} label): kj does not touch it`);
     return issue;
   };
+  // The read-back of a write: read again only while it is stale; the caller judges whatever comes last.
+  const readSettled = async (ref, isStale) => {
+    let issue = await read(ref);
+    for (const ms of SETTLE_WAITS_MS) {
+      if (!isStale(issue)) break;
+      await sleep(ms);
+      issue = await read(ref);
+    }
+    return issue;
+  };
 
   return {
     idHint: `${config.team}-123`,
@@ -81,7 +95,7 @@ export function createLinearManager({ config: raw, apiKey, fetch, warn = console
       toHu(issue); // refuses a state of an unknown type before writing anything
       const stateId = await stateIdOf(status);
       await gql(Q.update, { id: issue.identifier, input: { stateId } });
-      const landed = await read(ref);
+      const landed = await readSettled(ref, ({ state }) => state?.name === issue.state.name && state.name !== config.states[status]);
       const after = toHu(landed);
       // By state name: two statuses may share a state, and toHu reads that back as the first of them.
       if (landed.state.name !== config.states[status]) throw new BoardRejectedError(`${issue.identifier} is ${after.status} after the move to ${status}: check it before moving it again`);
@@ -99,7 +113,7 @@ export function createLinearManager({ config: raw, apiKey, fetch, warn = console
       const user = (await gql(Q.user, { email })).users.nodes[0];
       if (!user) throw unmappedError(`no Linear user with the email ${email}`);
       await gql(Q.update, { id: held.identifier, input: { assigneeId: user.id } });
-      const after = await read(ref);
+      const after = await readSettled(ref, ({ assignee }) => assignee?.id === held.assignee?.id && assignee?.id !== user.id);
       if (after.assignee?.id !== user.id) throw new HuClaimedError(`${ref} is held by ${toHu(after).claimed_by ?? "nobody"} after a concurrent claim: check it before working it`);
       return toHu(after);
     },
