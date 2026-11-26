@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.36.0",
-  "generated_at": "2026-11-24T21:16:52.877Z",
+  "kj_version": "5.38.0",
+  "generated_at": "2026-11-26T10:54:21.210Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -51,7 +51,7 @@
     },
     {
       "file": ".github/workflows/kj-policy.yml",
-      "sha256": "8f46f41141d1a6345991bd0353c87b2166bd582106f0a9264a0d8c78249e6178"
+      "sha256": "22c9d5f0998e62c98f2b94d4d5c1d734319b609c72663297e2e9c2124b84904e"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
@@ -59,11 +59,11 @@
     },
     {
       "file": ".github/workflows/kj-secrets.yml",
-      "sha256": "274f80297c47eb339f15438ee3d357b60debb5381e9573cf85f58d920a6e61aa"
+      "sha256": "4407229d9a61400da5b8604905b17b19e730ea999b07cf081358c62d3e222e2a"
     },
     {
       "file": ".github/workflows/kj-verdicts.yml",
-      "sha256": "ed3fbb9ebcefcc20f785d716a3d6f6311e2435a33868ad533070bfbccd369c2e"
+      "sha256": "16e39c12ffb66f41b722b4a19ebef8f9e3423119a8fc44f4c13adfef8319c50c"
     },
     {
       "file": ".github/workflows/nightly.yml",
@@ -183,15 +183,18 @@
     }
   ],
   "signature": {
-    "cid": "01367a9b62cff35b308b47519bf614c0",
-    "nonce": "64d596400b1ecf61fe972c56b455b232",
+    "cid": "3590907a5daaf6896f4ff35292a0f535",
+    "nonce": "f1bb700aad37f2eb4cacc917976248f9",
     "project": "manufosela/karajan-code",
-    "filesHash": "331f603d8c19eceebdb6839c0efa027baf7ae96dada029901af59bd3ae66876d",
+    "filesHash": "523fdeda8dee9726974b10a8fd6ceaa95d61ff70cbc4ad226c8bd4d9349c7d20",
     "v": 2,
-    "kjVersion": "5.36.0",
-    "issuedMs": 1795555001996,
-    "expiresMs": 1795555151996,
-    "signer": "EgMc2b95g5nUh8e6LDCeLjv7G69cQaszUCIy+3aLpPQ=",
-    "signature": "245L/GkvimOvINvjamy3hOJ1w/je48yJsUHhNACD0QRolp1LgYQCCjHQUapcVFZh1YVfusQ6wbZfV1t78XkOBQ=="
+    "kjVersion": "5.38.0",
+    "issuedMs": 1795690447088,
+    "expiresMs": 1795690597088,
+    "type": "webauthn",
+    "credentialId": "xWJyPFF0_V2TTKDp65cesw",
+    "authenticatorData": "rXNnteqvZsxVFoAzmjFmd-OrJ0TSokRWHcqrVw7x-rQdAAAAAA",
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiaFNyOUVZZThsbVoxd1A3cXc5UldPMExVYVdJRUN2dzJBVFliY0x4VEsyYyIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
+    "signature": "MEUCIDhYZsCE7ck2jBGAPTRWlijTtBfMht92aaLlh0Kk7yn2AiEA3tpz-gnGF7gPbhm3Vstj6B0C7b0J0brmQUmbLjk4C0c"
   }
 }
