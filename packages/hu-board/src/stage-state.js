@@ -108,7 +108,7 @@ function agentsAtWork(records, now, waitOf, alive) {
   const busy = hostsAtWork(records.filter((r) => !PRESENCE.has(r.phase)), now, waitOf).filter((w) => !closed(w.id));
   const listed = new Set(busy.map((w) => w.id));
   const idle = [...presence.values()].filter((ev) => open(ev) && !listed.has(ev.id))
-    .map(({ agent, role, at, id }) => ({ agent, role, at, id, waiting: waitOf(id) ?? 'person' }));
+    .map(({ agent, role, at, id }) => ({ agent, role, at, id, waiting: waitOf(id) ?? 'rest' })); // KJC-TSK-1805: asking nothing, it rests
   return [...busy, ...idle];
 }
 

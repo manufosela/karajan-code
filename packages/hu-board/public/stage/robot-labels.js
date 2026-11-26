@@ -22,7 +22,8 @@ export function tagText(worker, { own, pointed = false }) {
   return worker.long ? `${base} · long run` : base;
 }
 
-const WAITS = { person: 'waits for you', process: 'waits for a process' };
+// KJC-TSK-1805: an open session with nothing to do rests.
+const WAITS = { person: 'waits for you', process: 'waits for a process', rest: 'resting' };
 
 /** The key of the robot nearest the pointer on screen within `reach`; null when none or no pointer. */
 export function pickNear(pointer, robots, reach = REACH_PX) {
