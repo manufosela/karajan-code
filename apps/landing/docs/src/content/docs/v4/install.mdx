@@ -93,7 +93,7 @@ kj onboard                          # brownfield analysis → Architecture Brief
 kj init && kj env install
 ```
 
-kj seeds configs only when NO variant exists — your `eslint.config.mjs`, `.prettierrc` or biome.json stay untouched (`covered`). The RAG index over your existing code is the main prize: your agent queries it instead of guessing. Land the contract files through your repo's normal flow (branch + PR).
+kj seeds configs only when NO variant exists — your `eslint.config.mjs`, `.prettierrc` or biome.json stay untouched (`covered`). A config also needs its tool installed: `eslint.config.js` needs eslint, `.prettierrc.json` needs prettier and `commitlint.config.js` needs `@commitlint/cli` and `@commitlint/config-conventional`; without them the report names the `npm i -D` command instead. With prettier installed in the repo, kj formats the contract files it generated with it and your config (not `.karajan/` nor the files the seal covers, which it judges byte for byte), also on the base branch, where kj does not commit them for you. The RAG index over your existing code is the main prize: your agent queries it instead of guessing. Land the contract files through your repo's normal flow (branch + PR).
 
 </TabItem>
 </Tabs>
