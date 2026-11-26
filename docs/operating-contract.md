@@ -19,7 +19,7 @@ Decided on 2026-11-21.
 - Findings: none may be active.
   - CRITICAL and MAJOR findings can never be dismissed.
   - A MINOR finding can be dismissed only by someone other than the PR author who has write access.
-  - A finding the bot files under security must be CRITICAL. kj does not check this yet: it takes the severity the bot gives.
+  - A finding the bot files under security must be CRITICAL. kj cannot check this: in the codex-state format each finding's `category` is free text, and in practice it repeats the severity, so nothing marks a finding as security. kj takes the severity the bot gives (CRITICAL, MAJOR or MINOR).
 - A PR that changes `.github/workflows/` never counts with the automatic review.
 
 Where it lives:
