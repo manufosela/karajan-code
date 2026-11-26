@@ -174,12 +174,14 @@ export function commitContract({ projectDir, before = new Set(), baseBranch = "m
 /**
  * KJC-BUG-0604: the plan, after the repo's prettier formatted the files kj generated. Planned
  * again when it formatted, since a file it brought back to HEAD's bytes is no longer a change.
+ * KJC-BUG-0669: on the base branch too, where the person commits these files by hand.
  */
 function planFormatted({ git, before, baseBranch, projectDir, env }) {
   const draft = planContract({ git, before, baseBranch, projectDir });
-  if (draft.result) return draft;
-  const fmt = formatWithRepoPrettier({ projectDir, files: draft.files, env });
-  if (fmt.error) return { result: { committed: false, files: draft.files, reason: `the repo's prettier could not format kj's files: ${fmt.error}. ${commitByHand(draft.files)}` } };
+  const files = draft.files ?? draft.result?.files ?? [];
+  if (files.length === 0) return draft;
+  const fmt = formatWithRepoPrettier({ projectDir, files, env });
+  if (fmt.error) return { result: { committed: false, files, reason: `the repo's prettier could not format kj's files: ${fmt.error}. ${commitByHand(files)}` } };
   return fmt.formatted.length > 0 ? planContract({ git, before, baseBranch, projectDir }) : draft;
 }
 
