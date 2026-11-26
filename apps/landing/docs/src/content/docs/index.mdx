@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.37.2: the review sees the whole diff; changing the panel or granting an exception is yours (current)
+### v5.38.0: a review that requests changes stops the merge; what kj harden generates loads (current)
+
+`kj review --verify-pr`, the verdicts check, now reads every review's state: a reviewer (another AI, a bot or a person) whose last review requests changes fails it, named, until they approve again or the review is dismissed with a reason, and the red check stops `gh pr merge` through the Sentinel. The verdicts workflow runs again on a dismissed review. The diff's own tests run from their own package, so a monorepo whose root config excludes `packages/**` no longer gets a green diff rejected. `kj harden` formats the files it generates with the repo's prettier on the base branch too, and seeds `commitlint.config.js` only with `@commitlint/cli` and `@commitlint/config-conventional` installed.
+
+### v5.37.2: the review sees the whole diff; changing the panel or granting an exception is yours
 
 `kj review --staged` no longer approves code the reviewer never read: a diff larger than one reviewer prompt used to be clipped at 12000 characters, and is now reviewed whole in batches of whole files, approved only when every batch is; a file too large for one prompt rejects the verdict by name. `kj agents set` (who codes, reviews and arbitrates) and `kj policy grant` (an exception that lifts a gate) are human acts: refused to an agent session, confirmed at your terminal and, at `critical`, signed by your phone. `kj report` counts the rejections of kj's own gates apart from the reviewers, the session reminder no longer names the retired `KJ_ALLOW_*` escapes, and the help of `kj security` and `kj brief` says what the code does.
 
