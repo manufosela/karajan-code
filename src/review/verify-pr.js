@@ -17,6 +17,7 @@ import { verifiedSupervisorFiles } from "../policy/supervisor-verify.js";
 import { isSealCommit } from "./seal-commit.js";
 import { isRosterCommit } from "./roster-commit.js";
 import { sonarSourcesOf } from "./sonar-requirement.js";
+import { unresolvedThreadProblems } from "./review-threads.js";
 
 // The marker of a kj review for any head: what MARKER writes up to the head itself.
 const MARKER_PREFIX = MARKER("\0").split("\0")[0];
@@ -193,6 +194,7 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   const missing = kjReviews.length === 0 && !onlySeals;
   if (missing) problems.splice(0, problems.length, ...(await noKjReviewProblems({ projectDir, pr, run, info, automaticReview, rejected: judged.rejected, wait })));
   problems.push(...changesRequested(reviews));
+  problems.push(...(await unresolvedThreadProblems({ projectDir, pr, author: info.author?.login, run })));
   const covered = missing && problems.length === 0;
   return { ok: problems.length === 0, commits: commits.length, problems, ...(covered ? { automaticReview: true } : {}), ...(sealCommits.length > 0 ? { sealCommits } : {}), ...(rosterCommits.length > 0 ? { rosterCommits } : {}) };
 }
