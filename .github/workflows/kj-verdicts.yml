@@ -7,7 +7,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   pull_request_review:
-    types: [submitted]
+    types: [submitted, dismissed]
 permissions:
   contents: read
   pull-requests: read
@@ -36,7 +36,7 @@ jobs:
             KJ="node $JUDGE/bin/kj.js"
           else
             mkdir -p "$JUDGE"
-            (cd "$JUDGE" && echo '{"private":true}' > package.json && npm install --no-save --ignore-scripts --no-audit --no-fund karajan-code@5.36.0)
+            (cd "$JUDGE" && echo '{"private":true}' > package.json && npm install --no-save --ignore-scripts --no-audit --no-fund karajan-code@5.38.0)
             KJ="node $JUDGE/node_modules/karajan-code/bin/kj.js"
           fi
           $KJ review --verify-pr "$PR"
