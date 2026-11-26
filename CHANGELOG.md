@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.38.0] - 2026-11-26
+
+A review that requests changes stops the merge until it is resolved, and what `kj harden` generates loads and passes the repo's own formatter.
+
+### Added
+- **`kj review --verify-pr` fails while a reviewer's last review requests changes**: an agent merged PRs with green checks while a second AI reviewer had requested changes on them. The check now reads every review's state; for each reviewer it keeps the last review that approves, requests changes or was dismissed, and one left at "changes requested" fails it, named, until that reviewer approves again or the review is dismissed with a reason. A comment does not resolve it; kj's own reviews are comments. A red check stops `gh pr merge` through the Sentinel's merge gate (#4922).
+- **The verdicts workflow runs again when a review is dismissed**, so a dismissal clears the check without a new push. The workflow is sealed: a repo gets it with its next `kj harden` and seal (#4924).
+
+### Fixed
+- **The diff's tests run from their own package**: in a monorepo whose root vitest config excludes `packages/**`, the diff-tests gate ran a package's test from the root, vitest found no test files and the gate rejected a green diff. Each test file now runs from its nearest `package.json` or `pyproject.toml`, with the root's runner when that package has none (#4921).
+- **`kj harden` formats what it generates on the base branch too**: there kj does not commit the contract, and it named the files to commit by hand before the repo's prettier formatted them, so a pre-commit running `prettier --check .` refused every commit after it (#4916).
+- **`commitlint.config.js` is seeded only with its packages**: it extends `@commitlint/config-conventional`, which kj never installs, so `npx commitlint --edit` failed on a clean install. Like eslint and prettier, the config now needs `@commitlint/cli` and `@commitlint/config-conventional`; without them the report names the `npm i -D` command (#4919).
+
 ## [5.37.2] - 2026-11-26
 
 The review sees the whole diff before it approves, and changing the panel or granting an exception is a human act.

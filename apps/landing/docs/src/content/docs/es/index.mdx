@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.37.2: la review ve el diff entero; cambiar el panel o conceder una excepción es cosa tuya (actual)
+### v5.38.0: una review que pide cambios para el merge; lo que genera kj harden carga (actual)
+
+`kj review --verify-pr`, el check de veredictos, lee ahora el estado de cada review: un revisor (otra IA, un bot o una persona) cuya última review pide cambios lo hace fallar, con su nombre, hasta que vuelva a aprobar o la review se descarte con un motivo, y el check en rojo para `gh pr merge` a través del Sentinel. El workflow de veredictos se vuelve a ejecutar al descartar una review. Los tests del propio diff se ejecutan desde su paquete, así que a un monorepo cuya config raíz excluye `packages/**` ya no se le rechaza un diff en verde. `kj harden` formatea con el prettier del repo lo que genera también en la rama base, y solo siembra `commitlint.config.js` con `@commitlint/cli` y `@commitlint/config-conventional` instalados.
+
+### v5.37.2: la review ve el diff entero; cambiar el panel o conceder una excepción es cosa tuya
 
 `kj review --staged` ya no aprueba código que el revisor no ha leído: un diff mayor que un prompt del revisor se recortaba a 12000 caracteres, y ahora se revisa entero en lotes de ficheros completos, aprobado solo si lo está cada lote; un fichero demasiado grande para un prompt rechaza el veredicto y se nombra. `kj agents set` (quién escribe el código, quién revisa y quién arbitra) y `kj policy grant` (una excepción que levanta un gate) son actos humanos: kj los rechaza en una sesión de agente, se confirman en tu terminal y, en `critical`, los firma tu móvil. `kj report` cuenta los rechazos de los gates propios de kj aparte de los revisores, el recordatorio de sesión ya no nombra los escapes `KJ_ALLOW_*` retirados, y la ayuda de `kj security` y `kj brief` dice lo que hace el código.
 
