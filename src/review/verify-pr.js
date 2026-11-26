@@ -122,6 +122,22 @@ async function noKjReviewProblems({ projectDir, pr, run, info, automaticReview, 
   return automatic.length === 0 ? [] : [missing, ...automatic.map((p) => `automatic review: ${p}`), ...rejected];
 }
 
+// The review states that set or lift a change request; COMMENTED and PENDING change nothing.
+const DECISIVE_STATES = new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
+
+// HU-4920 (#4891): one problem per reviewer whose latest decisive review (oldest first) requests changes.
+function changesRequested(reviews) {
+  const latest = new Map();
+  for (const r of reviews) {
+    const login = r.user?.login;
+    // A Map keeps each login where it first appeared, even when its state changes later.
+    if (DECISIVE_STATES.has(r.state)) latest.set(login, r.state);
+  }
+  return [...latest]
+    .filter(([, state]) => state === "CHANGES_REQUESTED")
+    .map(([login]) => `${login} requested changes and has not approved since: it is resolved when they approve again or the review is dismissed with a reason`);
+}
+
 /**
  * @param {{automaticReview?: "codex-state" | null}} options HU-4774: the automatic AI review that
  *   may cover a PR with no kj review by a member; null (the default) never reads it.
@@ -142,7 +158,7 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   const commits = info.commits ?? [];
   const layout = await prBaseLayout(projectDir, info);
   // One review per line, every page: --slurp is missing from the gh that distros ship.
-  const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/pulls/${pr}/reviews`, "--jq", ".[] | {body, author_association, user: {login: .user.login}}"], { cwd: projectDir });
+  const res = await run("gh", ["api", "--paginate", `repos/{owner}/{repo}/pulls/${pr}/reviews`, "--jq", ".[] | {body, author_association, state, user: {login: .user.login}}"], { cwd: projectDir });
   if (res.exitCode !== 0) throw new Error(`gh api reviews failed: ${(res.stderr || res.stdout || "").trim()}`);
   const reviews = (res.stdout || "").split("\n").filter(Boolean).map((line) => JSON.parse(line));
   // KJC-BUG-0391: any kj review a member published on the PR counts, not only the one for
@@ -176,6 +192,7 @@ export async function verifyPrReview({ projectDir, pr, run = runCommand, sealed 
   // HU-4774: covered by the automatic review, no kj review exists, so no per-commit verdict applies.
   const missing = kjReviews.length === 0 && !onlySeals;
   if (missing) problems.splice(0, problems.length, ...(await noKjReviewProblems({ projectDir, pr, run, info, automaticReview, rejected: judged.rejected, wait })));
+  problems.push(...changesRequested(reviews));
   const covered = missing && problems.length === 0;
   return { ok: problems.length === 0, commits: commits.length, problems, ...(covered ? { automaticReview: true } : {}), ...(sealCommits.length > 0 ? { sealCommits } : {}), ...(rosterCommits.length > 0 ? { rosterCommits } : {}) };
 }
