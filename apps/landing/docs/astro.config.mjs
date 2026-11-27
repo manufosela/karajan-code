@@ -61,6 +61,14 @@ export default defineConfig({
 								],
 							},
 							{
+								label: 'The pieces', translations: { es: 'Las piezas' },
+								items: [
+									{ label: 'Overview', slug: 'pieces', translations: { es: 'Visión general' } },
+									{ label: 'The Sentinel', slug: 'pieces/sentinel', translations: { es: 'El Sentinel' } },
+									{ label: 'The ledger', slug: 'pieces/ledger', translations: { es: 'El ledger' } },
+								],
+							},
+							{
 								label: 'The method', translations: { es: 'El método' },
 								items: [
 									{ label: 'The gates', slug: 'v4/gates', translations: { es: 'Los gates' } },
