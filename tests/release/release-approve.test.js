@@ -58,12 +58,19 @@ describe("kj release approve", () => {
   it.each([
     ["names only the others who had not answered", { acks: [], approver: "bob" }, "@ana"],
     ["drops the approver whatever the case of the login", { acks: [], approver: "BOB" }, "@ana"],
-    ["keeps the list as it is when the approver cannot be read", { acks: [], approver: null }, "@ana, @bob"],
   ])("closing the wait early %s", async (_, options, named) => {
     const { promise, calls, printed } = run({ now: BEFORE, ...options });
     await expect(promise).resolves.toMatchObject({ tag: "v1.0.1" });
     expect(calls[1][1]).toContain(`closed the wait before 2026-11-13T12:00:00.000Z: ${named} had not answered.`);
     expect(printed).toContain(`✓ it closed the wait early: ${named} had not answered`);
+  });
+
+  it("closing the wait early when the approver cannot be read keeps the list and says so, on the issue and at the terminal", async () => {
+    const { promise, calls, printed } = run({ now: BEFORE, acks: [], approver: null });
+    await expect(promise).resolves.toMatchObject({ tag: "v1.0.1" });
+    expect(calls[1][1]).toContain("closed the wait before 2026-11-13T12:00:00.000Z: @ana, @bob had not answered (kj could not read the approver's login, so the approver may be listed).");
+    expect(printed[0]).toBe("⚠ could not read your GitHub login (gh: not logged in): the list of who had not answered may include you");
+    expect(printed).toContain("✓ it closed the wait early: @ana, @bob had not answered");
   });
 
   it("closing the wait early when only the approver was silent names no one", async () => {

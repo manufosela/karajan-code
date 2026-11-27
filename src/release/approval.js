@@ -20,7 +20,8 @@ export function renderApproval({ repo, version, issue, candidate, signature, ear
   const block = JSON.stringify({ v: 1, repo, version, issue, candidate, signature, ...(signature ? {} : { confirmed: "terminal" }) }, null, 2);
   // KJC-TSK-1658: an approval before the deadline closes the wait, and says who had not answered (HU-4987: if anyone).
   const silent = earlyClose?.silent.map((login) => "@".concat(login)).join(", ");
-  const unanswered = silent ? `: ${silent} had not answered` : "";
+  const unknown = earlyClose?.approverUnknown ? " (kj could not read the approver's login, so the approver may be listed)" : "";
+  const unanswered = silent ? `: ${silent} had not answered${unknown}` : "";
   const early = earlyClose ? ` It closed the wait before ${earlyClose.deadline}${unanswered}.` : "";
   return `Release ${version} approved at ${candidate.slice(0, 7)}, ${how}.${early}\n\n\`\`\`kj-release-approval\n${block}\n\`\`\``;
 }
