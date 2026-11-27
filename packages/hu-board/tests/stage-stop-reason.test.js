@@ -30,12 +30,21 @@ describe('waitOf', () => {
     expect(waitOf('Me paro por esperar a que las validaciones terminen.')).toBe('process');
     expect(waitOf('Me paro por esperar a que las migraciones acaben en staging.')).toBe('process');
     expect(waitOf('Me paro por esperar a que unas tareas acaben.')).toBe('process');
+    // And when the subject carries an adjective or a complement before its verb.
+    expect(waitOf('Me paro por esperar a que las pruebas unitarias terminen.')).toBe('process');
+    expect(waitOf('Me paro por esperar a que las pruebas de integración terminen.')).toBe('process');
   });
 
   it('a pronoun before the verb is still the person', () => {
     expect(waitOf('Me paro por esperar a que las revises.')).toBe('person');
     expect(waitOf('Me paro por esperar a que los firmes también.')).toBe('person');
     expect(waitOf('Me paro por esperar a que la apruebes en el móvil.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que las revises en la imagen del examen.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que los firmes, cuando acaben los tests.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que los firmes mientras llegan los documentos.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que las revises si fallan otra vez.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que las mires hasta que terminen.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que los apruebes en tu móvil y en el de Jorge cuando lleguen.')).toBe('person');
   });
 
   it('waits for a process when it waits for one to end', () => {
