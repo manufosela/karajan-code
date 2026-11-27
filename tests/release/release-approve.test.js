@@ -10,17 +10,19 @@ const AFTER = Date.parse("2026-11-13T13:00:00Z");
 const BEFORE = Date.parse("2026-11-13T10:00:00Z");
 
 /** The issue holds `acks` and `block`, read at `now`; `later` replaces any of them once the phone has signed. */
-function run({ later = {}, signature = { signer: "k" }, level = "max", ...initial } = {}) {
+function run({ later = {}, signature = { signer: "k" }, level = "max", approver = "maintainer", ...initial } = {}) {
   const calls = [];
+  const printed = [];
   const issueNow = () => ({ acks: [ack("ana", "ok"), ack("bob", "ok")], block, now: AFTER, ...initial, ...(calls.some(([kind]) => kind === "act") ? later : {}) });
   const gh = async (args) => {
+    if (args.join(" ") === "api user --jq .login") { if (approver) return `${approver}\n`; throw new Error("gh: not logged in"); }
     if (args.includes("--paginate")) return `${issueNow().acks.join("\n")}\n`;
     if (args.includes("POST")) { calls.push(["post", args.at(-3)]); return "https://gh/c/1\n"; }
     return JSON.stringify({ body: `Proposed\n\n${RELEASE_BLOCK(issueNow().block)}\n` });
   };
   const git = async (args) => { calls.push(["git", ...args]); return ""; };
   const act = async (files) => { calls.push(["act", files[0].file]); return signature; };
-  return { promise: releaseApproveCommand({ repo: "o/r", issue: 7, clock: () => issueNow().now, gh, git, act, levelOf: () => level, print: () => {} }), calls };
+  return { promise: releaseApproveCommand({ repo: "o/r", issue: 7, clock: () => issueNow().now, gh, git, act, levelOf: () => level, print: (line) => printed.push(line) }), calls, printed };
 }
 
 describe("kj release approve", () => {
@@ -52,10 +54,37 @@ describe("kj release approve", () => {
     expect(calls[1][1]).toMatch(/closed the wait before 2026-11-13T12:00:00.000Z: @bob had not answered/);
   });
 
+  // HU-4987: approving is answering, so the approver (case-insensitive) is never named as silent.
+  it.each([
+    ["names only the others who had not answered", { acks: [], approver: "bob" }, "@ana"],
+    ["drops the approver whatever the case of the login", { acks: [], approver: "BOB" }, "@ana"],
+    ["keeps the list as it is when the approver cannot be read", { acks: [], approver: null }, "@ana, @bob"],
+  ])("closing the wait early %s", async (_, options, named) => {
+    const { promise, calls, printed } = run({ now: BEFORE, ...options });
+    await expect(promise).resolves.toMatchObject({ tag: "v1.0.1" });
+    expect(calls[1][1]).toContain(`closed the wait before 2026-11-13T12:00:00.000Z: ${named} had not answered.`);
+    expect(printed).toContain(`✓ it closed the wait early: ${named} had not answered`);
+  });
+
+  it("closing the wait early when only the approver was silent names no one", async () => {
+    const { promise, calls, printed } = run({ acks: [ack("ana", "ok")], now: BEFORE, approver: "bob" });
+    await expect(promise).resolves.toMatchObject({ tag: "v1.0.1" });
+    expect(calls[1][1]).toContain("It closed the wait before 2026-11-13T12:00:00.000Z.\n");
+    expect(calls[1][1]).not.toMatch(/had not answered/);
+    expect(printed).toContain("✓ it closed the wait early");
+    expect(printed.join("\n")).not.toMatch(/had not answered/);
+  });
+
   it("past the deadline the approval names nobody as closing the wait early", async () => {
     const { promise, calls } = run({ acks: [ack("ana", "ok")] });
     await promise;
     expect(calls[1][1]).not.toMatch(/closed the wait/);
+  });
+
+  it("past the deadline the terminal says nothing of closing the wait early", async () => {
+    const { promise, printed } = run({ acks: [ack("ana", "ok")] });
+    await promise;
+    expect(printed).toEqual(["✓ signed approval of 1.0.1 posted: https://gh/c/1", "✓ tagged abc1234 as v1.0.1 and pushed it"]);
   });
 
   it.each([

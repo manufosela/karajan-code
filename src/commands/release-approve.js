@@ -31,22 +31,44 @@ async function readyProposal({ repo, issue, clock, gh }, signed) {
   return { ...proposal, earlyClose };
 }
 
+/** HU-4987: the login of the `gh` that posts the approval, or null when it cannot be read (the approval never fails for it). */
+async function approverLogin(whoAmI) {
+  try {
+    return String(await whoAmI()).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** HU-4987: approving is answering, so the approver (case-insensitive) is never named as one who had not answered. */
+function withoutApprover(earlyClose, login) {
+  if (!earlyClose || !login) return earlyClose;
+  return { ...earlyClose, silent: earlyClose.silent.filter((silent) => silent.toLowerCase() !== login.toLowerCase()) };
+}
+
+/** KJC-TSK-1658, HU-4987: the terminal line of an early close, naming who had not answered only if anyone. */
+function earlyLine({ silent }) {
+  const unanswered = silent.length > 0 ? `: ${mentions(silent)} had not answered` : "";
+  return `✓ it closed the wait early${unanswered}`;
+}
+
 /** @returns {Promise<{url: string, tag: string}>} */
-export async function releaseApproveCommand({ repo, issue, projectDir = process.cwd(), kjVersion = "unknown", clock = Date.now, gh = run("gh"), git = run("git"), act = approveAct, levelOf = (dir) => readSecurityLevel({ projectDir: dir }).level, print = console.log }) {
+export async function releaseApproveCommand({ repo, issue, projectDir = process.cwd(), kjVersion = "unknown", clock = Date.now, gh = run("gh"), whoAmI = () => gh(["api", "user", "--jq", ".login"]), git = run("git"), act = approveAct, levelOf = (dir) => readSecurityLevel({ projectDir: dir }).level, print = console.log }) {
   const { version, candidate } = await readyProposal({ repo, issue, clock, gh });
   const files = approvalFiles({ repo, version, issue, candidate });
   const signature = await act(files, { projectDir, kjVersion, summary: `approve ${repo}@${version} at ${candidate.slice(0, 7)} (issue #${issue})` });
   // KJC-TSK-1654 (ADR 0060): at critical the act stops at the terminal and the approval says so.
   if (!signature && levelOf(projectDir) !== "critical") throw new Error("release approve: the approval needs the phone's signature, and no phone signed it: enroll one with kj identity enroll-phone");
   // A hold or an edit may land, and the deadline pass, while the phone signs: judge the release again, now, before anything goes out.
-  const { earlyClose } = await readyProposal({ repo, issue, clock, gh }, { version, candidate });
+  const judged = await readyProposal({ repo, issue, clock, gh }, { version, candidate });
+  const earlyClose = withoutApprover(judged.earlyClose, judged.earlyClose ? await approverLogin(whoAmI) : null);
   const body = renderApproval({ repo, version, issue, candidate, signature, earlyClose });
   const url = String(await gh(["api", "--method", "POST", `repos/${repo}/issues/${issue}/comments`, "-f", `body=${body}`, "--jq", ".html_url"])).trim();
   const tag = `v${version}`;
   await git(["tag", tag, candidate]);
   await git(["push", "origin", tag]);
   print(`✓ ${signature ? "signed approval" : "approval confirmed at the terminal"} of ${version} posted: ${url}`);
-  if (earlyClose) print(`✓ it closed the wait early: ${mentions(earlyClose.silent)} had not answered`);
+  if (earlyClose) print(earlyLine(earlyClose));
   print(`✓ tagged ${candidate.slice(0, 7)} as ${tag} and pushed it`);
   return { url, tag };
 }
