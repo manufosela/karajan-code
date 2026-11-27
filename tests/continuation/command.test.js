@@ -10,6 +10,11 @@ let dir, transcript, errors;
 const logger = { error: (line) => errors.push(line) };
 const line = (entry) => JSON.stringify(entry);
 const toolResult = (text) => ({ type: "user", message: { content: [{ type: "tool_result", content: text }] } });
+// A Bash call and its result, paired by id as the transcript writes them.
+const bash = (id, command, text) => [
+  { type: "assistant", message: { content: [{ type: "tool_use", id, name: "Bash", input: { command } }] } },
+  { type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content: text }] } },
+];
 const said = (text) => ({ type: "assistant", message: { content: [{ type: "text", text }] } });
 const write = (...entries) => writeFileSync(transcript, entries.map(line).join("\n"));
 const gate = (mode, handoffs = []) => continuationGateCommand({ flags: { transcript }, config: { projectDir: dir, method_gates: mode ? { continuation: mode } : {} }, logger, handoffsFn: () => handoffs, whoFn: () => "me" });
@@ -44,6 +49,19 @@ describe("kj continuation gate", () => {
     write(toolResult("✓ HU created: HU-7 (pending)"), said("Me paro por esperar tu sello."));
     expect(await gate(null, [{ status: "pending" }])).toBe(0);
     expect(await gate(null, [{ status: "done" }])).toBe(2);
+  });
+  // KJC-BUG-0680: the command behind each output says whether its card lines are the session's.
+  it.each(["npx vitest run", "kj hu list && npx vitest run"])("does not hold for the card lines a test run prints (%s)", async (command) => {
+    write(...bash("t1", command, "✓ HU created: HU-7 (pending)"), said("Hecho."));
+    expect(await gate()).toBe(0);
+  });
+  it("holds for a card kj hu add created, until kj hu move settles it", async () => {
+    const added = bash("t1", 'kj hu add "x" --ref Y', "✓ HU created: HU-4978 (pending) in the shared board");
+    write(...added, said("Hecho."));
+    expect(await gate()).toBe(2);
+    expect(errors.join("\n")).toMatch(/HU-4978/);
+    write(...added, ...bash("t2", "kj hu move HU-4978 done 2>&1 | tail -1", "✓ HU-4978 → done"), said("Hecho."));
+    expect(await gate()).toBe(0);
   });
   // KJC-BUG-0677 (#4851): the hold's own feedback must not hide the stated stop.
   it("does not hold again when only the hook feedback follows the stated stop", async () => {
