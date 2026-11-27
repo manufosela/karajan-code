@@ -8,20 +8,24 @@ import { execFileSync } from "node:child_process";
 import { basename } from "node:path";
 
 import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
+import { AI_RULES } from "./loc-budget.js";
 
 const run = (cwd, args) => execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
 
 /**
  * @param {string[]} files repo-relative paths
- * @param {{cwd?: string, cached?: boolean, runner?: (cwd: string, args: string[]) => string, warn?: (msg: string) => void}} [opts]
- *   `cached` reads the staged index's attributes (the pre-commit path).
+ * @param {{cwd?: string, cached?: boolean, source?: string, runner?: (cwd: string, args: string[]) => string, warn?: (msg: string) => void}} [opts]
+ *   `cached` reads the staged index's attributes (the pre-commit path); `source`
+ *   reads those of that tree (git >= 2.40; an older git fails and exempts nothing).
  * @returns {Set<string>} the files whose linguist-generated is set or true
  */
-export function linguistGenerated(files, { cwd = process.cwd(), cached = false, runner = run, warn = (msg) => process.stderr.write(`${msg}\n`) } = {}) {
+export function linguistGenerated(files, { cwd = process.cwd(), cached = false, source, runner = run, warn = (msg) => process.stderr.write(`${msg}\n`) } = {}) {
   const generated = new Set();
   if (!files?.length) return generated;
+  const cachedFlag = cached ? ["--cached"] : [];
+  const from = source ? ["--source", source] : cachedFlag;
   try {
-    const out = runner(cwd, ["check-attr", ...(cached ? ["--cached"] : []), "-z", "linguist-generated", "--", ...files]);
+    const out = runner(cwd, ["check-attr", ...from, "-z", "linguist-generated", "--", ...files]);
     const parts = out.split("\0");
     // Triplets: path NUL attribute NUL value NUL.
     for (let i = 0; i + 2 < parts.length; i += 3) {
@@ -32,6 +36,23 @@ export function linguistGenerated(files, { cwd = process.cwd(), cached = false, 
     return new Set();
   }
   return generated;
+}
+
+// An allow-list, not a code list: an extension nobody thought of (SQL, CSS, HTML) must stay visible.
+const DATA_FILE = /\.(?:json|jsonl|ndjson|geojson|csv|tsv|txt)$/i;
+
+// Only data may be summarized, and never AI rules (at any depth) or kj's own configs.
+const alwaysShown = (file) => !DATA_FILE.test(file) || GENERATED_CONFIG_FILES.has(basename(file))
+  || AI_RULES.some((re) => re.test(file) || re.test(basename(file)));
+
+/**
+ * HU-4976: what the reviewer prompt may summarize on the repo's word. Only the
+ * BASE tree's attributes count, so a diff cannot hide its own files.
+ * @returns {string[]}
+ */
+export function generatedForPrompt(files, { base, ...opts } = {}) {
+  if (!base) return [];
+  return [...linguistGenerated((files ?? []).filter((f) => !alwaysShown(f)), { ...opts, source: base })];
 }
 
 // kj's marker lines: a comment holding only the marker, with nothing of code before it.

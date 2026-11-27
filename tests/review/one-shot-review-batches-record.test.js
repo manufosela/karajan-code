@@ -35,10 +35,32 @@ describe("the batched verdict record (HU-4907)", () => {
     expect(record.reviewer).toBe("codex");
     expect(record.issues).toEqual([{
       id: "unreviewed-1", severity: "high", category: "correctness", file: "src/huge.js", line: 1,
-      description: "src/huge.js is larger than one reviewer prompt: kj could not show it to the reviewer, so it is not reviewed. Split the change.",
+      description: "src/huge.js has a change larger than one reviewer prompt: kj could not show it to the reviewer, so it is not reviewed. Split the change.",
       suggested_fix: "Split the change so each file's diff fits one prompt.",
     }]);
     expect(record.unanchored).toEqual([]);
     expect(logger.info).toHaveBeenCalledWith(expect.stringMatching(/reviewed whole in 1 batch/));
+  });
+
+  // HU-4976 (#4947): a file left out by the batch cap is not "too large".
+  it("says a file left out by the batch cap did not fit, not that it is too large", async () => {
+    const filler = (i) => `diff --git a/src/f${i}.js b/src/f${i}.js\n--- /dev/null\n+++ b/src/f${i}.js\n@@ -0,0 +1 @@\n+${"y".repeat(DIFF_CLIP_CHARS - 200)}`;
+    const diff = Array.from({ length: MAX_REVIEW_BATCHES + 1 }, (_, i) => filler(i)).join("\n");
+    const record = await review(diff, agent());
+    expect(record.issues).toHaveLength(1);
+    expect(record.issues[0].description).toContain(`was left out: the diff needs more than ${MAX_REVIEW_BATCHES} reviewer prompts`);
+    expect(record.issues[0].description).not.toContain("larger than one reviewer prompt");
+    expect(record.issues[0].description).toContain("or mark data files (not code) as linguist-generated in .gitattributes on the base branch, in a PR of its own, so the reviewer gets a summary.");
+    expect(record.issues[0].suggested_fix).toContain("linguist-generated");
+  });
+
+  it("shows a file the repo marks generated as one summary line (HU-4976)", async () => {
+    const reviewer = agent();
+    await runOneShotReview({
+      diff: huge, generated: ["src/huge.js"], config, projectDir: dir, hostAgent: "claude",
+      createAgentFn: () => reviewer, detectAgents: async () => [{ name: "codex", available: true }],
+    });
+    expect(reviewer.reviewTask).toHaveBeenCalledTimes(1);
+    expect(reviewer.reviewTask.mock.calls[0][0].prompt).toContain("src/huge.js: generated file, +1 -0 lines");
   });
 });

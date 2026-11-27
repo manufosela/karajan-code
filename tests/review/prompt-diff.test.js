@@ -26,6 +26,15 @@ describe("summarizeGeneratedFiles", () => {
     expect(out.length).toBeLessThan(diff.length / 10);
   });
 
+  // HU-4976 (#4947): data the repo marks linguist-generated is summarized too.
+  it("summarizes a file the caller passes as generated and leaves the others whole", () => {
+    const code = section("src/a.js", 2, 0);
+    const out = summarizeGeneratedFiles([section("data/big.json", 40, 1), code].join("\n"), new Set(["data/big.json"]));
+    expect(out).toContain("data/big.json: generated file, +40 -1 lines, contents left out of this prompt");
+    expect(out).not.toContain("+added 39");
+    expect(out.endsWith(code)).toBe(true);
+  });
+
   it("leaves a diff with no generated file exactly as it was", () => {
     const diff = [section("src/a.js", 3, 1), section("README.md", 2, 0)].join("\n");
     expect(summarizeGeneratedFiles(diff)).toBe(diff);
