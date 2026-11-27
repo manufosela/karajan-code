@@ -49,7 +49,7 @@ const EXEMPT = [
 ];
 
 // The exceptions to the exception: these ARE the agent's context.
-const AI_RULES = [/^CLAUDE\.md$/, /^AGENTS\.md$/, /^GEMINI\.md$/, /(^|\/)templates\//];
+export const AI_RULES = [/^CLAUDE\.md$/, /^AGENTS\.md$/, /^GEMINI\.md$/, /(^|\/)templates\//];
 
 /** Whether nobody typed this file (lockfile, build output, snapshot...). */
 export function isGenerated(file) {

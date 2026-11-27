@@ -27,7 +27,7 @@ import { liftSealedSupervisorViolations } from "../policy/supervisor-verify.js";
 import { sealBase } from "../harden/critical-seal.js";
 import { SIGNERS_FILE, verifyRosterChange } from "../harden/roster.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
-import { generatedFiles } from "../review/linguist-generated.js";
+import { generatedFiles, generatedForPrompt } from "../review/linguist-generated.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { isGeneratedPath, splitAddedByFile } from "../privacy/diff-scope.js";
 import { budgetedAdded, budgetedNet, movedLines, showSpec } from "../review/loc-budget.js";
@@ -781,7 +781,8 @@ async function runReviewGate({ config, logger = null, flags = {} }) {
   const { rejection: policyRejection, gate, seal } = await policyGate({ projectDir, diff, pol, changedFiles, std, range: flags.range, check: flags.check, generated });
   if (policyRejection) return policyRejection;
   // HU-4746: the Sonar layout of the BASE branch, read once (never the staged or working copy).
-  const layout = await readBaseSonarLayout({ cwd: projectDir, base: `origin/${baseBranchFrom({ config, projectDir, announce: false })}` });
+  const baseRef = `origin/${baseBranchFrom({ config, projectDir, announce: false })}`;
+  const layout = await readBaseSonarLayout({ cwd: projectDir, base: baseRef });
   if (flags.check) return checkPath({ projectDir, config, diff, range: flags.range, liveFiles, std, gate, seal, generated, layout });
 
   // KJC-TSK-1257: the review path's gates in their order; each may reject, and what they found
@@ -812,7 +813,8 @@ async function runReviewGate({ config, logger = null, flags = {} }) {
   if (cooldown.rejection) return recorded(cooldown.rejection);
   const task = [sonar.note, rag.note, mutation.note, diffTests.note, cooldown.note].reduce(withNote, flags.task);
 
-  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonar.record, rag: rag.record, ui: uiRecord });
+  const summarized = generatedForPrompt(changedFiles, { cwd: projectDir, base: baseRef });
+  const record = await runOneShotReview({ diff, task, config, logger, projectDir, sonar: sonar.record, rag: rag.record, ui: uiRecord, generated: summarized });
   printVerdict(record, record.verdict === "approved" ? await reviewCorrectionRounds(projectDir, record) : 0);
   process.exitCode = record.verdict === "approved" ? 0 : 1;
   return record;

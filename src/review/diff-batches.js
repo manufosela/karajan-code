@@ -70,7 +70,7 @@ export function batchDiff(diff, { limit, maxBatches }) {
   const parts = splitByFile(diff);
   const batches = [];
   const left = [];
-  for (const piece of parts.flatMap((part) => piecesOf(part, limit))) {
+  for (const piece of packingOrder(parts, limit)) {
     const last = batches.at(-1);
     if (piece.text.length > limit) left.push(piece);
     else if (last && last.text.length + 1 + piece.text.length <= limit) last.add(piece);
@@ -87,9 +87,23 @@ export function batchDiff(diff, { limit, maxBatches }) {
       files: { reviewed: parts.length - missing.size, total: parts.length },
       lines: { reviewed: reviewedLines, total: reviewedLines + sum(left) },
       truncated: missing.size > 0,
-      unreviewed: [...missing],
+      unreviewed: parts.map((p) => p.file).filter((f) => missing.has(f)),
+      ...(missing.size > 0 && { unreviewedReasons: reasonsOf(left, limit) }),
     },
   };
+}
+
+/** HU-4976: files that fit whole go first, smallest first, so a cut file never takes their place under the cap. */
+function packingOrder(parts, limit) {
+  const fits = (part) => part.text.length <= limit;
+  const whole = parts.filter(fits).toSorted((a, b) => a.text.length - b.text.length);
+  return [...whole, ...parts.filter((p) => !fits(p)).flatMap((p) => piecesOf(p, limit))];
+}
+
+/** Why each file was left out: a piece no prompt can hold, or no room under the batch cap. */
+function reasonsOf(left, limit) {
+  const tooLarge = new Set(left.filter((p) => p.text.length > limit).map((p) => p.file));
+  return Object.fromEntries(left.map((p) => [p.file, tooLarge.has(p.file) ? "too-large" : "batch-cap"]));
 }
 
 /**

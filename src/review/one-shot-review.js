@@ -108,6 +108,8 @@ export async function runOneShotReview({
   skills = null,
   // HU-4032: what the reviewer reads when it is less than the diff; the verdict still binds to the whole diff.
   shown = null,
+  // HU-4976: data the BASE branch marks generated; one summary line each in the prompt.
+  generated = [],
   // HU-4524: which agent acted as reviewer, for kj stage.
   recordActive = recordRoleActing,
 }) {
@@ -126,7 +128,7 @@ export async function runOneShotReview({
   // KJC-TSK-1380 (#3207): facts computed without a model; the reviewer starts from them.
   const facts = diffFacts(diff, { readFile: (p) => readFileSync(join(projectDir || process.cwd(), p), "utf8") });
   // KJC-BUG-0347: generated files summarized; the verdict still binds to the full diff.
-  const shownText = summarizeGeneratedFiles(shown ?? diff);
+  const shownText = summarizeGeneratedFiles(shown ?? diff, generated);
   const attempt = async (who, cfg = config, note = "", text = shownText, batch = null) => {
     const prompt = await buildReviewerPrompt({
       task: task || "Review the following diff for correctness, security and maintainability.",
@@ -212,10 +214,21 @@ function factsBlockFor(facts, batch) {
   return formatDiffFacts(facts.filter((f) => !f.file || batch.files.includes(f.file)), note);
 }
 
-const unreviewedIssue = (file, n) => ({
+// HU-4976: what is said of a file left out follows why it was left out.
+const UNREVIEWED = {
+  "too-large": (file) => ({
+    description: `${file} has a change larger than one reviewer prompt: kj could not show it to the reviewer, so it is not reviewed. Split the change.`,
+    suggested_fix: "Split the change so each file's diff fits one prompt.",
+  }),
+  "batch-cap": (file) => ({
+    description: `${file} was left out: the diff needs more than ${MAX_REVIEW_BATCHES} reviewer prompts and this file did not fit in them, so it is not reviewed. Split the change into smaller PRs, or mark data files (not code) as linguist-generated in .gitattributes on the base branch, in a PR of its own, so the reviewer gets a summary.`,
+    suggested_fix: "Split the change into smaller PRs, or mark data files linguist-generated in .gitattributes.",
+  }),
+};
+
+const unreviewedIssue = (file, n, reason) => ({
   id: `unreviewed-${n + 1}`, severity: "high", category: "correctness", file, line: 1,
-  description: `${file} is larger than one reviewer prompt: kj could not show it to the reviewer, so it is not reviewed. Split the change.`,
-  suggested_fix: "Split the change so each file's diff fits one prompt.",
+  ...UNREVIEWED[reason](file),
 });
 
 const minConfidence = (values) => {
@@ -225,7 +238,7 @@ const minConfidence = (values) => {
 
 /** One verdict from every batch: approved only when each batch is and no file was left out. */
 function mergeBatches(results, coverage, reviewer) {
-  const unreviewed = coverage.unreviewed.map(unreviewedIssue);
+  const unreviewed = coverage.unreviewed.map((file, n) => unreviewedIssue(file, n, coverage.unreviewedReasons[file]));
   const verdicts = results.map((r) => r.parsed);
   const parsed = {
     approved: verdicts.every((v) => v.approved) && !coverage.truncated,

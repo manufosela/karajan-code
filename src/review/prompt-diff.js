@@ -9,13 +9,18 @@ import { isGenerated } from "./loc-budget.js";
 
 const HEADER = /^diff --git a\/(.+?) b\/(.+)$/;
 
-/** @param {string} diff unified diff @returns {string} */
-export function summarizeGeneratedFiles(diff) {
+/**
+ * @param {string} diff unified diff
+ * @param {Iterable<string>} [extra] more files to summarize: what the repo marks generated (HU-4976)
+ * @returns {string}
+ */
+export function summarizeGeneratedFiles(diff, extra = []) {
+  const marked = new Set(extra);
   const sections = String(diff).split(/(?=^diff --git )/m);
   let changed = false;
   const out = sections.map((sec) => {
     const file = sec.split("\n", 1)[0].match(HEADER)?.[2];
-    if (!file || !isGenerated(file)) return sec;
+    if (!file || !(isGenerated(file) || marked.has(file))) return sec;
     changed = true;
     const lines = sec.split("\n");
     const added = lines.filter((l) => l.startsWith("+") && !l.startsWith("+++")).length;

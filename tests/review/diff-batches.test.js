@@ -2,7 +2,7 @@
 // The diff is split by file and grouped into batches that fit, and what does not
 // fit is counted, so the review can say what it covered.
 import { describe, it, expect } from "vitest";
-import { batchDiff, splitByFile } from "../../src/review/diff-batches.js";
+import { batchDiff, splitByFile, MAX_REVIEW_BATCHES } from "../../src/review/diff-batches.js";
 
 const fileDiff = (name, changed) => [
   `diff --git a/${name} b/${name}`, `--- a/${name}`, `+++ b/${name}`, "@@ -1,1 +1,1 @@",
@@ -67,6 +67,22 @@ describe("batchDiff", () => {
     const { batches, coverage } = batchDiff(diff, { limit, maxBatches: 10 });
     for (const b of batches) expect(b.text.length).toBeLessThanOrEqual(limit);
     expect(coverage).toMatchObject({ truncated: true, unreviewed: ["min.js"], lines: { reviewed: 2, total: 3 } });
+  });
+
+  // HU-4976 (#4947): the big file's pieces filled the cap and the 2-line file after it was left out.
+  it("packs the files that fit whole first, so the cap never leaves them out behind a cut file", () => {
+    const diff = `${fileDiff("data.json", 600)}\n${fileDiff("state.json", 2)}`;
+    const { batches, coverage } = batchDiff(diff, { limit: 400, maxBatches: MAX_REVIEW_BATCHES });
+    expect(batches).toHaveLength(MAX_REVIEW_BATCHES);
+    expect(batches[0].files).toContain("state.json");
+    expect(coverage.unreviewed).toEqual(["data.json"]);
+    expect(coverage.unreviewedReasons).toEqual({ "data.json": "batch-cap" });
+  });
+
+  it("says a file with a line no prompt can hold is too large", () => {
+    const diff = ["diff --git a/min.js b/min.js", "--- /dev/null", "+++ b/min.js", "@@ -0,0 +1 @@", `+${"x".repeat(400)}`].join("\n");
+    const { coverage } = batchDiff(diff, { limit: 400, maxBatches: 10 });
+    expect(coverage.unreviewedReasons).toEqual({ "min.js": "too-large" });
   });
 
   it("leaves out a file larger than the limit, and files past the batch cap, and says which", () => {
