@@ -45,6 +45,12 @@ describe("kj continuation gate", () => {
     expect(await gate(null, [{ status: "pending" }])).toBe(0);
     expect(await gate(null, [{ status: "done" }])).toBe(2);
   });
+  // KJC-BUG-0677 (#4851): the hold's own feedback must not hide the stated stop.
+  it("does not hold again when only the hook feedback follows the stated stop", async () => {
+    const feedback = { type: "user", isMeta: true, message: { content: "Stop hook feedback:\nkj continuation: retenido" } };
+    write({ type: "user", message: { content: "haz las HUs" } }, toolResult("✓ HU created: HU-7 (pending)"), said("Me paro por esperar el encargo del sello."), feedback);
+    expect(await gate(null, [{ status: "pending" }])).toBe(0);
+  });
   // KJC-BUG-0622 (#4478): a card the board has closed, or someone else holds, does not hold the turn.
   it("lets the turn end when the board has done the session's card", async () => {
     await mirror({ status: "done" });

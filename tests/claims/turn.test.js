@@ -57,6 +57,15 @@ describe("reading a turn", () => {
     expect(readTurn(file).text).toBe("informe final");
   });
 
+  // KJC-BUG-0677: the Stop hook's message is the machine talking, not a new turn.
+  it("a Stop hook feedback does not start a turn: what was said before it is still found", () => {
+    const feedback = { type: "user", isMeta: true, hookText: "x", message: { role: "user", content: "Stop hook feedback:\n- retenido" } };
+    write([user("sigue"), says("Me paro por X"), feedback]);
+    expect(readTurn(file)).toMatchObject({ text: "Me paro por X", userSaid: "sigue" });
+    write([user("sigue"), says("A"), feedback, says("B")]);
+    expect(readTurn(file).text).toBe("B");
+  });
+
   it("a half-written line does not throw: a partial transcript is still readable", () => {
     fs.writeFileSync(file, `${JSON.stringify(user("hola"))}\n{"type":"assist`);
     expect(readTurn(file)).toMatchObject({ userSaid: "hola", text: "", outputs: [] });

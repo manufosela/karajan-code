@@ -58,6 +58,29 @@ describe("the pending handoffs", () => {
     expect(blockingDeny(pending, "Bash", { command: "kj handoff done a" })).toBeNull();
     expect(blockingDeny(pending, "Bash", { command: "kj handoff done a && npm test" })).toMatch(/BLOQUEANTE/);
   });
+
+  it("takes kj handoff as a single line: nothing rides on a second one", () => {
+    const deny = (command) => blockingDeny([{ id: "a", command: "x", blocking: true }], "Bash", { command });
+    expect(deny("kj handoff done ab12cd34")).toBeNull();
+    const twoLines = ["kj handoff done ab12cd34\ngit push", "kj handoff done ab12cd34\r\ngit push", "kj handoff\ngit push", "kj\nhandoff done ab12cd34", "\nkj handoff done ab12cd34"];
+    for (const command of twoLines) expect(deny(command)).toMatch(/BLOQUEANTE/);
+  });
+});
+
+// KJC-BUG-0677 (#4851): waiting takes looking; a blocking handoff must not forbid reading.
+describe("waiting on a blocking handoff", () => {
+  const pending = [{ id: "a", command: "kj harden --commit", blocking: true }];
+  const deny = (command) => blockingDeny(pending, "Bash", { command });
+  const checks = ["gh", "pr", "checks", "12"].join(" ");
+
+  it("lets the commands that only read through", () => {
+    for (const command of ["cat notes.md | grep x", checks, `${checks} --watch`, "kj review --help"]) expect(deny(command)).toBeNull();
+  });
+
+  it("still denies what acts, also behind or after a read", () => {
+    const acting = ["git commit -m x", `${checks} && git push`, `${checks}\ngit push`, `${checks} > a.js`, `${checks} $(npm test)`, "kj review --help; npm test", "kj review --staged", "cat a > b"];
+    for (const command of acting) expect(deny(command)).toMatch(/BLOQUEANTE/);
+  });
 });
 
 describe("the hooks", () => {

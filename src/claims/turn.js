@@ -7,6 +7,7 @@
  *
  * A turn = from the user's last real message to the end. A "user" entry whose
  * content is a tool_result is NOT the user talking: it is the machine answering.
+ * Neither is an `isMeta` one, such as the Stop hook feedback (KJC-BUG-0677).
  */
 import { readFileSync } from "node:fs";
 
@@ -36,7 +37,7 @@ export function readEntries(path) {
  */
 export function readTurn(path) {
   const entries = readEntries(path);
-  const startedAt = entries.findLastIndex((e) => e.type === "user" && !isToolResult(e));
+  const startedAt = entries.findLastIndex((e) => e.type === "user" && e.isMeta !== true && !isToolResult(e));
   const turn = startedAt >= 0 ? entries.slice(startedAt) : entries;
 
   const userSaid = startedAt >= 0 ? textOf(entries[startedAt]?.message?.content) : "";
