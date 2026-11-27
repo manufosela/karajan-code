@@ -64,7 +64,7 @@ Dentro de la sesión no hay escape (ADR 0015). Una decisión que es del proyecto
 
 ## Qué no hace
 
-- **No juzga el código.** Comprueba el método (card, rama, revisión, tests tocados). Si el código está bien es cosa de la [revisión cruzada](/docs/es/v4/gates/).
+- **No juzga el código.** Comprueba el método (card, rama, revisión, tests tocados). Si el código está bien es cosa de la [revisión cruzada](/docs/es/pieces/cross-review/).
 - **No ejecuta tus tests** al terminar el turno, ni lee las revisiones.
 - **No funciona fuera de Claude Code.** Codex y Gemini CLI reciben las mismas reglas en `AGENTS.md`, y los hooks de git y el CI se les aplican, pero no el Sentinel.
 - **No protege un repositorio de alguien sin kj.** En la máquina de un compañero sin kj nada le para en local; en la pull request, el CI sí.

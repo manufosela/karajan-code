@@ -1,14 +1,15 @@
-// HU-4954: the pieces section (index, Sentinel, ledger) exists in both languages and has its sidebar group.
+// HU-4954, HU-4956: the pieces section (index, Sentinel, ledger, quality, cross review, Steward)
+// exists in both languages and has its sidebar group.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const docs = (rel) => readFileSync(fileURLToPath(new URL(`../../apps/landing/docs/${rel}`, import.meta.url)), "utf8");
-const SLUGS = ["pieces", "pieces/sentinel", "pieces/ledger"];
-const FILES = ["pieces/index", "pieces/sentinel", "pieces/ledger"];
+const SLUGS = ["pieces", "pieces/sentinel", "pieces/ledger", "pieces/quality", "pieces/cross-review", "pieces/steward"];
+const FILES = ["pieces/index", "pieces/sentinel", "pieces/ledger", "pieces/quality", "pieces/cross-review", "pieces/steward"];
 const LANGS = ["", "es/"];
 
-describe("pieces docs, HU-4954", () => {
+describe("pieces docs, HU-4954, HU-4956", () => {
   for (const lang of LANGS) {
     for (const file of FILES) {
       it(`${lang || "en/"}${file} exists, has a title and no em dashes`, () => {
@@ -19,7 +20,7 @@ describe("pieces docs, HU-4954", () => {
     }
   }
 
-  it("the sidebar lists the three slugs with a Spanish translation", () => {
+  it("the sidebar lists every slug with a Spanish translation", () => {
     const lines = docs("astro.config.mjs").split("\n");
     for (const slug of SLUGS) {
       const line = lines.find((l) => l.includes(`slug: '${slug}'`));
