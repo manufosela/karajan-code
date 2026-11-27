@@ -27,13 +27,16 @@ const blocksOf = (bodies) => bodies.flatMap((body) => [...String(body ?? "").mat
   try { return [JSON.parse(m[1])]; } catch { return []; }
 }));
 
+/** The exception blocks among the PR's comments that name this PR, whatever head they were signed for. Unverified. */
+export const exceptionsFor = ({ bodies, repo, pr }) => blocksOf(bodies).filter((b) => b?.repo === repo && b.pr === pr);
+
 /**
  * The first exception among the PR's comments that covers this PR and head and is signed by a
  * key of the roster (HU-4014: or by one of its live `passkeys`, named by its credential).
  * @returns {{ok: true, why: string, signer: string} | {ok: false, reason: string}}
  */
 export function findValidException({ bodies, repo, pr, head, keys, passkeys = [] }) {
-  const blocks = blocksOf(bodies).filter((b) => b.repo === repo && b.pr === pr && b.head === head);
+  const blocks = exceptionsFor({ bodies, repo, pr }).filter((b) => b.head === head);
   if (blocks.length === 0) return { ok: false, reason: `no signed exception for #${pr} at ${head.slice(0, 7)}` };
   let reason = "";
   for (const block of blocks) {

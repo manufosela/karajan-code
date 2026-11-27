@@ -76,10 +76,10 @@ export const isPhoneEnrolled = ({ home } = {}) => existsSync(phoneKeyPath(home))
 export const readEnrolledKey = ({ home } = {}) =>
   JSON.parse(readFileSync(phoneKeyPath(home), "utf8")).publicKey;
 
-/** Live entries of the repo roster (or [] if none). HU-3987: a key with ANY revoked entry is not live. */
-function liveSigners(projectDir) {
+/** Live entries of a roster document (or [] if unparseable). HU-3987: a key with ANY revoked entry is not live. */
+function liveSigners(text) {
   try {
-    const doc = JSON.parse(readFileSync(signersPath(projectDir), "utf8"));
+    const doc = JSON.parse(text);
     // KJC-TSK-0999 (HUM-B2): a phone replaced with the recovery code is revoked and signs no more.
     const signers = Array.isArray(doc?.signers) ? doc.signers.filter(Boolean) : [];
     const revoked = new Set(signers.filter((s) => s.revoked).map((s) => s.publicKey));
@@ -89,14 +89,32 @@ function liveSigners(projectDir) {
   }
 }
 
-/** Claves públicas ed25519 del padrón versionado del repo (o [] si no hay). HU-3919: an entry with a `type` is not one. */
-export const readSigners = ({ projectDir } = {}) =>
-  liveSigners(projectDir).filter((s) => s.type === undefined).map((s) => s.publicKey).filter(Boolean);
+/**
+ * HU-4969: the live signers of a roster document given as text, wherever it was read from.
+ * HU-3919 (ADR 0053): an entry with no `type` is an ed25519 key; `webauthn` is a passkey, as `verifyWebAuthnAssertion` takes it.
+ */
+export function rosterFromText(text) {
+  const live = liveSigners(text);
+  return {
+    keys: live.filter((s) => s.type === undefined).map((s) => s.publicKey).filter(Boolean),
+    passkeys: live.filter((s) => s.type === "webauthn")
+      .map(({ credentialId, publicKey, alg, label }) => ({ credentialId, publicKey, alg, label: label ?? null })),
+  };
+}
 
-/** HU-3919 (ADR 0053): the roster's live passkeys, as `verifyWebAuthnAssertion` takes them. */
-export const readPasskeyCredentials = ({ projectDir } = {}) =>
-  liveSigners(projectDir).filter((s) => s.type === "webauthn")
-    .map(({ credentialId, publicKey, alg, label }) => ({ credentialId, publicKey, alg, label: label ?? null }));
+/** The repo's working-tree roster (no keys, no passkeys if there is none). */
+function workingTreeRoster(projectDir) {
+  const path = signersPath(projectDir);
+  let text = "";
+  try { text = readFileSync(path, "utf8"); } catch { /* no roster in this repo */ }
+  return rosterFromText(text);
+}
+
+/** Claves públicas ed25519 del padrón versionado del repo (o [] si no hay). */
+export const readSigners = ({ projectDir } = {}) => workingTreeRoster(projectDir).keys;
+
+/** HU-3919 (ADR 0053): the roster's live passkeys. */
+export const readPasskeyCredentials = ({ projectDir } = {}) => workingTreeRoster(projectDir).passkeys;
 
 /**
  * Conjunto de claves AUTORIZADAS a sellar: el padrón del repo ∪ la clave legacy

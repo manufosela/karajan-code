@@ -730,12 +730,13 @@ export function registerMeta(program, { pkgVersion }) {
 
   // KJC-BUG-0494: the Sentinel asks before every gh pr merge; exit 2 means the PR's checks say no.
   program.command("merge-gate")
-    .description("Whether a gh pr merge command may run now: exit 2, with the reason, while the PR's checks run or are red")
+    .description("Whether a gh pr merge command may run now: exit 2, with the reason, while the PR's checks run or are red without a signed main-guard exception")
     .requiredOption("--for-command <cmd>", "The shell command about to run")
     .action((flags) => {
       let verdict;
       try { verdict = mergeGate({ command: flags.forCommand, run: runCommand }); }
       catch (err) { verdict = { ok: false, reason: `could not read the PR's checks: ${err.message}` }; }
+      if (verdict.note) console.error(`merge-gate: ${verdict.note}`);
       if (!verdict.ok) {
         console.error(`merge-gate: ${verdict.reason}`);
         process.exitCode = 2;
