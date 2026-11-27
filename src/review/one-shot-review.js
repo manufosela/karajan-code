@@ -31,22 +31,38 @@ import { projectFileReader, splitFindings, unanchoredNote } from "./unanchored-f
 import { DIFF_CLIP_CHARS } from "../prompts/diff-clip.js";
 import { batchDiff, MAX_REVIEW_BATCHES } from "./diff-batches.js";
 
-// Cross-AI preference when the configured reviewer IS the host.
+// Cross-AI preference when the configured reviewer IS the host or the panel coder.
 const CROSS_ORDER = ["codex", "claude", "gemini", "opencode", "aider"];
 
+// HU-4990: whose work is under review: the host's and the panel coder's (kj code).
+const authorsOf = (config, hostAgent) => [hostAgent, resolveRole(config, "coder").provider].filter(Boolean);
+
 /**
- * Pick a reviewer that is NOT the host agent.
+ * Pick a reviewer that is NOT the host agent nor the panel coder.
  * @returns {Promise<string|null>} provider name, or null if none exists.
  */
-export async function pickCrossReviewer({ config, hostAgent, detectAgents = detectAvailableAgents }) {
+export async function pickCrossReviewer({ config, hostAgent, logger, detectAgents = detectAvailableAgents }) {
   const configured = resolveRole(config, "reviewer").provider;
-  if (configured && configured !== hostAgent) return configured;
+  const authors = authorsOf(config, hostAgent);
+  if (configured && !authors.includes(configured)) return configured;
 
   const agents = await detectAgents();
   const candidates = agents
-    .filter((a) => a.available && a.name !== hostAgent)
+    .filter((a) => a.available && !authors.includes(a.name))
     .map((a) => a.name);
-  return CROSS_ORDER.find((name) => candidates.includes(name)) || candidates[0] || null;
+  const picked = CROSS_ORDER.find((name) => candidates.includes(name)) || candidates[0] || null;
+  if (configured && picked) {
+    const author = configured === hostAgent ? "host" : "panel coder";
+    logger?.warn?.(`⚠ reviewer ${configured} is also the ${author}: kj uses ${picked} so no agent reviews its own work`);
+  }
+  return picked;
+}
+
+function noCrossReviewerMessage(config, hostAgent = "unknown") {
+  const coder = resolveRole(config, "coder").provider;
+  if (!coder) return `cross-AI review requires an agent other than the host (${hostAgent}) — install codex, claude or another supported CLI`;
+  return `cross-AI review needs an agent other than the host (${hostAgent}) and the panel coder (${coder}): ` +
+    `install another supported CLI (${CROSS_ORDER.join(", ")}) or set roles.reviewer.provider to one`;
 }
 
 const needsQuotaFailover = (result, config) =>
@@ -61,16 +77,17 @@ const onlyUnanchored = (split) => split.blocking.length === 0 && split.unanchore
 
 // KJC-TSK-0730 — quota failover: exhausted quota is not a review failure,
 // it is a provider outage. One retry with an authenticated candidate
-// (loud notice, never silent), or an actionable menu. Never the host:
-// the brain does not review itself. HU-4837: asked again from a fallback,
-// the declared reviewer is already known out of quota, so it is skipped too.
+// (loud notice, never silent), or an actionable menu. Never the host nor
+// the panel coder: no agent reviews its own work. HU-4837: asked again from a
+// fallback, the declared reviewer is already known out of quota, so it is skipped too.
 async function quotaFailover({ reviewer, declared = reviewer, hostAgent, config, logger, candidateStatusFn, attempt }) {
   const statuses = await candidateStatusFn();
-  const fallback = pickQuotaFallback(statuses, { exclude: [reviewer, declared, hostAgent].filter(Boolean) });
+  const authors = authorsOf(config, hostAgent);
+  const fallback = pickQuotaFallback(statuses, { exclude: [reviewer, declared, ...authors].filter(Boolean) });
   if (!fallback) {
     throw new Error(
       `reviewer ${reviewer} sin cuota y ningún candidato autenticado con adaptador.\n` +
-      formatCandidateMenu(statuses, { exclude: [hostAgent].filter(Boolean) })
+      formatCandidateMenu(statuses, { exclude: authors })
     );
   }
   logger?.warn?.(
@@ -117,12 +134,10 @@ export async function runOneShotReview({
     throw new Error("nothing to review — the diff is empty (stage your changes or pass --range)");
   }
 
-  const reviewer = reviewerOverride || await pickCrossReviewer({ config, hostAgent, detectAgents });
-  if (!reviewer) {
-    throw new Error(
-      `cross-AI review requires an agent other than the host (${hostAgent || "unknown"}) — install codex, claude or another supported CLI`
-    );
-  }
+  // The override skips the author check on purpose: third-party reviews only (KJC-TSK-1075), never stored, so it unlocks no commit.
+  const reviewer = reviewerOverride || await pickCrossReviewer({ config, hostAgent, logger, detectAgents });
+  // detectHostAgent() answers null, which would not trigger the default parameter.
+  if (!reviewer) throw new Error(noCrossReviewerMessage(config, hostAgent || undefined));
 
   const { rules } = await resolveReviewProfile({ mode: "standard", projectDir });
   // KJC-TSK-1380 (#3207): facts computed without a model; the reviewer starts from them.
