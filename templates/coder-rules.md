@@ -6,16 +6,18 @@
 - When adding new code to an existing file, insert only the new lines at the correct location.
 - After each edit, verify with `git diff` that ONLY the intended lines changed.
 - If unintended changes are detected, undo ONLY those hunks with a targeted edit. Never revert the whole file: it may hold edits that are not yours.
+{{#js}}
 - Pay special attention to CSS, HTML, and config files where full rewrites destroy prior work (brand colors, layouts, styles).
+{{/js}}
 
 ## Multi-agent / multi-developer environment
 
 - Multiple developers and AI agents may be committing and modifying code simultaneously.
-- ALWAYS run `git fetch origin main` and check recent commits before starting work.
-- Before pushing or merging, rebase on the latest main: `git rebase origin/main`.
+- ALWAYS run `git fetch origin {{base}}` and check recent commits before starting work.
+- Before pushing or merging, rebase on the latest {{base}}: `git rebase origin/{{base}}`.
 - If a commit or push fails, check whether someone else pushed in the meantime.
-- Never assume main is unchanged since the last check — always verify.
-- Create a dedicated branch per task (`feat/` or `fix/`) and merge via PR, never push directly to main.
+- Never assume {{base}} is unchanged since the last check — always verify.
+- Use a dedicated branch per task, merged through a PR; never push directly to {{base}}.
 
 ## General
 
@@ -31,6 +33,7 @@
   parallel lanes never collide.
 - Never commit a real `.env` — only `.env.example` is versioned.
 
+{{#js}}
 ## Tests location (MANDATORY)
 
 - Tests live in a top-level `tests/` directory mirroring `src/` (e.g. a function in
@@ -43,3 +46,9 @@
   - If you write `sonar-project.properties`, set `sonar.tests=tests` AND make sure
     that directory exists. Never declare a path that doesn't exist — Sonar will
     refuse to scan and the run will fail every iteration with the same error.
+{{/js}}
+{{^js}}
+## Tests location
+
+- Tests follow the project's own layout and runner; do not move them.
+{{/js}}

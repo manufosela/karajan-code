@@ -29,6 +29,7 @@ import { isGitRepo } from "../harden/harden-engine.js";
 import { isPhoneEnrolled } from "../harden/phone-sign.js";
 import { identityCommand } from "./identity.js";
 import { installKarajanCommands } from "./init-atril.js";
+import { ensureCoderRules } from "./init-coder-rules.js";
 import { hardenCommand } from "./harden.js";
 import { contractChanges } from "../environment/contract-commit.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
@@ -514,28 +515,6 @@ async function ensureReviewRules(reviewRulesPath, logger) {
   logger.info("Created .karajan/review-rules.md");
 }
 
-async function ensureCoderRules(coderRulesPath, logger) {
-  if (await exists(coderRulesPath)) return;
-  const templatePath = path.join(getTemplatesRoot(), "coder-rules.md");
-  let content;
-  try {
-    content = await fs.readFile(templatePath, "utf8");
-  } catch { /* template not found, use inline default */
-    content = [
-      "# Coder Rules",
-      "",
-      "## File modification safety",
-      "",
-      "- NEVER overwrite existing files entirely. Always make targeted, minimal edits.",
-      "- After each edit, verify with `git diff` that ONLY the intended lines changed.",
-      "- Do not modify code unrelated to the task.",
-      ""
-    ].join("\n");
-  }
-  await fs.writeFile(coderRulesPath, content, "utf8");
-  logger.info("Created .karajan/coder-rules.md");
-}
-
 async function setupSonarQube(config, logger, { interactive } = {}) {
   if (config.sonarqube?.enabled === false) {
     logger.info("SonarQube disabled — skipping container setup.");
@@ -856,7 +835,7 @@ export async function initCommand({ logger, flags = {} }) {
 
   await handleConfigSetup({ config, configExists, interactive, configPath, logger });
   await ensureReviewRules(reviewRulesPath, logger);
-  await ensureCoderRules(coderRulesPath, logger);
+  await ensureCoderRules(coderRulesPath, { config, projectDir: process.cwd(), logger });
   await ensureGitignoreEntries(process.cwd(), logger);
   await installSkills(logger, interactive, flags.rulesync !== false);
   await bootstrapOllama({ flags, config, logger, interactive });

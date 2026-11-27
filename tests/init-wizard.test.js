@@ -83,6 +83,8 @@ vi.mock("../src/commands/harden.js", () => ({
 vi.mock("../src/utils/rulesync.js", async (importOriginal) => ({ ...(await importOriginal()), defaultRun: vi.fn(), detectRulesync: vi.fn(() => false) }));
 // init runs in the repo cwd: atril writes with the real fs, so its install never runs here.
 vi.mock("../src/commands/init-atril.js", () => ({ installKarajanCommands: vi.fn(() => ({ installed: 0, synced: false })) }));
+// HU-4999: tested with the real fs in tests/commands/init-coder-rules.test.js; the fs mock here has no template.
+vi.mock("../src/commands/init-coder-rules.js", () => ({ ensureCoderRules: vi.fn() }));
 
 describe("initCommand", () => {
   let initCommand;
