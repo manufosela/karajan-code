@@ -11,7 +11,7 @@ const LABELS = {
   es: { title: 'El reparto', close: 'Cerrar', does: 'Qué hace', when: 'Cuándo sale', calledBy: 'Quién lo llama', marks: 'Sus marcas' },
 };
 
-const COLOUR = ['Color del cuerpo', 'Su IA: Claude naranja, Codex lila, agy menta; cualquier otra, gris.'];
+const COLOUR = ['Figura y color', 'Cabeza cuadrada y dos piernas, nunca el robot de Karajan; todo el cuerpo del color de su IA: Claude naranja, Codex lila, agy menta, Gemini azul, Aider amarillo, Copilot morado, Kimi rosa, OpenCode cian, Qwen lima; cualquier otra, gris.'];
 const BACKPACK = ['Mochila', 'Del color de la persona para la que trabaja y con su emblema: todos los robots de una persona llevan la misma.'];
 
 /** id: [name, does, when, calledBy, [[mark, means], …]] */

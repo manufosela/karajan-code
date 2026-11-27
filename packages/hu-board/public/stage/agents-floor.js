@@ -3,7 +3,8 @@
 // head. KJC-TSK-1435: the host too, with its badge and the tool it uses, and its
 // subagents as dwarfs. workers.js says where each one is; this puts its robot there.
 import * as THREE from 'three';
-import { createRobot } from './cast/robot.js';
+import { createAgentFigure } from './agent-figure.js';
+import { FIGURE } from './agent-figure-shape.js';
 import { SCALE } from './layout.js';
 import { onScreen, tagAt } from './screen.js';
 import { declutter, pickNear, tagText } from './robot-labels.js';
@@ -48,8 +49,8 @@ function badge(name, accent) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.3), new THREE.MeshBasicMaterial({ map: texture }));
-  // Just in front of the body (0.8 m of radius at that height), tilted up towards the camera.
-  plate.position.set(0, 0.92, 0.9);
+  // Just in front of the body (KJC-TSK-1814: the agent figure's), tilted up towards the camera.
+  plate.position.set(0, 0.92, FIGURE.body.radius + 0.1);
   plate.rotation.x = -0.35;
   return plate;
 }
@@ -105,7 +106,8 @@ function hologram(glyph, color) {
 export function robotFor(worker, avatar, me) {
   // KJC-TSK-1569 (ADR 0056): in the colour its owner gave its role, with its owner's backpack.
   // KJC-TSK-1603: the robot in its agent's colour; its backpack in its owner's, which marks all theirs.
-  const robot = createRobot({ accent: accentOf(worker.agent), name: worker.agent });
+  // KJC-TSK-1814 (the maintainer, 2026-11-27): an agent is never Karajan's robot, but a figure of its own.
+  const robot = createAgentFigure({ color: accentOf(worker.agent), name: worker.agent });
   carry(robot, avatar?.emblem ?? null, ownerColor(avatar));
   wear(robot, worker.role); // KJC-TSK-1604: Solomon as a king
   // KJC-TSK-1598: a host stands out: bigger, its owner's emblem on its chest. KJC-TSK-1601: and a

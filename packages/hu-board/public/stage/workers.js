@@ -30,9 +30,8 @@ const SEAT_ROW = 1.7;
 // KJC-BUG-0607 (the maintainer, 2026-11-16): beside their host, not in front of it: the row starts
 // `beside` from the host's seat and runs toward the middle of the workshop, `step` apart.
 const SUBAGENT = { dz: 1.4, beside: 1.2, step: 0.95, slots: 4, row: 0.9 };
-// Each agent wears its own colour; one kj does not know yet wears a neutral grey.
-const ACCENTS = { claude: 0xd97757, codex: 0x9aa4ff, agy: 0x7ee0b5 };
-export const accentOf = (agent) => ACCENTS[agent] ?? 0xc0c8d0;
+// Each agent wears its own colour (KJC-TSK-1814: all nine kj can run, agent-colours.js).
+export { accentOf } from './agent-colours.js';
 /** How long the laptop's code takes to scroll up one screen, in ms (KJC-TSK-1493). */
 export const SCROLL_MS = 6000;
 

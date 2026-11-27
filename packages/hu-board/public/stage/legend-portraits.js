@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { robotFor } from './agents-floor.js';
 import { dress } from './attire.js';
 import { createRobot } from './cast/robot.js';
+import { createAgentFigure } from './agent-figure.js';
+import { accentOf } from './agent-colours.js';
 import { createPiece } from './cast/piece.js';
 import { createStand } from './cast/stand.js';
 import { COURIER } from './couriers.js';
@@ -39,7 +41,7 @@ function agentOf({ worker, avatar }, own) {
 function wardrobeOf(models) {
   const row = new THREE.Group();
   models.forEach((model, i) => {
-    const robot = createRobot({ accent: 0xd97757, name: model });
+    const robot = createAgentFigure({ color: accentOf('claude'), name: model }); // KJC-TSK-1814
     dress(robot, { model, effort: 'medium' });
     robot.root.position.x = (i - (models.length - 1) / 2) * WARDROBE_STEP;
     row.add(robot.root);
