@@ -3,12 +3,18 @@
 // spawn would slow them all. Anything unreadable counts as nothing (fail open).
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { isReadOnlyCommand } from "./sentinel-shell.mjs";
 
 export const REMIND_EVERY_MS = 30 * 60 * 1000;
 const HANDOFF_FILE = /^[0-9a-f]{8}\.json$/;
 // What the agent may still do while a blocking handoff waits: read, ask, and close it.
 const ALLOWED_TOOLS = new Set(["Read", "Grep", "Glob", "AskUserQuestion"]);
-const HANDOFF_CMD = /^\s*kj\s+handoff(\s[^;&|`$<>]*)?$/;
+// A single line: a newline or \r would carry a second command behind it.
+const HANDOFF_CMD = /^[^\S\r\n]*kj[^\S\r\n]+handoff([^\S\r\n][^;&|`$<>\r\n]*)?$/;
+// KJC-BUG-0677: two reads of waiting the shell reader does not know (gh, kj). Literal
+// forms only: no newline, operator, redirection, quote or expansion fits in them.
+const WAIT_CMDS = [/^[ \t]*gh pr checks( [\w./:=-]+)*[ \t]*$/, /^[ \t]*kj [a-z-]+ --help[ \t]*$/];
+const mayRun = (command) => HANDOFF_CMD.test(command) || WAIT_CMDS.some((re) => re.test(command)) || isReadOnlyCommand(command);
 
 const readJson = (file) => { try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; } };
 
@@ -50,7 +56,7 @@ export const takeReminder = (state, top, now) => {
 export const blockingDeny = (pending, tool, input) => {
   const stops = pending.filter((h) => h.blocking === true);
   if (stops.length === 0 || ALLOWED_TOOLS.has(tool)) return null;
-  if (tool === "Bash" && HANDOFF_CMD.test(String(input?.command ?? ""))) return null;
+  if (tool === "Bash" && mayRun(String(input?.command ?? ""))) return null;
   return "karajan sentinel: hay un encargo BLOQUEANTE para tu usuario:\n" + stops.map(lineOf).join("\n")
     + "\nPara: termina el turno preguntándole solo por esto, con el paso único que tiene que dar."
     + " Cuando lo haga o te diga que sigas sin él, ciérralo con kj handoff done <id> y sigue.";
