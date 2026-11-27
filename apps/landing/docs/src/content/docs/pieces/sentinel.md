@@ -64,7 +64,7 @@ Inside the session there is no escape (ADR 0015). A decision that belongs to the
 
 ## What it does not do
 
-- **It does not judge the code.** It checks the method (card, branch, review, tests touched). Whether the code is right is the [cross review](/docs/v4/gates/)'s job.
+- **It does not judge the code.** It checks the method (card, branch, review, tests touched). Whether the code is right is the [cross review](/docs/pieces/cross-review/)'s job.
 - **It does not run your tests** at the end of the turn, nor read the reviews.
 - **It does not work outside Claude Code.** Codex and Gemini CLI get the same rules in `AGENTS.md`, and the git hooks and CI apply to them, but not the Sentinel.
 - **It does not protect a repository from someone without kj.** On a teammate's machine without kj nothing stops them locally; on the pull request, the CI does.

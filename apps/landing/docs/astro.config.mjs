@@ -66,6 +66,9 @@ export default defineConfig({
 									{ label: 'Overview', slug: 'pieces', translations: { es: 'Visión general' } },
 									{ label: 'The Sentinel', slug: 'pieces/sentinel', translations: { es: 'El Sentinel' } },
 									{ label: 'The ledger', slug: 'pieces/ledger', translations: { es: 'El ledger' } },
+									{ label: 'Quality before the review', slug: 'pieces/quality', translations: { es: 'Calidad antes de la revisión' } },
+									{ label: 'The cross review', slug: 'pieces/cross-review', translations: { es: 'La revisión cruzada' } },
+									{ label: 'The Steward', slug: 'pieces/steward', translations: { es: 'El Steward' } },
 								],
 							},
 							{

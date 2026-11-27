@@ -28,11 +28,11 @@ A task goes through the same moments every time. This is what acts at each one:
 | Before touching code | [The project RAG](/docs/karagan/) | The agent asked the project's index about that zone, instead of guessing. |
 | Every tool call | [The Sentinel](/docs/pieces/sentinel/) | No edits on the base branch or in another lane, no rule broken, nothing written behind its back. |
 | Every tool call, after it ran | [The ledger](/docs/pieces/ledger/) | Records what the session did: queries, edited files, merged cards. |
-| Before the review | [The gates](/docs/v4/gates/) | The diff's own tests pass, no test was weakened, Sonar found nothing serious. |
-| Before the commit | [The cross review](/docs/v4/gates/) | A different AI approved this exact diff. |
+| Before the review | [Quality before the review](/docs/pieces/quality/) | The diff's own tests pass, no test was weakened, Sonar found nothing serious. |
+| Before the commit | [The cross review](/docs/pieces/cross-review/) | A different AI approved this exact diff. |
 | The commit and the pull request | git hooks and CI | The verdict is there and matches the diff. Without kj the git hooks do not run, the CI does. |
 | The end of the turn | [The Sentinel](/docs/pieces/sentinel/) | The agent does not stop with the method red or with its cards half done. |
-| Every week, or when you ask | [The Steward](/docs/guides/sentinel/#steward) | The project is still healthy: dependencies, main's CI, invariants. |
+| Every week, or when you ask | [The Steward](/docs/pieces/steward/) | The project is still healthy: dependencies, main's CI, invariants. |
 | What only you can do | [Human acts](/docs/guides/hardening-against-ai/) | The seal, the release approval and the exceptions are typed by a person, never by the agent. |
 
 ## The idea behind all of them
