@@ -24,6 +24,7 @@
  * @property {string} detail                     - human-readable status
  * @property {string} [fix]                      - remediation hint shown when manual or user declines
  * @property {Object} [extra]                    - structured data consumed by remediate (e.g. occupant PID, host, roles)
+ * @property {boolean} [hidden]                  - with ok: the check found it does not apply; the report omits it
  */
 
 /**

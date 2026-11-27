@@ -72,8 +72,8 @@ export async function runChecks(checks, ctx, options = {}) {
     await Promise.all(entries.filter((e) => e.remediated).map((entry) => reverifyEntry(entry, { verifyConfig, signal, timeoutMs })));
   }
 
-  // Flatten into reports.
-  const reports = entries.map((e) => ({
+  // Flatten into reports. A check whose detect says `hidden` does not apply here and is not listed (HU-5005).
+  const reports = entries.filter((e) => e.detectResult?.hidden !== true).map((e) => ({
     name: e.check.name,
     label: e.check.label,
     status: e.status,

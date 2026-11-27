@@ -14,8 +14,9 @@ import { panelSummary } from "../environment/panel.js";
 import { loadConfig } from "../config.js";
 import { branchCooldownLines } from "../checks/supply-chain-check.js";
 import { auditCycle } from "../checks/audit-cycle.js";
+import { eventPolicyNotice } from "../checks/event-policy.js";
 
-export async function checkCommand({ projectDir = process.cwd(), profile = "standard", json = false, logger = console } = {}) {
+export async function checkCommand({ projectDir = process.cwd(), profile = "standard", json = false, logger = console, eventPolicyDeps = {} } = {}) {
   const result = await checkHarden({ projectDir, profile });
   // KJC-TSK-0689 (MG-D): method adherence is VISIBILITY, not a gate — it
   // rides along in check output but never affects the exit code.
@@ -33,14 +34,16 @@ export async function checkCommand({ projectDir = process.cwd(), profile = "stan
     .catch((err) => [`⚠ supply-chain cooldown not checked: ${err.message}`]);
   // KJC-TSK-0719 (SPD-C): the audit is due by work cycles too; visibility, never the exit code.
   const audit = await auditCycle({ projectDir, config }).catch((err) => ({ due: false, line: `⚠ audit cycle not checked: ${err.message}` }));
+  const eventPolicy = await eventPolicyNotice({ projectDir, ...eventPolicyDeps })
+    .catch((err) => ({ status: "unverified", lines: [`  ⚠ event policy not checked: ${err.message}`] }));
 
   const ok = result.ok && ragCoverage.ok;
   if (json) {
-    logger.info?.(JSON.stringify({ ...result, ok, method, ragCoverage, aiSurface, depCooldown, auditCycle: audit }));
+    logger.info?.(JSON.stringify({ ...result, ok, method, ragCoverage, aiSurface, depCooldown, auditCycle: audit, eventPolicy }));
     return ok ? 0 : 1;
   }
 
-  printReport({ profile, result, method, ragCoverage, aiSurface, depCooldown, audit, config, ok, logger });
+  printReport({ profile, result, method, ragCoverage, aiSurface, depCooldown, audit, eventPolicy, config, ok, logger });
   return ok ? 0 : 1;
 }
 
@@ -64,7 +67,7 @@ function verdictLine(ok, harnessOk) {
   return "Harness drift detected — run `kj harden` to repair.";
 }
 
-function printReport({ profile, result, method, ragCoverage, aiSurface, depCooldown, audit, config, ok, logger }) {
+function printReport({ profile, result, method, ragCoverage, aiSurface, depCooldown, audit, eventPolicy, config, ok, logger }) {
   logger.info?.(`kj check (${profile})`);
   for (const c of result.checks) logger.info?.(`  ${mark(c.ok)} ${c.id}: ${c.detail}`);
   if (method) logger.info?.(`  method: ${formatMethodStats(method)}`);
@@ -72,6 +75,7 @@ function printReport({ profile, result, method, ragCoverage, aiSurface, depCoold
   if (aiSurface) logger.info?.(`  ${formatAiSurface(aiSurface)}`);
   for (const line of depCooldown) logger.info?.(`  ${line}`);
   logger.info?.(`  ${audit.line}`);
+  for (const line of eventPolicy?.lines ?? []) logger.info?.(line);
   // KJC-TSK-0865: who writes and who reviews is the user's choice, so it is
   // said out loud next to everything else that describes the project. Never
   // a check: it has no ok/fail, it informs.
