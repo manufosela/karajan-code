@@ -103,6 +103,24 @@ function baseBranchGuard(baseBranch) {
   ];
 }
 
+// HU-4994 (#4808): only what the push destination advertises is already pushed; cached
+// remote-tracking refs can be stale or belong to the fetch URL. Leaves in kj_have a "^<tip>"
+// line per advertised commit this clone has (a tip it lacks cannot exclude anything).
+function destinationTips() {
+  // A URL can carry a token: never print its userinfo.
+  const redact = "sed 's#//[^/@]*@#//#g'";
+  return [
+    "    kj_have=",
+    '    if [ -n "$kj_push_refs" ]; then',
+    '      kj_url="${2:-${1:-}}"',
+    '      kj_ls=$(git ls-remote "$kj_url" 2>&1) || {',
+    `        printf '%s\\n' "kj harden: identity lock — cannot read the refs of the push destination ($kj_url): $(printf '%s\\n' "$kj_ls" | head -n1)" | ${redact}; exit 1; }`,
+    // stderr is captured too: only "<sha> <ref>" lines count, never a word of a server banner.
+    String.raw`      kj_have=$(printf '%s\n' "$kj_ls" | sed -n 's/^\([0-9a-f]\{40,\}\)[[:space:]].*/\1^{commit}/p' | git cat-file --batch-check='%(objectname) %(objecttype)' | sed -n 's/^\([0-9a-f]*\) commit$/^\1/p')`,
+    "    fi",
+  ];
+}
+
 // IDN-C (KJC-TSK-0764, ADR 0005): identity lock at tier B — the declared clone
 // identity (.karajan/identity.local.yml) governs authorship on commit and the
 // gh session on push, on ANY host. Undeclared = advisory only (old clones keep
@@ -136,12 +154,15 @@ function identityGuard(hook) {
     // (a rebase, cherry-pick, merge or tag never ran pre-commit).
     "  kj_declared_email=$(sed -n 's/^git_email:[[:space:]]*//p' .karajan/identity.local.yml | head -n1)",
     '  if [ -n "$kj_declared_email" ]; then',
+    ...destinationTips(),
     '    printf "%s\\n" "$kj_push_refs" | while read -r kj_lref kj_lsha kj_rref kj_rsha; do',
     '      case "$kj_lsha" in *[!0]*) ;; *) continue ;; esac',
-    // What the PUSH TARGET ($1, the remote git hands the hook) does not have yet. KJC-BUG-0436:
-    // an existing ref too, or merging main into a pushed branch judges main's own merges.
+    // What the PUSH DESTINATION does not have yet. KJC-BUG-0436: an existing ref's tip is excluded
+    // too, or merging main into a pushed branch judges main's own merges.
     // HU-4815 (#4808): a remote tip this clone lacks makes rev-list fail; refuse rather than push unchecked.
-    '      case "$kj_rsha" in *[!0]*) kj_new=$(git rev-list "$kj_lsha" --not "$kj_rsha" --remotes="${1:-origin}") ;; *) kj_new=$(git rev-list "$kj_lsha" --not --remotes="${1:-origin}") ;; esac || { echo "kj harden: identity lock — cannot list the commits pushed to $kj_rref (git fetch, then push again)"; exit 1; }',
+    '      kj_old=; case "$kj_rsha" in *[!0]*) kj_old="^$kj_rsha" ;; esac',
+    // The tips go through stdin: thousands of refs would overflow a command line.
+    '      kj_new=$(printf "%s\\n" "$kj_have" | git rev-list --stdin "$kj_lsha" $kj_old) || { echo "kj harden: identity lock — cannot list the commits pushed to $kj_rref (git fetch, then push again)"; exit 1; }',
     "      for kj_c in $kj_new; do",
     '        kj_who=$(git log -1 --format="%ae %ce" "$kj_c")',
     '        if [ "$kj_who" != "$kj_declared_email $kj_declared_email" ]; then',
