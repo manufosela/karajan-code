@@ -4,14 +4,15 @@ import { describe, expect, it } from 'vitest';
 
 import { panelCells } from '../public/stage/governance-card.js';
 
-const panel = { coder: 'claude', reviewer: 'agy', solomon: 'copilot', substitutions: {} };
+// KJC-TSK-1814: every agent kj runs has a colour now; one it does not know stays gray.
+const panel = { coder: 'claude', reviewer: 'agy', solomon: 'someone-new', substitutions: {} };
 
 describe('panelCells', () => {
   it('gives each role its agent in the colour its robots wear, any other agent gray', () => {
     expect(panelCells(panel)).toEqual([
       { role: 'Coder', agent: 'claude', colour: '#d97757', standIn: null },
       { role: 'Reviewer', agent: 'agy', colour: '#7ee0b5', standIn: null },
-      { role: 'Solomon', agent: 'copilot', colour: '#c0c8d0', standIn: null },
+      { role: 'Solomon', agent: 'someone-new', colour: '#c0c8d0', standIn: null },
     ]);
   });
 

@@ -10,7 +10,8 @@ export const legendSections = (cards, kinds = KINDS) => Object.entries(kinds)
   .map(([kind, title]) => ({ kind, title, cards: cards.filter((card) => card.kind === kind) }))
   .filter((section) => section.cards.length);
 
-const COLOUR = { mark: 'Body colour', means: 'Its AI: Claude orange, Codex lilac, agy mint, any other grey.' };
+// KJC-TSK-1814: an agent is a figure of its own, never Karajan's robot, painted whole in its AI's colour.
+const COLOUR = { mark: 'Figure and colour', means: 'Square head and two legs, never Karajan\'s robot; its whole body in its AI\'s colour: Claude orange, Codex lilac, agy mint, Gemini blue, Aider yellow, Copilot purple, Kimi pink, OpenCode cyan, Qwen lime, any other grey.' };
 const BACKPACK = { mark: 'Backpack', means: 'In the colour of the person it works for, with their emblem: every robot of one person carries the same.' };
 const LAPTOP = { mark: 'Laptop', means: 'Open and lit in its AI\'s colour while it types.' };
 
