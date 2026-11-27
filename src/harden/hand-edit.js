@@ -1,10 +1,11 @@
 /**
  * HU-4997: what kj last wrote in a hook, to tell a hand edit from a stale render.
- * The record is the sealed provenance; without one there is nothing to compare.
+ * The record is the sealed provenance; without one there is nothing to compare. A block kj refreshed
+ * since the seal is also kj's: its digest is noted in this machine's harness state.
  */
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { findManagedBlock } from "../utils/managed-markers.js";
 import { PROVENANCE_FILE } from "./supervisor-commit.js";
@@ -30,9 +31,28 @@ const managedBlock = (content, hook) => {
 
 const between = (block) => block.slice(1, -1).join("\n");
 
+const WRITTEN_FILE = join(".karajan", "harness", "hooks-written.json");
+
+/** The digest of `hook`'s managed block in `content`, whatever its line endings; null without one. */
+const writtenDigest = (content, hook) => {
+  const block = managedBlock(content.replaceAll("\r\n", "\n"), hook);
+  return block ? bodyDigest(between(block)) : null;
+};
+
+/**
+ * Note the blocks kj has just written, `{ hook: content }`, over what was noted before. Only where the
+ * harness is: creating that directory would tell the pre-commit that a Sentinel is installed.
+ */
+export function recordWrittenHooks(projectDir, contents) {
+  const path = join(projectDir, WRITTEN_FILE);
+  if (Object.keys(contents).length === 0 || !existsSync(dirname(path))) return;
+  const digests = Object.entries(contents).map(([hook, content]) => [hook, writtenDigest(content, hook)]);
+  writeFileSync(path, `${JSON.stringify({ ...readJson(path), ...Object.fromEntries(digests) }, null, 2)}\n`);
+}
+
 /**
  * A reader of the provenance of `projectDir`: (hook, content) => true when the managed block is not
- * what kj wrote, whatever lies outside it and whatever its line endings (core.autocrlf writes \r\n;
+ * what kj wrote (as sealed, or as last noted), whatever lies outside it and whatever its line endings (core.autocrlf writes \r\n;
  * a seal from before the digests: sealedAs). `render(hook, generation)` is the canonical render,
  * `preamble` what kj puts above the block.
  */
@@ -50,7 +70,9 @@ export function handEditDetector(projectDir, render, preamble) {
     const entry = provenance.files?.find((f) => f?.file === `.karajan/hooks/${hook}`);
     return [...files, `${preamble}${block.join("\n")}\n`].some((bytes) => sha256(bytes) === entry?.sha256);
   };
+  const written = readJson(join(projectDir, WRITTEN_FILE));
   return (hook, content) => {
+    if (written?.[hook] && written[hook] === writtenDigest(content, hook)) return false;
     const lf = content.replaceAll("\r\n", "\n");
     const block = managedBlock(lf, hook);
     if (!block) return true;

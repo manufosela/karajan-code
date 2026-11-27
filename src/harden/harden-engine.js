@@ -13,7 +13,7 @@ import { join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 import { runCommand } from "../utils/process.js";
-import { bodyDigest, handEditDetector } from "./hand-edit.js";
+import { bodyDigest, handEditDetector, recordWrittenHooks }from "./hand-edit.js";
 import { hookBody, PROFILE_HOOKS, SHEBANG } from "./hook-templates.js";
 
 const BLOCK_VERSION = 1;
@@ -73,6 +73,7 @@ export async function installHooks({
   const absHooksDir = join(projectDir, HOOKS_DIR);
   const results = [];
   const bodySha256 = {};
+  const written = {};
   const editedByHand = handEditDetector(projectDir, renderCanonicalHook, HOOK_PREAMBLE);
   for (const hook of hooks) {
     const target = join(absHooksDir, hook);
@@ -84,10 +85,12 @@ export async function installHooks({
       mkdirSync(absHooksDir, { recursive: true });
       writeFileSync(target, content);
       chmodSync(target, 0o755);
+      written[hook] = content;
     }
   }
 
   if (!dryRun) {
+    recordWrittenHooks(projectDir, written);
     await runCommand("git", ["config", "core.hooksPath", HOOKS_DIR], { cwd: projectDir });
   }
 
