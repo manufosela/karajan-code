@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.39.1: un diff revisado por lotes recibe solo sus propios hechos (actual)
+### v5.40.0: un cambio de workflow consigue su veredicto, una excepción firmada deja pasar su merge, el turno deja de entrar en bucle (actual)
+
+Un día de bugs de campo. El sello de `kj harden --commit` anota ahora los borrados del harness que commitea, así que una PR que cambia `.github/workflows/` vuelve a conseguir su veredicto. Antes de `gh pr merge`, kj lee la excepción de main-guard firmada en la PR, comprobada contra el padrón de la rama por defecto. El fin de turno ya no entra en bucle tras una retención del Stop hook, y un encargo bloqueante deja pasar los comandos de solo lectura. Además: board-sync ya no se inventa cards a partir del slug de la rama, la comprobación de mutación lee el informe de la herramienta y los lotes de la revisión conservan los ficheros que caben. kj stage marca como terminada una sesión sin trabajo. Nueva sección de la documentación: [las piezas](/docs/es/pieces/).
+
+### v5.39.1: un diff revisado por lotes recibe solo sus propios hechos
 
 Cuando un diff no cabe en un prompt y se revisa por lotes de ficheros enteros, el prompt de cada lote lleva ahora los hechos verificados de sus propios ficheros más los de todo el diff, y dice qué lote es. `kj review --range` y `--staged` sobre un diff de varios ficheros ya no se rechazan como "diff incompleto" por hechos de ficheros que el lote no mostraba.
 
