@@ -38,7 +38,7 @@ Para `kj review`, en un carril cuentan juntas las consultas de todas las sesione
 No lo escribes tú, y el agente tampoco: los ficheros de `.karajan/harness/` son del supervisor, y el Sentinel bloquea cualquier edición sobre ellos desde la sesión.
 
 - `kj sentinel status`: muestra lo que guarda el ledger de la sesión y cualquier violación por la que el fin de turno bloquearía.
-- Si `kj review` ve que los hooks del disco no son los que escribe tu kj instalado, no se fía del ledger y rechaza hasta que vuelvas a ejecutar `kj harden`.
+- Si `kj review` ve que los hooks del Sentinel ya no llaman a los guardias de tu kj instalado, no se fía del ledger y rechaza hasta que vuelvas a ejecutar `kj harden`.
 
 ## Qué no hace
 

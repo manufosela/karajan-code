@@ -38,7 +38,7 @@ For `kj review`, in a lane the queries of every session of that lane count toget
 You do not write it, and neither does the agent: the files under `.karajan/harness/` are the supervisor's, and the Sentinel blocks any edit to them from the session.
 
 - `kj sentinel status`: prints what the ledger holds for the session and any violation the end of the turn would block on.
-- If `kj review` finds the hooks on disk differ from the ones your installed kj writes, it does not trust the ledger and rejects until you run `kj harden` again.
+- If `kj review` finds the Sentinel's hooks no longer call the guards of your installed kj, it does not trust the ledger and rejects until you run `kj harden` again.
 
 ## What it does not do
 

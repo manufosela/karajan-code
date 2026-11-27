@@ -7,7 +7,7 @@ description: El vigilante dentro de la sesión de tu agente. Qué es, por qué e
 
 El Sentinel es un conjunto de hooks que `kj harden` instala en Claude Code. Claude Code los llama en momentos fijos de la sesión, y cada uno es un programa pequeño que responde sí o no. Cuando responde no, la acción no ocurre, y el agente lee por qué, con un enlace a la regla.
 
-Los hooks viven en `.karajan/harness/` y se conectan en `.claude/settings.json`. Son copias, byte a byte, de los scripts de tu kj instalado, así que `kj sentinel verify` sabe cuándo alguien los ha cambiado.
+Los hooks se conectan en `.claude/settings.json` y ejecutan los guardias de tu paquete kj instalado (`kj-hook`), no copias dentro del proyecto, así que lo que corre es siempre el kj que instalaste. `kj sentinel verify` comprueba que la conexión sigue llamando a esos guardias. Las instalaciones antiguas guardaban copias de los scripts en `.karajan/harness/`; `kj harden` las retira. Ese directorio guarda ahora el estado de la sesión (el [ledger](/docs/es/pieces/ledger/)) y el registro de bloqueos.
 
 ## Por qué existe
 
@@ -49,14 +49,14 @@ La retención por cards en espera lleva su propia cuenta y se aparta igual tras 
 
 Apartarse solo deja que el agente deje de hablar. No deja entrar nada en el repositorio: el commit sigue necesitando su veredicto, y el CI sigue corriendo en la pull request.
 
-Hay un bloqueo que nunca se aparta: los scripts del supervisor cambiados fuera de `kj harden`. Eso no es un fallo del Sentinel, es una manipulación.
+Hay un bloqueo que nunca se aparta: la conexión del Sentinel cambiada fuera de `kj harden` (o, en una instalación antigua, sus scripts). Eso no es un fallo del Sentinel, es una manipulación.
 
 ## Cómo se usa
 
 No lo ejecutas tú. `kj harden` lo instala una vez y se explica solo cada vez que actúa. Tu agente lee el mensaje, hace lo que toca en su lugar y sigue.
 
 - `kj sentinel status`: lo que ha hecho la sesión y cualquier violación por la que el fin de turno bloquearía.
-- `kj sentinel verify`: si los scripts del disco son los que escribe tu kj instalado.
+- `kj sentinel verify`: si los hooks siguen llamando a los guardias de tu kj instalado.
 
 **Tú puedes apagarlo; el agente no.** Arranca el anfitrión con `KJ_SENTINEL_OFF=1` en su entorno. La variable se lee del entorno con el que arrancó el anfitrión, así que un comando que lance el agente no puede ponerla. Te puede hacer falta cuando kj falla o te bloquea por error, o cuando trabajas en el propio kj. Aun así, algunas protecciones siguen activas: los ficheros del supervisor, la configuración de gobierno, la clave del móvil, la atribución a IA, las issues para karajan-code y descartar cambios que la sesión no ha hecho. Los hooks de git y el CI no leen la variable.
 

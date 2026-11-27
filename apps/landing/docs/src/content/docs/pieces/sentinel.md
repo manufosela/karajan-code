@@ -7,7 +7,7 @@ description: The watchman inside your agent's session. What it is, why it exists
 
 The Sentinel is a set of hooks that `kj harden` installs in Claude Code. Claude Code calls them at fixed moments of the session, and each one is a small program that answers yes or no. When the answer is no, the action does not happen, and the agent reads why, with a link to the rule.
 
-The hooks live in `.karajan/harness/` and are wired in `.claude/settings.json`. They are copies of the scripts inside your installed kj, byte for byte, so `kj sentinel verify` can tell when someone changed them.
+The hooks are wired in `.claude/settings.json` and run the guards of your installed kj package (`kj-hook`), not copies in the project, so what runs is always the kj you installed. `kj sentinel verify` checks that the wiring still calls those guards. Older installs kept copies of the scripts in `.karajan/harness/`; `kj harden` retires them. That directory now holds the session state (the [ledger](/docs/pieces/ledger/)) and the log of blocks.
 
 ## Why it exists
 
@@ -49,14 +49,14 @@ The hold for waiting cards has its own count and steps aside the same way after 
 
 Stepping aside only lets the agent stop talking. It lets nothing into the repository: the commit still needs its verdict, and the CI still runs on the pull request.
 
-One block never steps aside: the supervisor's scripts changed outside `kj harden`. That is not a Sentinel failure, it is tampering.
+One block never steps aside: the Sentinel's wiring changed outside `kj harden` (or, in an older install, its scripts). That is not a Sentinel failure, it is tampering.
 
 ## How you use it
 
 You do not run it. `kj harden` installs it once and it explains itself every time it acts. Your agent reads the message, does the sanctioned thing instead, and goes on.
 
 - `kj sentinel status`: what the session did and any violation the end of the turn would block on.
-- `kj sentinel verify`: whether the scripts on disk are the ones your installed kj writes.
+- `kj sentinel verify`: whether the hooks still call the guards of your installed kj.
 
 **You can switch it off; the agent cannot.** Start the host with `KJ_SENTINEL_OFF=1` in its environment. The variable is read from the environment the host was started with, so a command the agent runs cannot set it. You may want it when kj itself fails or blocks you by mistake, or when you work on kj. Even then some guards stay on: the supervisor's files, the governance configuration, the phone key, AI attribution, issues for karajan-code and discarding changes the session did not make. The git hooks and the CI do not read the variable.
 
