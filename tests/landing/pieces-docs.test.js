@@ -1,15 +1,15 @@
-// HU-4954, HU-4956: the pieces section (index, Sentinel, ledger, quality, cross review, Steward)
+// HU-4954, HU-4956, HU-4967: the pieces section (index, Sentinel, ledger, quality, cross review, Steward, RAG, board, human acts, agent setup)
 // exists in both languages and has its sidebar group.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const docs = (rel) => readFileSync(fileURLToPath(new URL(`../../apps/landing/docs/${rel}`, import.meta.url)), "utf8");
-const SLUGS = ["pieces", "pieces/sentinel", "pieces/ledger", "pieces/quality", "pieces/cross-review", "pieces/steward"];
-const FILES = ["pieces/index", "pieces/sentinel", "pieces/ledger", "pieces/quality", "pieces/cross-review", "pieces/steward"];
+const SLUGS = ["pieces", "pieces/sentinel", "pieces/ledger", "pieces/quality", "pieces/cross-review", "pieces/steward", "pieces/rag", "pieces/board", "pieces/human-acts", "pieces/agent-setup"];
+const FILES = ["pieces/index", "pieces/sentinel", "pieces/ledger", "pieces/quality", "pieces/cross-review", "pieces/steward", "pieces/rag", "pieces/board", "pieces/human-acts", "pieces/agent-setup"];
 const LANGS = ["", "es/"];
 
-describe("pieces docs, HU-4954, HU-4956", () => {
+describe("pieces docs, HU-4954, HU-4956, HU-4967",() => {
   for (const lang of LANGS) {
     for (const file of FILES) {
       it(`${lang || "en/"}${file} exists, has a title and no em dashes`, () => {
