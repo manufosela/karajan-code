@@ -5,6 +5,8 @@ import { CREW, POST, SCALE, SENTINEL_POST, STAND, STATIONS, postX } from './layo
 import { createRobot } from './cast/robot.js';
 import { createPiece } from './cast/piece.js';
 import { createStand } from './cast/stand.js';
+import { createCostumedPiece } from './costumed-piece.js';
+import { costumeOfPiece } from './piece-costumes.js';
 import { plinthTint } from './drone-tint.js';
 import { tddBody } from './cast/pieces/tdd.js';
 import { sentinelBody } from './cast/pieces/sentinel.js';
@@ -21,7 +23,6 @@ export const LOOKS = { // KJC-TSK-1618: the legend's portraits build them too
   sonar: ['SonarQube', 'tool', sonarBody], ledger: ['Ledger', 'method', ledgerBody],
   steward: ['Steward', 'method', stewardBody],
 };
-const PIECES = STATIONS.map((id) => [id, ...LOOKS[id]]);
 // The film's accents: Karajan green, kaRAGan amber, kaWATCHan blue.
 export const RAGAN_ACCENT = 0xf0b429; // KJC-TSK-1522: its laptop too
 export const ROBOTS = [
@@ -29,6 +30,14 @@ export const ROBOTS = [
   ['rag', { accent: RAGAN_ACCENT, name: 'kaRAGan' }],
   ['watch', { accent: 0x4fb3e8, name: 'kaWATCHan' }],
 ];
+
+/** KJC-TSK-1815: piece `id`, Karajan's robot in costume when it wears one, else its own figure. */
+export function pieceFor(id, index) {
+  const costume = costumeOfPiece(id);
+  if (costume) return createCostumedPiece(id, costume);
+  const [name, kind, body] = LOOKS[id];
+  return createPiece(index, name, { kind, body, tint: plinthTint(id) });
+}
 
 const place = (object, { x, z, yaw = 0 }, scale) => {
   object.position.set(x, 0, z);
@@ -44,10 +53,10 @@ export function populate(scene) {
     place(robot.root, CREW[id], SCALE.crew);
     return [id, robot];
   }));
-  const stand = createStand('atril', [['atril', 'skills'], ...PIECES.map(([, name]) => [name, 'skill'])]);
+  const stand = createStand('atril', [['atril', 'skills'], ...STATIONS.map((id) => [LOOKS[id][0], 'skill'])]);
   place(stand.group, STAND, SCALE.stand);
-  const pieces = Object.fromEntries(PIECES.map(([id, name, kind, body], i) => {
-    const piece = createPiece(i, name, { kind, body, tint: plinthTint(id) });
+  const pieces = Object.fromEntries(STATIONS.map((id, i) => {
+    const piece = pieceFor(id, i);
     // ADR 0048: each piece waits at its post; the Sentinel watches from its raised one.
     if (id === 'sentinel') {
       place(piece.group, SENTINEL_POST, SCALE.piece);
