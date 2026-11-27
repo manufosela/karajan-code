@@ -44,13 +44,25 @@ describe('one cart on its rounds', () => {
 });
 
 describe('only hosts the stage draws at their desks', () => {
-  it('leaves out one still walking in, one that left and anyone who is not a host', () => {
+  it('marks one still walking as not seated, and leaves out one that left and anyone who is not a host', () => {
     const [seated] = workersFrom([{ agent: 'claude', role: 'host', id: 's1', at: 'x', waiting: 'person' }], 0, 'main');
     const walking = { ...seated, id: 's2', since: 100_000 };
     const gone = { ...seated, id: 's3', leftAt: 1000 };
     const coder = { ...seated, id: 's4', role: 'coder' };
     const at = hostsAtDesks([seated, walking, gone, coder], 100_000 + BUD_MS, {});
-    expect(at).toEqual([{ key: visitKey(seated), waiting: 'person', spot: spotOf('host', 0, seated.slot, WORKSHOP.z) }]);
+    expect(at).toEqual([
+      { key: visitKey(seated), waiting: 'person', seated: true, spot: spotOf('host', 0, seated.slot, WORKSHOP.z) },
+      { key: visitKey(walking), waiting: 'person', seated: false, spot: spotOf('host', 0, seated.slot, WORKSHOP.z) },
+    ]);
+  });
+
+  it('serves no host away from its desk, and one on an errand keeps the cup it had', () => {
+    expect(withCoffee([], [{ ...host('a', 'person', 0), seated: false }], SERVE_AFTER_MS)).toEqual([]);
+    const trips = withCoffee([], [host('a', 'person', 0)], SERVE_AFTER_MS);
+    const away = [{ ...host('a', null), seated: false }];
+    const later = withCoffee(trips, away, SERVE_AFTER_MS + 2 * CART_TRIP_MS);
+    expect(later).toEqual(trips);
+    expect(cupOnDesk(later, away, SERVE_AFTER_MS + 2 * CART_TRIP_MS)).toHaveLength(1);
   });
 });
 

@@ -22,14 +22,16 @@ export const CART_TRIP_MS = 2 * BUD_MS + 2 * CART_WALK_MS + HAND_MS;
 const lastOf = (trips, host) => trips.findLast((t) => t.host === host);
 
 /**
- * KJC-TSK-1813: the hosts the stage draws at their desks at `now` ({ key, waiting, spot }), the only
- * ones the cart serves; not one still walking in, teleporting or gone. `place` is the floor's xOf, zOf and door.
+ * KJC-TSK-1813: the hosts the stage draws at `now` ({ key, waiting, seated, spot }), `seated` when at
+ * their desks: the cart comes only to those, but one away on an errand keeps its cup. `place` is the
+ * floor's xOf, zOf and door.
  */
 export function hostsAtDesks(workers, now, { xOf = () => 0, zOf = () => WORKSHOP.z, door } = {}) {
   return workers.filter((w) => w.role === 'host' && w.leftAt === undefined).flatMap((w) => {
     const pose = workerAt(w, now, xOf, zOf, door);
-    if (!pose || pose.walking || pose.size < 1) return [];
-    return [{ key: visitKey(w), waiting: w.waiting ?? null, spot: spotOf('host', xOf(w.lane), w.slot, zOf(w.lane)) }];
+    if (!pose) return [];
+    const seated = !pose.walking && pose.size >= 1;
+    return [{ key: visitKey(w), waiting: w.waiting ?? null, seated, spot: spotOf('host', xOf(w.lane), w.slot, zOf(w.lane)) }];
   });
 }
 
@@ -39,7 +41,8 @@ export function waitsSince(prev, hosts, now) {
 }
 
 /** The trip the cart is called for: a cup left on a desk first, else the longest wait that has lasted. */
-function nextCall(trips, hosts, now) {
+function nextCall(trips, everyone, now) {
+  const hosts = everyone.filter((h) => h.seated !== false); // KJC-TSK-1813: the cart comes to a host at its desk
   const held = (key) => lastOf(trips, key)?.serve === true;
   const left = hosts.find(({ key, waiting }) => !inHand(waiting) && held(key) && now >= lastOf(trips, key).at + HAND_AT_MS);
   if (left) return { host: left.key, serve: false, at: now, spot: left.spot };
