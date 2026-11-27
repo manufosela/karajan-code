@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync,readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -94,6 +94,54 @@ describe("installHooks over a hook edited by hand (HU-4997)", () => {
     if (provenance) writeFileSync(join(repo, PROVENANCE_FILE), JSON.stringify(provenance));
     insertInBlock("echo BY_HAND");
     expect(actionOf(await refresh())).toBe("updated");
+  });
+});
+
+describe("kj's own earlier refresh is not a hand edit (HU-4997)", () => {
+  const recordPath = () => join(repo, ".karajan", "harness", "hooks-written.json");
+  const recorded = () => JSON.parse(readFileSync(recordPath(), "utf8"))["pre-commit"];
+  const harness = () => join(repo, ".karajan", "harness");
+  beforeEach(() => mkdirSync(harness(), { recursive: true }));
+
+  // The pre-commit and the RAG ledger read that directory as "the Sentinel is installed".
+  it("never creates the harness directory", async () => {
+    rmSync(harness(), { recursive: true });
+    await install();
+    await refresh();
+    expect(existsSync(harness())).toBe(false);
+  });
+
+  it.each([false, true])("main, develop, release refreshes twice with the seal still on main (CRLF: %s)", async (crlf) => {
+    await install();
+    expect(actionOf(await refresh())).toBe("updated");
+    if (crlf) writeFileSync(hookPath(), read().replaceAll("\n", "\r\n"));
+    expect(actionOf(await refresh({ baseBranch: "release" }))).toBe("updated");
+    expect(read()).toContain("release");
+  });
+
+  it("keeps a hand edit made after a refresh, and does not record it", async () => {
+    await install();
+    await refresh();
+    const written = recorded();
+    insertInBlock("echo BY_HAND");
+    expect(actionOf(await refresh({ baseBranch: "release" }))).toBe("kept-edited");
+    expect(read()).toContain("echo BY_HAND");
+    expect(recorded()).toBe(written);
+  });
+
+  it("a dry run records nothing", async () => {
+    await install();
+    const written = recorded();
+    await refresh({ dryRun: true });
+    expect(recorded()).toBe(written);
+  });
+
+  it.each([null, "not json", "null"])("with the record missing or unreadable (%j) only the seal counts", async (content) => {
+    await install();
+    await refresh();
+    if (content === null) rmSync(recordPath());
+    else writeFileSync(recordPath(), content);
+    expect(actionOf(await refresh({ baseBranch: "release" }))).toBe("kept-edited");
   });
 });
 
