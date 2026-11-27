@@ -36,7 +36,7 @@ const BUILD = {
     const lens = new THREE.Group();
     lens.add(new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.04, 8, 32), trim), new THREE.Mesh(new THREE.CircleGeometry(0.27, 32), glass),
       at(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.35, 10), cloth(0x3a2a1e)), 0, -0.45, 0));
-    lens.position.y = -0.4;
+    lens.position.y = 0.62; // up from the hand, its handle in it
     hold(armR.hand, lens);
   },
   tailcoat: ({ hover }) => {
@@ -54,7 +54,7 @@ const BUILD = {
     const glass = new THREE.MeshStandardMaterial({ color: 0xdff3ff, transparent: true, opacity: 0.5 });
     tray.add(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.04, 32), trim),
       at(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.22, 16), glass), 0.12, 0.13, 0));
-    tray.position.y = -0.22;
+    tray.position.y = 0.18; // on the hand, above the floor
     hold(armL.hand, tray);
   },
   robe: ({ hover }) => hover.add(coat(0.8, 1, 1.4, 0.02, cloth(0x111318))),
@@ -68,9 +68,10 @@ const BUILD = {
   },
   gavel: ({ armR }, trim) => {
     const gavel = new THREE.Group();
-    const head = at(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.32, 20), trim), 0, -0.6, 0);
+    // The hand hangs low at rest (y 0.22 of the robot): the gavel stands up from it, never into the floor.
+    const head = at(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.32, 20), trim), 0, 0.6, 0);
     head.rotation.z = Math.PI / 2;
-    gavel.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 10), cloth(0x6b4423)), 0, -0.3, 0), head);
+    gavel.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 10), cloth(0x6b4423)), 0, 0.3, 0), head);
     hold(armR.hand, gavel);
   },
 };
