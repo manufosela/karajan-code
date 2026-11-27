@@ -51,6 +51,14 @@ describe("generatedForPrompt", () => {
     expect(calls).toEqual([]);
   });
 
+  // The allow-list: a marked SQL migration or stylesheet is still read whole.
+  it("only data files are ever summarized, whatever the base marks", () => {
+    const runner = (_cwd, args) => args.slice(args.indexOf("--") + 1).map((f) => `${f}\0linguist-generated\0set\0`).join("");
+    const shown = ["db/migrations/001.sql", "web/a.css", "web/a.scss", "web/index.html", "deploy.yml", "data/json", "data/x.json.sh"];
+    const data = ["data/x.json", "data/x.csv", "data/x.jsonl", "data/x.ndjson", "data/x.geojson", "data/x.tsv", "data/X.TXT"];
+    expect(generatedForPrompt([...shown, ...data], { base: "origin/main", runner })).toEqual(data);
+  });
+
   it("summarizes nothing extra and warns once when git refuses --source", () => {
     const said = [];
     const runner = () => { throw new Error("error: unknown option `source'"); };

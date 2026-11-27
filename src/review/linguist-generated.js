@@ -8,7 +8,6 @@ import { execFileSync } from "node:child_process";
 import { basename } from "node:path";
 
 import { GENERATED_CONFIG_FILES } from "../harden/config-templates.js";
-import { CODE } from "../harden/sentinel/sentinel-lib.mjs";
 import { AI_RULES } from "./loc-budget.js";
 
 const run = (cwd, args) => execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
@@ -39,8 +38,11 @@ export function linguistGenerated(files, { cwd = process.cwd(), cached = false, 
   return generated;
 }
 
-// Never summarized, whatever the attributes say: code, AI rules (at any depth) and kj's own configs.
-const alwaysShown = (file) => CODE.test(file) || GENERATED_CONFIG_FILES.has(basename(file))
+// An allow-list, not a code list: an extension nobody thought of (SQL, CSS, HTML) must stay visible.
+const DATA_FILE = /\.(?:json|jsonl|ndjson|geojson|csv|tsv|txt)$/i;
+
+// Only data may be summarized, and never AI rules (at any depth) or kj's own configs.
+const alwaysShown = (file) => !DATA_FILE.test(file) || GENERATED_CONFIG_FILES.has(basename(file))
   || AI_RULES.some((re) => re.test(file) || re.test(basename(file)));
 
 /**
