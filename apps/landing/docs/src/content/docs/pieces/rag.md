@@ -34,7 +34,7 @@ What the session asked and what came back is written in the [ledger](/docs/piece
 
 ## What it does not do
 
-- **It does not leave your machine.** The index is a local file; queries do not go to an outside service.
+- **It does not leave your machine by default.** The index is a local file and the default embedder is local (ollama or onnx). A cloud embedder (OpenAI, Voyage, Cohere, Mistral) is blocked unless you declare `rag.sensitivity: public`; then the indexed code and the queries do go to that provider, with personal data redacted first.
 - **It does not index secrets on purpose,** and what you exclude stays out.
 - **It is not proof the code is right.** It says where things are; whether the change is correct is for the [quality checks](/docs/pieces/quality/) and the [cross review](/docs/pieces/cross-review/).
 - **An empty index is not an answer.** kj says so and gives the remedy, instead of letting the agent read silence as "nothing found".

@@ -34,7 +34,7 @@ Lo que preguntó la sesión y lo que volvió queda apuntado en el [ledger](/docs
 
 ## Qué no hace
 
-- **No sale de tu máquina.** El índice es un fichero local; las consultas no van a ningún servicio externo.
+- **No sale de tu máquina, por defecto.** El índice es un fichero local y el embedder por defecto es local (ollama u onnx). Un embedder en la nube (OpenAI, Voyage, Cohere, Mistral) está bloqueado salvo que declares `rag.sensitivity: public`; entonces el código indexado y las consultas sí van a ese proveedor, con los datos personales tachados antes.
 - **No indexa secretos a propósito,** y lo que excluyes se queda fuera.
 - **No prueba que el código esté bien.** Dice dónde están las cosas; si el cambio es correcto lo deciden los [controles de calidad](/docs/es/pieces/quality/) y la [revisión cruzada](/docs/es/pieces/cross-review/).
 - **Un índice vacío no es una respuesta.** kj lo dice y da el remedio, en vez de dejar que el agente lea el silencio como "no hay nada".
