@@ -109,6 +109,24 @@ describe("runMutationPregate", () => {
     }
   });
 
+  it("la ruta por defecto lanza stryker como `run <scope>` y lee su informe (KJC-BUG-0678)", async () => {
+    const survived = [{ file: "src/a.js", line: 12, mutator: "ArithmeticOperator" }];
+    // Como el runner real: sin readReport (o sin `run`) no hay resultado.
+    const run = async ({ args, readReport }) => ({
+      exitCode: 0, stdout: "", stderr: "",
+      result: readReport && args[0] === "run" ? outcome(survived).result : null,
+    });
+    const res = await runMutationPregate({
+      config: { method_gates: { mutation: "warn" } },
+      deps: {
+        detectStack: async () => ({ language: "javascript" }),
+        diffScope: async () => ({ supported: true, empty: false, args: ["--mutate", "src/a.js"] }),
+        run,
+      },
+    });
+    expect(res).toMatchObject({ available: true, survived, score: 80 });
+  });
+
   it("herramienta/lenguaje indisponible degrada AVISANDO — nunca un pase silencioso ni un cierre injusto", async () => {
     const res = await runMutationPregate({
       config: { method_gates: { mutation: "block" } },
