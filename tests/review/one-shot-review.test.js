@@ -31,6 +31,33 @@ describe("pickCrossReviewer", () => {
     const config = { roles: {} };
     expect(await pickCrossReviewer({ config, hostAgent: "claude", detectAgents: agentsUp("claude") })).toBeNull();
   });
+
+  // HU-4990: no agent reviews its own work, the panel coder (kj code) included.
+  const panel = (coder, reviewer) => ({ roles: { coder: { provider: coder }, reviewer: { provider: reviewer } } });
+
+  it("overrides a configured reviewer that is the panel coder, and says so", async () => {
+    const logger = { warn: vi.fn() };
+    const picked = await pickCrossReviewer({
+      config: panel("codex", "codex"), hostAgent: "claude", logger, detectAgents: agentsUp("codex", "claude", "gemini"),
+    });
+    expect(picked).toBe("gemini");
+    expect(logger.warn).toHaveBeenCalledWith("⚠ reviewer codex is also the panel coder: kj uses gemini so no agent reviews its own work");
+  });
+
+  it("keeps a reviewer that is neither host nor coder, with no notice", async () => {
+    const logger = { warn: vi.fn() };
+    expect(await pickCrossReviewer({ config: panel("claude", "codex"), hostAgent: "claude", logger })).toBe("codex");
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("returns null when only the host and the coder exist, and the error says what to do", async () => {
+    const config = panel("codex", "codex");
+    const detectAgents = agentsUp("codex", "claude");
+    expect(await pickCrossReviewer({ config, hostAgent: "claude", detectAgents })).toBeNull();
+    await expect(runOneShotReview({ diff: DIFF, config, projectDir: dir, hostAgent: "claude", detectAgents })).rejects.toThrow(
+      "cross-AI review needs an agent other than the host (claude) and the panel coder (codex): install another supported CLI (codex, claude, gemini, opencode, aider) or set roles.reviewer.provider to one",
+    );
+  });
 });
 
 describe("runOneShotReview", () => {
@@ -129,6 +156,13 @@ describe("runOneShotReview", () => {
       diff: DIFF, config: { roles: {} }, projectDir: dir, hostAgent: "claude",
       detectAgents: agentsUp("claude"),
     })).rejects.toThrow(/cross-AI review requires an agent other than the host/);
+  });
+
+  // detectHostAgent() answers null outside a host: the message must never read "(null)".
+  it("names the host unknown when there is none", async () => {
+    await expect(runOneShotReview({
+      diff: DIFF, config: { roles: {} }, projectDir: dir, hostAgent: null, detectAgents: agentsUp(),
+    })).rejects.toThrow("cross-AI review requires an agent other than the host (unknown)");
   });
 
   it("throws on an empty diff", async () => {

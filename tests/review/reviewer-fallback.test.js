@@ -250,6 +250,20 @@ describe("runOneShotReview quota failover", () => {
     expect(seenConfigs.copilot.roles.reviewer.model).toBeNull();
   });
 
+  // HU-4990: the panel coder never reviews, not even to cover a quota outage.
+  it("never falls back to the panel coder", async () => {
+    const approve = async () => ({ ok: true, output: JSON.stringify({ approved: true, blocking_issues: [], summary: "ok" }) });
+    const agents = {
+      codex: { reviewTask: async () => ({ ok: false, error: CODEX_REAL_ERROR }) },
+      copilot: { reviewTask: approve },
+      kimi: { reviewTask: approve },
+    };
+    const args = { ...baseArgs(agents), persist: false };
+    args.config = { roles: { coder: { provider: "copilot" }, reviewer: { provider: "codex" } } };
+    args.candidateStatusFn = async () => ["codex", "copilot", "kimi"].map((name) => ({ name, installed: true, authenticated: true }));
+    expect((await runOneShotReview(args)).reviewer).toBe("kimi");
+  });
+
   it("prints the candidate menu when no candidate is authenticated", async () => {
     const agents = { codex: { reviewTask: async () => ({ ok: false, error: CODEX_REAL_ERROR }) } };
     const args = baseArgs(agents);
