@@ -17,9 +17,10 @@ import { teleportLook } from './teleport.js';
 import { waitLook } from './wait-look.js';
 import { showWaitMark } from './wait-mark.js';
 import { avoidance } from './avoid.js';
-import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, spotOf, typingAt, visitKey, withActivity, withErrand, withLongRuns, workerAt, workersFrom } from './workers.js';
+import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, withErrand, withLongRuns, workerAt, workersFrom } from './workers.js';
 import { cardNote } from './couriers.js';
 import { createCup } from './cast/coffee-cart.js';
+import { hostsAtDesks, inHand } from './coffee.js';
 
 // The robot is 3.5 m tall before scaling; a subagent is a dwarf (KJC-TSK-1435).
 const DWARF = 0.55;
@@ -234,9 +235,8 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
     push(event, at) { workers = withActivity(workers, event, at); },
     /** KJC-TSK-1699: the hosts the board sees inside a long tool carry the mark. */
     longRuns(server) { workers = withLongRuns(workers, server); },
-    /** KJC-TSK-1663: every host at work, whether it waits, and its seat, for the coffee cart. */
-    hosts: () => workers.filter((w) => w.role === 'host' && w.leftAt === undefined)
-      .map((w) => ({ key: visitKey(w), waiting: w.waiting ?? null, spot: spotOf('host', xOf(w.lane), w.slot, zOf(w.lane)) })),
+    /** KJC-TSK-1663: every host at work, whether it waits, and its seat, for the coffee cart; KJC-TSK-1813: drawn at its desk at `now`. */
+    hosts: (now) => hostsAtDesks(workers, now, { xOf, zOf, door: doorOf?.() }),
     /** KJC-TSK-1660: the other groups' robots, which the agents step aside from on the next frame. */
     avoid(others) { obstacles = others; },
     /** KJC-TSK-1660: where the agents stood on the last frame, for the other groups to step aside. */
@@ -296,7 +296,8 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         work(robot, worker, pose, t);
         holdCard(robot, pose);
-        holdCup(robot, worker.role === 'host' && holdsCup?.(key, t) === true);
+        // KJC-TSK-1813: once it works again, its cup stands on its desk (coffee-floor.js), not in its hand.
+        holdCup(robot, worker.role === 'host' && inHand(worker.waiting) && holdsCup?.(key, t) === true);
         dress(robot, worker); // KJC-TSK-1538: its model's accessory and its effort's build
         // Just above the helmet, so the label never sits on it.
         // KJC-TSK-1598: over a host's halo. KJC-TSK-1600: what it says is decided below, for all at once.

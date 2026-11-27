@@ -3,14 +3,21 @@
 import * as THREE from 'three';
 import { BEAM_GEOMETRY, BEAM_HEIGHT, dispose } from './agents-floor.js';
 import { avoidance } from './avoid.js';
-import { createCoffeeCart } from './cast/coffee-cart.js';
-import { cartAt, hasCup, withCoffee } from './coffee.js';
+import { createCoffeeCart, createCup } from './cast/coffee-cart.js';
+import { cartAt, cupOnDesk, hasCup, waitsSince, withCoffee } from './coffee.js';
 import { SCALE } from './layout.js';
 import { teleportLook } from './teleport.js';
+
+/** KJC-TSK-1813: how big a cup left on a desk is, and how far below its centre its saucer is (cast/coffee-cart.js). */
+const DESK_CUP = SCALE.crew * 1.2;
+const SAUCER_DROP = 0.23;
 
 /** The carts mounted on `scene`: `update(hosts, now)` as the hosts wait or work, `frame(now, door)` every frame. */
 export function createCoffeeFloor(scene) {
   let trips = [];
+  let since = {};
+  let seated = [];
+  const deskCups = new Map(); // KJC-TSK-1813: the cups left on desks, by host
   let obstacles = []; // KJC-TSK-1660: nobody crashes, the cart included
   let bodies = [];
   const robots = new Map();
@@ -23,8 +30,13 @@ export function createCoffeeFloor(scene) {
     robots.delete(key);
   };
   return {
-    /** `hosts`: { key, waiting, spot } of every host at work, as the floor has them now. */
-    update(hosts, now) { trips = withCoffee(trips, hosts, now); },
+    /** `hosts`: { key, waiting, spot } of every host at its desk, as the floor has them now. */
+    update(hosts, now) {
+      // KJC-TSK-1813: when each began to wait, so the cart comes only to a wait that lasts.
+      since = waitsSince(since, hosts, now);
+      seated = hosts.map((h) => ({ ...h, since: since[h.key] }));
+      trips = withCoffee(trips, seated, now);
+    },
     /** Whether the host `key` holds its cup at `now`. */
     holds: (key, now) => hasCup(trips, key, now),
     /** KJC-TSK-1660: the other groups' robots, which the carts step aside from on the next frame. */
@@ -57,6 +69,24 @@ export function createCoffeeFloor(scene) {
       }
       // Deleting the entry being visited is safe while iterating a Map.
       for (const key of robots.keys()) if (!seen.has(key)) drop(key);
+      // KJC-TSK-1813: a host that works again left its cup on its desk; it stays there until the cart takes it.
+      const onDesk = cupOnDesk(trips, seated, now);
+      for (const { host, x, y, z } of onDesk) {
+        if (!deskCups.has(host)) {
+          const cup = createCup();
+          cup.scale.setScalar(DESK_CUP);
+          deskCups.set(host, cup);
+          scene.add(cup);
+        }
+        deskCups.get(host).position.set(x, y + SAUCER_DROP * DESK_CUP, z); // its saucer on the desk top
+      }
+      const kept = new Set(onDesk.map((c) => c.host));
+      for (const [host, cup] of deskCups) {
+        if (kept.has(host)) continue;
+        scene.remove(cup);
+        dispose({ root: cup });
+        deskCups.delete(host);
+      }
     },
   };
 }

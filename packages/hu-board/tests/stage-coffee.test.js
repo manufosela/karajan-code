@@ -2,11 +2,12 @@
 // agents a cup; when they have to work again it comes back, takes the cup and they get back to it."
 import { describe, expect, it } from 'vitest';
 
-import { CART_TRIP_MS, HAND_AT_MS, cartAt, hasCup, withCoffee } from '../public/stage/coffee.js';
+import { CART_TRIP_MS, HAND_AT_MS, SERVE_AFTER_MS, cartAt, hasCup, withCoffee } from '../public/stage/coffee.js';
 import { boothAt } from '../public/stage/layout.js';
 import { BUD_MS } from '../public/stage/workers.js';
 
-const host = (key, waiting, spot = { x: 4, z: 2 }) => ({ key, waiting, spot });
+// KJC-TSK-1813: these hosts have waited long enough to be served the moment they are seen.
+const host = (key, waiting, spot = { x: 4, z: 2 }) => ({ key, waiting, since: -SERVE_AFTER_MS, spot });
 const door = boothAt(1);
 
 describe('withCoffee', () => {
@@ -15,7 +16,9 @@ describe('withCoffee', () => {
     expect(trips).toEqual([{ host: 'a', serve: true, at: 1000, spot: { x: 4, z: 2 } }]);
     expect(withCoffee(trips, [host('a', 'person')], 2000)).toHaveLength(1);
     expect(withCoffee(trips, [host('a', null)], 2000)).toHaveLength(1);
-    expect(withCoffee(trips, [host('a', null)], 1000 + HAND_AT_MS)).toHaveLength(2);
+    // KJC-TSK-1813: one cart, so it comes back for the cup once it is home from serving it.
+    expect(withCoffee(trips, [host('a', null)], 1000 + HAND_AT_MS)).toHaveLength(1);
+    expect(withCoffee(trips, [host('a', null)], 1000 + CART_TRIP_MS)).toHaveLength(2);
   });
 
   it('sends it back to take the cup once that host works again', () => {
