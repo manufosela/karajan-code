@@ -53,3 +53,28 @@ describe("an approval confirmed at the terminal", () => {
     expect((await findConfirmedApproval({ comments: [{ login: "maintainer", body: body.replace(/"signature": \{[\s\S]*?\}/, '"signature": null') }], ...approval, canWrite })).ok).toBe(false);
   });
 });
+
+// KJC-TSK-1658, HU-4987: the early close names who had not answered, and says nothing of it when no one is left.
+describe("an approval that closes the wait early", () => {
+  const deadline = "2026-11-13T12:00:00.000Z";
+
+  it("names who had not answered", () => {
+    expect(renderApproval({ ...approval, signature: null, earlyClose: { deadline, silent: ["bob"] } })).toContain(`It closed the wait before ${deadline}: @bob had not answered.`);
+  });
+
+  it("with no one silent, records the early close and names no one", () => {
+    const text = renderApproval({ ...approval, signature: null, earlyClose: { deadline, silent: [] } });
+    expect(text).toContain(`It closed the wait before ${deadline}.\n`);
+    expect(text).not.toMatch(/had not answered/);
+  });
+
+  it("names everyone who had not answered, in order", () => {
+    expect(renderApproval({ ...approval, signature: null, earlyClose: { deadline, silent: ["ana", "bob"] } })).toContain(`It closed the wait before ${deadline}: @ana, @bob had not answered.\n`);
+  });
+
+  it("without an early close, says nothing of the wait nor of who had not answered", () => {
+    const text = renderApproval({ ...approval, signature: null });
+    expect(text).toMatch(/^Release 1\.2\.0 approved at abc1234, confirmed at the maintainer's terminal\.\n\n```kj-release-approval\n/);
+    expect(text).not.toMatch(/closed the wait|had not answered/);
+  });
+});
