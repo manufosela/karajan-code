@@ -42,9 +42,13 @@ export function stopLine(text) {
   return lines.at(-1)?.replace(/»\s*$/, '') ?? null;
 }
 
-/** What a stop line waits for: 'person', 'process', or null when nothing is left to do or there is none. */
+/**
+ * What a stop line waits for: 'person' or 'process'; 'done' when nothing is left to do (KJC-TSK-1811:
+ * not a wait, it has its own mark); null when there is no stop line.
+ */
 export function waitOf(text) {
   const line = stopLine(text);
-  if (!line || NOTHING.some((said) => said.test(line))) return null;
+  if (!line) return null;
+  if (NOTHING.some((said) => said.test(line))) return 'done';
   return asksPerson(line) ? 'person' : 'process';
 }

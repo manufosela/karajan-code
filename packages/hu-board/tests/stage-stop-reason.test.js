@@ -52,14 +52,15 @@ describe('waitOf', () => {
     expect(waitOf('Me paro por el merge, que corre en segundo plano.')).toBe('process');
   });
 
-  it('nothing to wait for when no work is left, or there is no stop line', () => {
-    expect(waitOf('Me paro porque no me queda trabajo en este carril.')).toBeNull();
-    expect(waitOf('Me paro porque no queda trabajo pendiente.')).toBeNull();
+  // KJC-TSK-1811 (the maintainer, 2026-11-27): no work left is not a wait, it is done.
+  it('done when no work is left, nothing when there is no stop line', () => {
+    expect(waitOf('Me paro porque no me queda trabajo en este carril.')).toBe('done');
+    expect(waitOf('Me paro porque no queda trabajo pendiente.')).toBe('done');
     // KJC-BUG-0638 (the maintainer, 2026-11-18): "it has finished, shouldn't it leave?"
-    expect(waitOf('Me paro por no quedar trabajo pendiente de estos encargos.')).toBeNull();
-    expect(waitOf('Me paro por no quedarme nada que hacer.')).toBeNull();
-    expect(waitOf('Me paro porque ya no quedan tareas.')).toBeNull();
-    expect(waitOf('Me paro por no tener más trabajo.')).toBeNull();
+    expect(waitOf('Me paro por no quedar trabajo pendiente de estos encargos.')).toBe('done');
+    expect(waitOf('Me paro por no quedarme nada que hacer.')).toBe('done');
+    expect(waitOf('Me paro porque ya no quedan tareas.')).toBe('done');
+    expect(waitOf('Me paro por no tener más trabajo.')).toBe('done');
     // Waiting for a process still says so.
     expect(waitOf('Me paro por esperar al CI de la PR en segundo plano.')).toBe('process');
     expect(waitOf('Hecho, mergeado.')).toBeNull();

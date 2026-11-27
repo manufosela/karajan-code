@@ -16,8 +16,8 @@ describe('panelEntries', () => {
   // KJC-TSK-1629 (the maintainer, 2026-11-14): "the list should be sorted alphabetically, to find them".
   it('one entry per factory, alphabetically by name, with its agents at work and its cards in progress', () => {
     expect(panelEntries(factories, 'home_b')).toEqual([
-      { project: 'home_b', name: 'grebla', working: 0, resting: 0, doing: 0, waiting: 0, current: true },
-      { project: 'home_a', name: 'karajan-code', working: 3, resting: 0, doing: 2, waiting: 0, current: false },
+      { project: 'home_b', name: 'grebla', working: 0, resting: 0, done: 0, doing: 0, waiting: 0, current: true },
+      { project: 'home_a', name: 'karajan-code', working: 3, resting: 0, done: 0, doing: 2, waiting: 0, current: false },
     ]);
   });
 

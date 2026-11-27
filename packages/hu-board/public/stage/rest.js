@@ -1,6 +1,7 @@
 // KJC-TSK-1398 (ADR 0046): the stage at rest shows the last real state of each
 // piece (from /api/stage/state): its light, and a line a screen reader can read.
 import { boardLine, mergeCards, withCard } from './cards.js';
+import { WAITS } from './idle-waits.js';
 import { launchedLabel } from './models.js';
 
 /** A denial older than this no longer lights the Sentinel. */
@@ -145,7 +146,6 @@ export function statusOrder(entries) {
 // KJC-TSK-1430: who is at work right now, as the robots on the floor show it.
 const usingOf = (w) => (w.skills?.length ? ['with', w.skills.join(', ')] : []);
 const whereOf = (w) => (w.lane && w.lane !== 'main' ? ['in', w.lane] : []);
-const WAITS = { person: 'waits for you', process: 'waits for a process', rest: 'resting' };
 // KJC-TSK-1435: the host says the tool it uses; a subagent, its type.
 function whatOf(w) {
   // KJC-TSK-1607: a host that waits says for what.

@@ -15,5 +15,7 @@ export function waitLook(waiting, t) {
     return { mark: 'alert', facesCamera: true, hand: 2.5 + 0.2 * Math.sin((2 * Math.PI * t) / WAIT_BEAT_MS), pulse: 0.5 + 0.5 * beat, spin: 0 };
   }
   if (waiting === 'process') return { mark: 'hourglass', facesCamera: false, hand: 0, pulse: 1, spin: ((2 * Math.PI * t) / TURN_MS) % (2 * Math.PI) };
+  // KJC-TSK-1811: no work left, a still green check.
+  if (waiting === 'done') return { mark: 'check', facesCamera: false, hand: 0, pulse: 1, spin: 0 };
   return null;
 }
