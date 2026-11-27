@@ -11,7 +11,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { hookBody, SHEBANG } from "../../src/harden/hook-templates.js";
 import { fakeKjPath } from "./_fake-kj.js";
 
-let dir, ghDir;
+let dir, ghDir, destination;
 const declare = (gh, email) => {
   fs.mkdirSync(path.join(dir, ".karajan"), { recursive: true });
   fs.writeFileSync(path.join(dir, ".karajan", "identity.local.yml"), `gh_user: ${gh}\ngit_email: ${email}\n`);
@@ -22,6 +22,8 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-idhooks-"));
   ghDir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-idhooks-gh-"));
   execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
+  destination = path.join(ghDir, "destination.git");
+  execFileSync("git", ["init", "-q", "--bare", destination]);
   for (const [k, v] of [["user.email", "t@t"], ["user.name", "T"], ["commit.gpgsign", "false"], ["core.hooksPath", ".karajan/hooks"]]) execFileSync("git", ["config", k, v], { cwd: dir });
   const hooksDir = path.join(dir, ".karajan", "hooks");
   fs.mkdirSync(hooksDir, { recursive: true });
@@ -30,6 +32,10 @@ beforeEach(() => {
 });
 afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(ghDir, { recursive: true, force: true }); });
 
+// As git calls the hook with refs on stdin: $1 the remote name, $2 its push URL.
+const runPrePush = (input, args = ["origin", destination], shFlags = []) => spawnSync("sh", [...shFlags, path.join(dir, ".karajan", "hooks", "pre-push"), ...args], {
+  cwd: dir, encoding: "utf8", input, env: { ...process.env, GH_CONFIG_DIR: ghDir },
+});
 const commit = (env = {}) => {
   fs.writeFileSync(path.join(dir, "f.js"), `// ${Math.random()}\n`);
   execFileSync("git", ["add", "f.js"], { cwd: dir });
@@ -102,9 +108,7 @@ describe("pre-push identity lock", () => {
     hosts("manufosela");
     const pushRefs = () => {
       const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
-      return spawnSync("sh", [path.join(dir, ".karajan", "hooks", "pre-push")], {
-        cwd: dir, encoding: "utf8", input: `refs/heads/x ${sha} refs/heads/x ${"0".repeat(40)}\n`, env: { ...process.env, GH_CONFIG_DIR: ghDir },
-      });
+      return runPrePush(`refs/heads/x ${sha} refs/heads/x ${"0".repeat(40)}\n`);
     };
     expect(commit().status).toBe(0);
     expect(pushRefs().status).toBe(0);
@@ -129,12 +133,10 @@ describe("pre-push identity lock", () => {
     fs.writeFileSync(path.join(dir, "main.js"), "// main\n");
     git("add", "main.js");
     git("-c", "core.hooksPath=/dev/null", "-c", "user.email=github@x.y", "commit", "-q", "-m", "feat: on main");
-    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("-c", "core.hooksPath=/dev/null", "push", "-q", destination, "HEAD:refs/heads/main");
     git("checkout", "-q", "feat/KJC-TSK-0001-x");
     git("-c", "core.hooksPath=/dev/null", "-c", "user.email=t@t", "merge", "-q", "--no-ff", "--no-edit", "main-upstream");
-    const update = () => spawnSync("sh", [path.join(dir, ".karajan", "hooks", "pre-push")], {
-      cwd: dir, encoding: "utf8", input: `refs/heads/x ${git("rev-parse", "HEAD")} refs/heads/x ${pushed}\n`, env: { ...process.env, GH_CONFIG_DIR: ghDir },
-    });
+    const update = () => runPrePush(`refs/heads/x ${git("rev-parse", "HEAD")} refs/heads/x ${pushed}\n`);
     expect(update().status).toBe(0);
     fs.writeFileSync(path.join(dir, "f.js"), "// intruder\n");
     git("add", "f.js");
@@ -151,11 +153,45 @@ describe("pre-push identity lock", () => {
     execFileSync("git", ["add", "f.js"], { cwd: dir });
     execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "user.email=intruder@x.y", "commit", "-q", "-m", "feat: y"], { cwd: dir });
     const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
-    const denied = spawnSync("sh", ["-e", path.join(dir, ".karajan", "hooks", "pre-push")], {
-      cwd: dir, encoding: "utf8", input: `refs/heads/x ${sha} refs/heads/x ${"1".repeat(40)}\n`, env: { ...process.env, GH_CONFIG_DIR: ghDir },
-    });
+    const denied = runPrePush(`refs/heads/x ${sha} refs/heads/x ${"1".repeat(40)}\n`, ["origin", destination], ["-e"]);
     expect(denied.status).not.toBe(0);
     expect(denied.stdout).toMatch(/identity lock — cannot list the commits pushed to refs\/heads\/x.*git fetch/);
+  });
+
+  // HU-4994 (#4808, point 4): only what the destination advertises counts as already pushed.
+  describe("what the push destination really has", () => {
+    const git = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+    const intruderCommit = () => {
+      declare("manufosela", "t@t");
+      hosts("manufosela");
+      expect(commit().status).toBe(0);
+      fs.writeFileSync(path.join(dir, "f.js"), "// intruder\n");
+      git("add", "f.js");
+      git("-c", "core.hooksPath=/dev/null", "-c", "user.email=intruder@x.y", "commit", "-q", "-m", "feat: y");
+      return git("rev-parse", "HEAD");
+    };
+    const pushTo = (url, sha) => runPrePush(`refs/heads/x ${sha} refs/heads/x ${"0".repeat(40)}\n`, ["origin", url]);
+
+    it("checks a commit that only a stale cached remote branch holds", () => {
+      const sha = intruderCommit();
+      git("update-ref", "refs/remotes/origin/gone", sha);
+      const denied = pushTo(destination, sha);
+      expect(denied.status).not.toBe(0);
+      expect(denied.stdout).toMatch(/identity lock — commit \w+ is authored\/committed as intruder@x\.y/);
+    });
+
+    it("passes when the destination already has the commit on another branch", () => {
+      const sha = intruderCommit();
+      git("-c", "core.hooksPath=/dev/null", "push", "-q", destination, `${sha}:refs/heads/other`);
+      expect(pushTo(destination, sha).status).toBe(0);
+    });
+
+    it("refuses when the destination cannot be read", () => {
+      const bad = path.join(destination, "missing");
+      const denied = pushTo(bad, intruderCommit());
+      expect(denied.status).not.toBe(0);
+      expect(denied.stdout).toContain(`identity lock — cannot read the refs of the push destination (${bad}): `);
+    });
   });
 
   // KJC-BUG-0550 (#3834): the installed hook runs under set -e; a lookup that finds nothing must not end it in silence.
