@@ -16,6 +16,7 @@ import { registerSonar } from "./cli/register-sonar.js";
 import { registerRetired } from "./cli/retired-commands.js";
 import { printUpdateNotice } from "./utils/update-check.js";
 import { printNodeReminder } from "./utils/node-reminder.js";
+import { printEventPolicyReminder } from "./utils/event-policy-reminder.js";
 import { printWelcomeScreen } from "./utils/welcome.js";
 import { migrateKjToKarajan } from "./utils/home-migration.js";
 import { pinGitDiffFormat } from "./utils/git-diff-format.js";
@@ -32,6 +33,7 @@ const PKG_VERSION = JSON.parse(readFileSync(PKG_PATH, "utf8")).version;
 printUpdateNotice(PKG_VERSION).catch(() => {});
 // Daily Node 24 reminder: stderr only, so --json and stdout-parsing hooks stay clean (KJC-BUG-0389)
 printNodeReminder();
+printEventPolicyReminder(); // HU-5005: not awaited, never throws
 
 const program = new Command();
 program
