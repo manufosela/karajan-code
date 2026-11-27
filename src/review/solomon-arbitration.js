@@ -22,12 +22,16 @@ import { summarizeGeneratedFiles } from "./prompt-diff.js";
 // KJC-BUG-0526 (#3632): rce only as a whole word (not source/force), plus the phrase spelled out.
 const SECURITY_PATTERN = /injection|xss|csrf|secret|credential|password|token leak|auth(entication|orization)?|crypt|session|sanitiz|traversal|\brce\b|remote code execution/i;
 
-// Structured signal first (`category: "security"` — part of the reviewer's
-// JSON schema since AB-E); the free-text pattern stays as a fail-closed net
-// for verdicts recorded before the schema carried categories.
+// The category decides when the finding carries one (part of the reviewer's
+// JSON schema since AB-E): "security" is security, any other non-empty
+// category is not, whatever its text says (KJC-BUG-0561). Only a finding with
+// no category (missing, null or blank: verdicts recorded before the schema
+// carried categories) falls back to the free-text pattern, fail-closed.
 // KJC-BUG-0476 (#3137): returns why the issue counts as security, or null.
 function securityReason(issue) {
-  if (issue.category === "security") return "category security";
+  const category = typeof issue.category === "string" ? issue.category.trim().toLowerCase() : "";
+  if (category === "security") return "category security";
+  if (category) return null;
   const match = SECURITY_PATTERN.exec(`${issue.id || ""} ${issue.description || ""}`);
   return match ? `matches "${match[0]}"` : null;
 }

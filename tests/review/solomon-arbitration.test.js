@@ -161,6 +161,34 @@ describe("runSolomonArbitration", () => {
     expect(res.reasoning).toMatch(reason);
   });
 
+  // KJC-BUG-0561 (HU-4992): with a category the category decides; the keywords only judge uncategorised findings.
+  it.each([
+    ["correctness", "the session cache is not invalidated"],
+    ["maintainability", "rename the token leak helper"],
+  ])("a finding categorised %s is arbitrated whatever its text says: %s", async (category, description) => {
+    await seedRejected([{ id: "C1", severity: "high", category, description }]);
+    const agent = ruling("approve");
+    const res = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p", createAgentFn: () => agent });
+    expect(agent.reviewTask).toHaveBeenCalled();
+    expect(res.ruling).toBe("approve");
+  });
+
+  it.each([
+    ["security", /category security/],
+    ["Security ", /category security/],
+    [undefined, /matches "session"/],
+    [null, /matches "session"/],
+    ["", /matches "session"/],
+    ["  ", /matches "session"/],
+  ])("a session finding with category %j is never arbitrated", async (category, reason) => {
+    await seedRejected([{ id: "S1", severity: "high", category, description: "a session token leaks" }]);
+    const agent = ruling("approve");
+    const res = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "p", createAgentFn: () => agent });
+    expect(agent.reviewTask).not.toHaveBeenCalled();
+    expect(res.ruling).toBe("reject");
+    expect(res.reasoning).toMatch(reason);
+  });
+
   // KJC-TSK-1379 (#3207): one finding at a time; the gate opens only when none is left.
   describe("--finding <id>", () => {
     const two = [
