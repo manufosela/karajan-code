@@ -1,13 +1,13 @@
+import { execFile } from "node:child_process";
 import { adviseEventPolicy } from "../harden/event-policy.js";
-import { runCommand } from "../utils/process.js";
 import { withTimeout } from "../utils/with-timeout.js";
 import { STRATEGY } from "./types.js";
 
 const TIMEOUT_MS = 20_000;
-/** HU-5005: a run whose child runCommand kills after `ms`; it ends even if `run` ignores it (exit 143: unverified). */
-export const boundedRun = (ms, run = runCommand) => (cmd, args) =>
-  withTimeout(run(cmd, args, { timeout: ms }), ms, cmd).catch((err) => ({ exitCode: 143, stderr: err.message }));
-
+/** HU-5005: the child is SIGKILLed after `ms`; a timed-out or failed call has a non-zero exitCode (unverified). */
+export const boundedRun = (ms) => (cmd, args) => new Promise((resolve) => execFile(cmd, args,
+  { timeout: ms, killSignal: "SIGKILL", encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
+  (err, stdout, stderr) => resolve({ exitCode: err ? Number(err.code) || 1 : 0, stdout, stderr: stderr || err?.message || "" })));
 /** What kj harden says (KJC-BUG-0532): null when it does not apply, else { status, lines } with its lines. */
 export async function eventPolicyNotice({ projectDir, run = boundedRun(10_000), identity }) {
   const lines = [];
@@ -15,7 +15,6 @@ export async function eventPolicyNotice({ projectDir, run = boundedRun(10_000), 
   const res = await adviseEventPolicy({ projectDir, logger, run, identity });
   return res && { status: res.status, lines };
 }
-
 export function createEventPolicyCheck({ projectDir = process.cwd(), run, identity } = {}) {
   return {
     name: "event-policy",

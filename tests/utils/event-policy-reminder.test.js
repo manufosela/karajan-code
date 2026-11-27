@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { printEventPolicyReminder } from "../../src/utils/event-policy-reminder.js";
+import { boundedRun } from "../../src/checks/event-policy.js";
 
 const NOW = Date.UTC(2026, 10, 27, 12);
 const HOUR = 60 * 60 * 1000;
@@ -45,13 +46,15 @@ describe("printEventPolicyReminder", () => {
     expect(lines).toEqual([expect.stringContaining("https://github.com/acme/app/settings/actions")]);
   });
 
-  it("ends within its timeout when gh never answers, stamping nothing, and asks run to kill the child", async () => {
-    const opts = [];
-    await remind(async (cmd, args, o) => { opts.push(o); return cmd === "gh" ? new Promise(() => {}) : fakeRun()(cmd, args); }, { timeoutMs: 50 });
-    expect([lines, opts.at(-1)]).toEqual([[], { timeout: 50 }]);
+  it("ends within its timeout when gh never answers, stamping nothing, and the hung child is killed", async () => {
+    const [hang, start] = [["-e", "console.log(process.pid); setTimeout(() => {}, 30000)"], Date.now()];
+    let hung;
+    await remind(async (cmd, args) => (cmd === "gh" ? (hung = await boundedRun(300)(process.execPath, hang)) : fakeRun()(cmd, args)));
+    expect([lines, hung.exitCode === 0, Date.now() - start < 1000]).toEqual([[], false, true]);
+    expect(() => process.kill(Number(hung.stdout), 0)).toThrow(expect.objectContaining({ code: "ESRCH" }));
     await remind(fakeRun(), { now: NOW + HOUR });
     expect(lines).toHaveLength(1);
-  }, 1000);
+  }, 5000);
 
   it("is silent and calls nothing with KJ_NO_UPDATE_CHECK=1", async () => {
     const calls = [];
