@@ -24,8 +24,8 @@ Una tarea pasa siempre por los mismos momentos. Esto es lo que actúa en cada un
 | Momento | Pieza | Qué comprueba |
 |---|---|---|
 | La sesión se compacta o se reanuda | [El Sentinel](/docs/es/pieces/sentinel/) | Le devuelve al agente las reglas que leyó al empezar. |
-| Antes de cualquier trabajo | [El board](/docs/es/guides/hu-board/) | El trabajo tiene card, y la rama la nombra. |
-| Antes de tocar código | [El RAG del proyecto](/docs/es/karagan/) | El agente ha preguntado al índice del proyecto por esa zona, en vez de suponer. |
+| Antes de cualquier trabajo | [El board](/docs/es/pieces/board/) | El trabajo tiene card, y la rama la nombra. |
+| Antes de tocar código | [El RAG del proyecto](/docs/es/pieces/rag/) | El agente ha preguntado al índice del proyecto por esa zona, en vez de suponer. |
 | En cada llamada a una herramienta | [El Sentinel](/docs/es/pieces/sentinel/) | Nada de editar en la rama base ni en otro carril, ninguna regla rota, nada escrito a sus espaldas. |
 | En cada llamada, cuando ya ha terminado | [El ledger](/docs/es/pieces/ledger/) | Apunta lo que ha hecho la sesión: consultas, ficheros editados, cards mergeadas. |
 | Antes de la revisión | [Calidad antes de la revisión](/docs/es/pieces/quality/) | Los tests del propio diff pasan, ningún test se ha debilitado, Sonar no ha encontrado nada grave. |
@@ -33,7 +33,7 @@ Una tarea pasa siempre por los mismos momentos. Esto es lo que actúa en cada un
 | El commit y la pull request | Los hooks de git y el CI | El veredicto está y corresponde al diff. Sin kj los hooks de git no corren; el CI sí. |
 | Al terminar el turno | [El Sentinel](/docs/es/pieces/sentinel/) | El agente no se para con el método en rojo ni con sus cards a medias. |
 | Cada semana, o cuando lo pides | [El Steward](/docs/es/pieces/steward/) | El proyecto sigue sano: dependencias, el CI de main, invariantes. |
-| Lo que solo puedes hacer tú | [Los actos humanos](/docs/es/guides/hardening-against-ai/) | El sello, la aprobación de una release y las excepciones las teclea una persona, nunca el agente. |
+| Lo que solo puedes hacer tú | [Los actos humanos](/docs/es/pieces/human-acts/) | El sello, la aprobación de una release y las excepciones las teclea una persona, nunca el agente. |
 
 ## La idea detrás de todas
 

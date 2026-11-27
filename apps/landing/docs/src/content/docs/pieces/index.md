@@ -24,8 +24,8 @@ A task goes through the same moments every time. This is what acts at each one:
 | Moment | Piece | What it checks |
 |---|---|---|
 | The session is compacted or resumed | [The Sentinel](/docs/pieces/sentinel/) | It gives the agent back the rules it read at the start. |
-| Before any work | [The board](/docs/guides/hu-board/) | Work has a card, and the branch names it. |
-| Before touching code | [The project RAG](/docs/karagan/) | The agent asked the project's index about that zone, instead of guessing. |
+| Before any work | [The board](/docs/pieces/board/) | Work has a card, and the branch names it. |
+| Before touching code | [The project RAG](/docs/pieces/rag/) | The agent asked the project's index about that zone, instead of guessing. |
 | Every tool call | [The Sentinel](/docs/pieces/sentinel/) | No edits on the base branch or in another lane, no rule broken, nothing written behind its back. |
 | Every tool call, after it ran | [The ledger](/docs/pieces/ledger/) | Records what the session did: queries, edited files, merged cards. |
 | Before the review | [Quality before the review](/docs/pieces/quality/) | The diff's own tests pass, no test was weakened, Sonar found nothing serious. |
@@ -33,7 +33,7 @@ A task goes through the same moments every time. This is what acts at each one:
 | The commit and the pull request | git hooks and CI | The verdict is there and matches the diff. Without kj the git hooks do not run, the CI does. |
 | The end of the turn | [The Sentinel](/docs/pieces/sentinel/) | The agent does not stop with the method red or with its cards half done. |
 | Every week, or when you ask | [The Steward](/docs/pieces/steward/) | The project is still healthy: dependencies, main's CI, invariants. |
-| What only you can do | [Human acts](/docs/guides/hardening-against-ai/) | The seal, the release approval and the exceptions are typed by a person, never by the agent. |
+| What only you can do | [Human acts](/docs/pieces/human-acts/) | The seal, the release approval and the exceptions are typed by a person, never by the agent. |
 
 ## The idea behind all of them
 

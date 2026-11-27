@@ -7,7 +7,7 @@ description: The watchman inside your agent's session. What it is, why it exists
 
 The Sentinel is a set of hooks that `kj harden` installs in Claude Code. Claude Code calls them at fixed moments of the session, and each one is a small program that answers yes or no. When the answer is no, the action does not happen, and the agent reads why, with a link to the rule.
 
-The hooks are wired in `.claude/settings.json` and run the guards of your installed kj package (`kj-hook`), not copies in the project, so what runs is always the kj you installed. `kj sentinel verify` checks that the wiring still calls those guards. Older installs kept copies of the scripts in `.karajan/harness/`; `kj harden` retires them. That directory now holds the session state (the [ledger](/docs/pieces/ledger/)) and the log of blocks.
+The hooks are wired in `.claude/settings.local.json` (your personal settings, which git ignores, so a teammate without kj is not blocked) and run the guards of your installed kj package (`kj-hook`), not copies in the project, so what runs is always the kj you installed. `kj sentinel verify` checks that the wiring still calls those guards. Older installs kept copies of the scripts in `.karajan/harness/`; `kj harden` retires them. That directory now holds the session state (the [ledger](/docs/pieces/ledger/)) and the log of blocks.
 
 ## Why it exists
 

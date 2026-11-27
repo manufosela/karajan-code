@@ -69,6 +69,10 @@ export default defineConfig({
 									{ label: 'Quality before the review', slug: 'pieces/quality', translations: { es: 'Calidad antes de la revisión' } },
 									{ label: 'The cross review', slug: 'pieces/cross-review', translations: { es: 'La revisión cruzada' } },
 									{ label: 'The Steward', slug: 'pieces/steward', translations: { es: 'El Steward' } },
+									{ label: 'The project RAG', slug: 'pieces/rag', translations: { es: 'El RAG del proyecto' } },
+									{ label: 'The board and the cards', slug: 'pieces/board', translations: { es: 'El board y las cards' } },
+									{ label: 'Human acts', slug: 'pieces/human-acts', translations: { es: 'Los actos humanos' } },
+									{ label: 'What kj installs in your agent', slug: 'pieces/agent-setup', translations: { es: 'Lo que kj instala en tu agente' } },
 								],
 							},
 							{
