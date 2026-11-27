@@ -12,6 +12,21 @@ import { SENTINEL_GUARDS } from "../../src/harden/sentinel-guards.js";
 
 const PRESENCE = fileURLToPath(new URL("../../src/harden/sentinel/presence.mjs", import.meta.url));
 const open = (sid = "s1", host_pid = 4242) => ({ session_id: sid, host_pid });
+
+// HU-4980 (KJC-BUG-0681): inside a session kj launched, these are set and the trace stays silent by
+// design; each test starts without them, whoever runs the suite (spawned hooks inherit process.env).
+const INHERITED = ["KJ_POLICY_ROLE", "KJ_SENTINEL_OFF"];
+let saved;
+beforeEach(() => {
+  saved = Object.fromEntries(INHERITED.map((k) => [k, process.env[k]]));
+  for (const k of INHERITED) delete process.env[k];
+});
+afterEach(() => {
+  for (const k of INHERITED) {
+    if (saved[k] === undefined) delete process.env[k];
+    else process.env[k] = saved[k];
+  }
+});
 const rowsOf = (root) => readFileSync(join(root, ".karajan", "traces", "agent-activity.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
 
 describe("hostTrace: presence", () => {

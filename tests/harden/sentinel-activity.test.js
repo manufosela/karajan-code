@@ -10,6 +10,21 @@ import { GOVERNING_WIRING, SENTINEL_WIRING, installSentinelHooks, verifySentinel
 
 const call = (tool, extra = {}) => ({ session_id: "s1", tool_name: tool, tool_use_id: "t1", ...extra });
 
+// HU-4980 (KJC-BUG-0681): inside a session kj launched, these are set and traceHost stays silent by
+// design; each test starts without them, whoever runs the suite. The tests that need them set them.
+const INHERITED = ["KJ_POLICY_ROLE", "KJ_SENTINEL_OFF"];
+let saved;
+beforeEach(() => {
+  saved = Object.fromEntries(INHERITED.map((k) => [k, process.env[k]]));
+  for (const k of INHERITED) delete process.env[k];
+});
+afterEach(() => {
+  for (const k of INHERITED) {
+    if (saved[k] === undefined) delete process.env[k];
+    else process.env[k] = saved[k];
+  }
+});
+
 describe("hostTrace", () => {
   it("starts the host on its first tool call, naming the kind of tool, then beats at most once a minute", () => {
     const first = hostTrace({}, call("Bash"), "pre", 1000);
