@@ -127,6 +127,40 @@ describe("kj harden --commit (KJC-BUG-0161)", () => {
     expect(deleted).toEqual([".karajan/harness/installed.json", ".karajan/harness/pretooluse-sentinel.mjs"]);
     expect(git(["show", "--name-only", "--format=", "HEAD"])).not.toContain("kept.mjs");
   });
+  // HU-4966 (#4963): a deletion the seal commits is one its provenance records, so the review lifts it.
+  const sealRetiredHarness = async () => {
+    mkdirSync(join(repo, ".karajan", "harness"), { recursive: true });
+    for (const f of ["pretooluse-sentinel.mjs", "installed.json", "kept.mjs"]) writeFileSync(join(repo, ".karajan", "harness", f), `${f}\n`);
+    mkdirSync(join(repo, "src"), { recursive: true });
+    writeFileSync(join(repo, "src", "outside.mjs"), "outside\n");
+    git(["add", "-f", ".karajan/harness", "src/outside.mjs"]);
+    git(["commit", "-qm", "track harness", "--no-verify"]);
+    rmSync(join(repo, ".karajan", "harness", "pretooluse-sentinel.mjs"));
+    rmSync(join(repo, ".karajan", "harness", "installed.json"));
+    rmSync(join(repo, "src", "outside.mjs"));
+    writeFileSync(join(repo, ".karajan", "hooks", "pre-commit"), "#!/bin/sh\nnew\n");
+    await commitSupervisorRegeneration({ projectDir: repo, kjVersion: "9.9.9", generation, ...HUMAN });
+    return JSON.parse(git(["show", `HEAD:${PROVENANCE_FILE}`])).files;
+  };
+  const RETIRED = [".karajan/harness/installed.json", ".karajan/harness/pretooluse-sentinel.mjs"];
+  it("HU-4966: the committed provenance records each retired harness file as deleted, once", async () => {
+    const files = await sealRetiredHarness();
+    for (const f of RETIRED) expect(files.filter((e) => e.file === f)).toEqual([{ file: f, deleted: true }]);
+    expect(files.some((e) => e.file === ".karajan/harness/kept.mjs" && e.deleted === true)).toBe(false);
+  });
+  it("HU-4966: the seal backs the deletions it commits", async () => {
+    await sealRetiredHarness();
+    // HUMAN seals without a phone; the roster setNormalLevel left would demand a signature.
+    rmSync(join(repo, ".karajan", "supervisor-signers.json"));
+    const { files } = verifiedSupervisorFiles({ projectDir: repo });
+    for (const f of RETIRED) expect(files.has(f)).toBe(true);
+  });
+  it("HU-4966: a deletion outside the harness the seal does not stage is not recorded", async () => {
+    const files = await sealRetiredHarness();
+    expect(files.some((e) => e.file === "src/outside.mjs")).toBe(false);
+    expect(git(["show", "--name-only", "--format=", "HEAD"])).not.toContain("src/outside.mjs");
+    expect(git(["status", "--porcelain", "--", "src/outside.mjs"])).toContain("D src/outside.mjs");
+  });
   it("KJC-BUG-0264: an older .karajan block in .gitignore is completed, so the provenance is committed", async () => {
     const old = ".karajan/*\n!.karajan/review-gate\n!.karajan/hooks/\n.karajan/hooks/*\n!.karajan/hooks/pre-commit\n!.karajan/adrs/\n";
     writeFileSync(join(repo, ".gitignore"), old);

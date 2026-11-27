@@ -185,10 +185,13 @@ export async function commitSupervisorRegeneration({
   const goneGuards = previousGuards
     .map((f) => f?.file)
     .filter((f) => typeof f === "string" && f.startsWith(HARNESS_PREFIX) && !existsSync(join(projectDir, f)));
+  // HU-4392: retireGuardCopies deletes tracked files under .karajan/harness in this same run.
+  // HU-4966 (#4963): the seal commits those deletions, so its provenance records them too.
+  const retired = run(["ls-files", "--deleted", "--", ".karajan/harness"]).split("\n").filter(Boolean);
+  const deletedFiles = [...new Set([...drift.filter((f) => !existsSync(join(projectDir, f))), ...goneGuards, ...retired])];
   const hashed = [
     ...current.map((file) => ({ file, sha256: sha256(join(projectDir, file)), ...(localSettings.includes(file) ? { local: true } : {}) })),
-    ...drift.filter((f) => !existsSync(join(projectDir, f))).map((file) => ({ file, deleted: true })),
-    ...goneGuards.map((file) => ({ file, deleted: true })),
+    ...deletedFiles.map((file) => ({ file, deleted: true })),
   ];
   let previous = null;
   try { previous = JSON.parse(readFileSync(join(projectDir, PROVENANCE_FILE), "utf8")); } catch { /* primer sello */ }
@@ -242,8 +245,6 @@ export async function commitSupervisorRegeneration({
   // Por DIRECTORIO, no por fichero: un rename ya staged deja la ruta vieja
   // sin existir y `git add -- <vieja>` falla; `-A` sobre el dir del
   // supervisor versiona altas, cambios, borrados y renombrados por igual.
-  // HU-4392: retireGuardCopies deletes tracked files under .karajan/harness in this same run.
-  const retired = run(["ls-files", "--deleted", "--", ".karajan/harness"]).split("\n").filter(Boolean);
   // HU-4577: a deletion already staged is left as it is; git add of a path in no tree fails.
   run(["add", "-A", "--", PROVENANCE_FILE, ".karajan/hooks", ...governance.filter((f) => !stagedGone.includes(f)), ...retired]);
   run([
