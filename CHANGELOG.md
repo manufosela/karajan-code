@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.40.0] - 2026-11-27
+
+A day of field bugs: the seal of a workflow change gets its verdict again, a signed main-guard exception lets its merge through, and the end of the turn stops looping.
+
+### Added
+- **kj stage: a session with no work left is done, not waiting**: it stays at its desk with a green check and a green "done" label, with no badge, counted apart in the census strip and the panel (#4960).
+
+### Fixed
+- **The seal records the harness deletions it commits**: `kj harden --commit` committed the deletion of the tracked `.karajan/harness` copies it retires (`installed.json` and older guards) without recording them in its provenance, so `kj review --range` denied them with `defaults.supervisor.write` and a PR that changes `.github/workflows/` could never get a verdict. Every such deletion is now recorded before the seal is signed (#4963).
+- **A signed main-guard exception lets its merge through**: before `gh pr merge`, `kj merge-gate` stopped on any red check and never read the maintainer's exception posted on the PR. With red checks and none running, it now validates the exception for that repo, PR and head against the roster committed on the default branch, as GitHub serves it, and says why when it does not cover the merge (#4964).
+- **The end of the turn no longer loops after a Stop hook hold**: the hook's feedback was read as the user's message, so the next check found no final message and held the turn again. While a blocking handoff waits, read-only commands are allowed, and a `kj handoff` command must be a single line (#4851).
+- **board-sync no longer invents a card from the branch slug**: a card is read from a branch only when its id leads the slug, and a branch that names no card leaves nothing pending (#4733, thanks Jorge).
+- **The mutation pre-gate reads the tool's report**: it ran the tool without its base arguments and without a report reader, so it degraded to a warning on every review. It now runs the tool like `kj mutate`, and a report left by an earlier run is not read as this one's (#4953).
+- **Review batches keep the files that fit and say why one is left out**: whole files are packed before the pieces of a big one, each unreviewed file says whether it is too large or past the batch cap, and data files the base branch marks `linguist-generated` reach the reviewer as a one-line summary (only data extensions, never code or AI-rule files) (#4947).
+- **kj continuation counts only `kj hu` output as the session's cards**: a test run printing card lines from its fixtures held the turn.
+- **kj stage: a stop that waits for you in the second person** ("a que revises") shows "waits for you", not "waits for a process"; a plural subject is still a process (#4958).
+- **Sentinel tests no longer depend on the environment of a kj-launched session**.
+
+### Docs
+- **The pieces**: a new docs section explains each piece of Karajan for people, what it is, why it exists, when it acts, how to use it and what it does not do (Sentinel, ledger, Steward, cross review, quality before the review, RAG, board, human acts, what kj installs in the agent), in English and Spanish.
+
 ## [5.39.1] - 2026-11-26
 
 A diff reviewed in batches is no longer rejected for facts about files its batch did not show.
