@@ -7,19 +7,21 @@
  */
 import { runMutation } from "../mutate/runner.js";
 import { getDiffScope } from "../mutate/diff-scope.js";
+import { mutationInvocation } from "../mutate/invocation.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { getMutationTool } from "../mutate/tool-registry.js";
 
 export const formatSurvivor = (s) =>
   `${s.file}:${s.line} (${s.mutator ?? s.status ?? "?"}) — mátalo con un assert que distinga el cambio`;
 
-async function defaultMutate({ projectDir }) {
-  const { language } = await detectProjectStack(projectDir);
+async function defaultMutate({ projectDir, deps }) {
+  const { detectStack = detectProjectStack, diffScope = getDiffScope, run = runMutation } = deps;
+  const { language } = await detectStack(projectDir);
   const tool = getMutationTool(language);
   if (!tool.supported) throw new Error(`lenguaje no soportado (${language ?? "desconocido"}) — ${tool.reason}`);
-  const scope = await getDiffScope({ staged: true, language });
+  const scope = await diffScope({ staged: true, language });
   if (scope.empty) return { result: { score: 100, killed: 0, total: 0, survived: [] } };
-  const outcome = await runMutation({ binary: tool.binary, args: scope.args, cwd: projectDir });
+  const outcome = await run({ binary: tool.binary, cwd: projectDir, ...mutationInvocation(tool, projectDir, scope.args) });
   if (!outcome.result) throw new Error(`la herramienta ${tool.id} no produjo un informe legible`);
   return outcome;
 }
@@ -33,7 +35,7 @@ export async function runMutationPregate({ config = {}, projectDir = process.cwd
   const { mutateFn = defaultMutate } = deps;
   let outcome;
   try {
-    outcome = await mutateFn({ projectDir });
+    outcome = await mutateFn({ projectDir, deps });
   } catch (err) {
     // Sin herramienta no hay medición: se degrada DICIENDO qué red cayó.
     return { enabled: true, ok: true, available: false, mode, reason: err.message };

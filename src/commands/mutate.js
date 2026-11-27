@@ -5,29 +5,13 @@
  * silent fallback: unsupported language / unreadable report exit non-zero.
  */
 
-import fs from "node:fs/promises";
-import path from "node:path";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { getMutationTool } from "../mutate/tool-registry.js";
 import { getDiffScope } from "../mutate/diff-scope.js";
 import { runMutation } from "../mutate/runner.js";
-
-// Per-tool launch detail: subcommand + JSON report path. Tools without a JSON
-// report leave `report` empty → the run surfaces the tool's own output.
-const INVOCATION = {
-  stryker: { base: ["run"], report: "reports/mutation/mutation.json" },
-  mutmut: { base: ["run"], report: "mutmut-report.json" },
-  infection: { base: [], report: "infection.json" },
-  "go-mutesting": { base: [], report: "" },
-  pitest: { base: [], report: "" },
-};
+import { mutationInvocation } from "../mutate/invocation.js";
 
 const DEFAULT_SINCE = "HEAD~1";
-
-function makeReadReport(reportFile) {
-  if (!reportFile) return undefined;
-  return async () => JSON.parse(await fs.readFile(reportFile, "utf8"));
-}
 
 /**
  * `deps` ({detectStack, diffScope, run}) is injectable so tests stay pure.
@@ -67,13 +51,10 @@ export async function mutateCommand({
     return 0;
   }
 
-  const invocation = INVOCATION[tool.id] ?? { base: [], report: "" };
-  const reportFile = invocation.report ? path.join(projectDir, invocation.report) : "";
   const outcome = await run({
     binary: tool.binary,
-    args: [...invocation.base, ...scope.args],
     cwd: projectDir,
-    readReport: makeReadReport(reportFile),
+    ...mutationInvocation(tool, projectDir, scope.args),
   });
 
   if (!outcome.result) {
