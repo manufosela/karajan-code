@@ -378,7 +378,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       hall.frameBelts(now); // KJC-TSK-1639
       hall.frame(now); // KJC-BUG-0623: workshops fade in and out, and slide to their places
       plumbers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-TSK-1642
-      coffee.update(floor.hosts(), now); // KJC-TSK-1663: a cup for a host that waits, taken back when it works
+      coffee.update(floor.hosts(now), now); // KJC-TSK-1663: a cup for a host that waits, taken back when it works
       coffee.frame(now, boothAt(hall.count()));
       benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, new Set([...couriers.carried(), ...floor.carried(now)]), hall.zOf);
       tags.push(...showSigns());

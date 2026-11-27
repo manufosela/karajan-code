@@ -118,12 +118,14 @@ export const CARDS = [
   // KJC-TSK-1663: the coffee cart that serves a waiting host.
   {
     id: 'coffee', kind: 'crew', name: 'Coffee cart',
-    does: 'Brings a cup of coffee to a host that waits, and takes it back once the host works again.',
-    when: 'When a host starts waiting, for you or for a process: it comes out of the booth, hands over the cup and goes back.',
-    calledBy: 'The host\'s wait, as it starts and ends.',
+    does: 'Brings a cup of coffee to a host that waits, and takes it from its desk once the host works again.',
+    // KJC-TSK-1813: one cart on its rounds, only for a wait that lasts.
+    when: 'When a host has waited two minutes, for you or for a process: one cart serves them one at a time, the longest wait first.',
+    calledBy: 'The host\'s wait, as it lasts and ends.',
     marks: [
       { mark: 'Bow tie and towel', means: 'A black bow tie and a white towel over its arm: the hall\'s waiter.' },
-      { mark: 'Cup in hand', means: 'A host holding a cup waits; it holds it until the cart comes to take it.' },
+      { mark: 'Cup in hand', means: 'A host holding a cup waits.' },
+      { mark: 'Cup on the desk', means: 'The host works again and left its cup there, until the cart comes to take it.' },
     ],
   },
   { id: 'tdd', kind: 'tool', name: 'TDD', does: 'The failing test first, and the suite never left red.', when: 'At its post; it lights when a test run is judged, and sends its green drone to look at that workshop.', calledBy: 'The method, on every change.', marks: [] },

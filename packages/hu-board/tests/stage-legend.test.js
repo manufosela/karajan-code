@@ -49,8 +49,16 @@ describe('the cast legend', () => {
   it('the coffee cart has its card, says a cup in hand means waiting, and has a portrait of its own', () => {
     expect(byId.coffee?.kind).toBe('crew');
     // KJC-TSK-1688 (the maintainer, 2026-11-18): dressed as a waiter, bow tie and towel.
-    expect(byId.coffee.marks.map((m) => m.mark)).toEqual(['Bow tie and towel', 'Cup in hand']);
+    expect(byId.coffee.marks.map((m) => m.mark)).toEqual(['Bow tie and towel', 'Cup in hand', 'Cup on the desk']);
     expect(recipeOf('coffee')).toEqual({ crew: 'coffee' });
+  });
+
+  // KJC-TSK-1813 (the maintainer, 2026-11-27): one cart, only for a wait that lasts, the cup left on the desk.
+  it('the coffee cart\'s card says it comes after two minutes of waiting and takes the cup from the desk', () => {
+    expect(byId.coffee.when).toMatch(/two minutes/);
+    const es = cardsIn('es').find((c) => c.id === 'coffee');
+    expect(es.when).toMatch(/dos minutos/);
+    expect(es.marks.map((m) => m.mark)).toContain('Taza en la mesa');
   });
 
   // KJC-TSK-1646 (the maintainer, 2026-11-15): "remove those posts, I don't know what they are and
