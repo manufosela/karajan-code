@@ -12,7 +12,22 @@ const NOTHING = [
 // Words that ask the person: "your…" and "you", and the verbs a stop line asks them with.
 const YOU = /(?:^|[\s(,])(?:tus?|t[uú]|ti)(?=[\s,.;:)]|$)/i;
 const ASKS = /apruebes|decidas|elijas|confirmes|teclees|firmes|respondas|\bOTP\b/i;
-const asksPerson = (line) => YOU.test(line) || ASKS.test(line);
+// KJC-TSK-1810: "a que" + a verb in the second person (revises, compruebes, estés, me digas): it waits
+// for the person. An article is no verb, and neither is the subject a plural verb follows ("a que las
+// validaciones terminen"): there "las" was its article, not a pronoun.
+const FOR_YOU = /\ba que (?:(me|nos|lo|la|le|los|las|les|se) )?(\p{L}+(?:es|as|és|ás))(?!\p{L})/iu;
+const NEXT_WORD = /^\s+(?:se\s+)?(\p{L}+)/u;
+const ARTICLES = new Set(['las', 'les', 'unas']);
+const PLURAL = new Set(['los', 'las', 'les']);
+const PLURAL_VERB = /^\p{L}{2,}(?<!i)(?:en|an|én|án)$/u;
+const waitsForYou = (line) => {
+  const found = line.match(FOR_YOU);
+  const [said, pronoun, verb] = found ?? [];
+  if (!verb || ARTICLES.has(verb.toLowerCase())) return false;
+  const next = line.slice(found.index + said.length).match(NEXT_WORD)?.[1] ?? '';
+  return !(PLURAL.has(pronoun?.toLowerCase()) && PLURAL_VERB.test(next));
+};
+const asksPerson = (line) => YOU.test(line) || ASKS.test(line) || waitsForYou(line);
 
 /** The last stop line of an answer, trimmed; null without one. */
 export function stopLine(text) {

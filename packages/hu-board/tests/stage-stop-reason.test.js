@@ -12,6 +12,32 @@ describe('waitOf', () => {
     expect(waitOf('Me paro porque espero tu respuesta y a que la PR termine su CI, que me avisará.')).toBe('person');
   });
 
+  // KJC-TSK-1810 (the maintainer, 2026-11-26): "a que revises" waits for the person, not for a process.
+  it('waits for the person when it waits for them to do something, in the second person', () => {
+    expect(waitOf('Me paro por esperar a que revises la sesión kj-stage.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que compruebes el board.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que ejecutes el script y me digas qué sale.')).toBe('person');
+    expect(waitOf('Me paro porque espero a que lo pruebes en casa.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que estés de vuelta.')).toBe('person');
+  });
+
+  it('the third person, or a process in the plural, is still a process', () => {
+    expect(waitOf('Me paro por esperar a que pase el CI.')).toBe('process');
+    expect(waitOf('Me paro por esperar a que acabe el deploy.')).toBe('process');
+    expect(waitOf('Me paro por esperar a que las pruebas acaben.')).toBe('process');
+    expect(waitOf('Me paro por esperar a que los tests pasen.')).toBe('process');
+    expect(waitOf('Me paro por esperar a que las builds terminen.')).toBe('process');
+    expect(waitOf('Me paro por esperar a que las validaciones terminen.')).toBe('process');
+    expect(waitOf('Me paro por esperar a que las migraciones acaben en staging.')).toBe('process');
+    expect(waitOf('Me paro por esperar a que unas tareas acaben.')).toBe('process');
+  });
+
+  it('a pronoun before the verb is still the person', () => {
+    expect(waitOf('Me paro por esperar a que las revises.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que los firmes también.')).toBe('person');
+    expect(waitOf('Me paro por esperar a que la apruebes en el móvil.')).toBe('person');
+  });
+
   it('waits for a process when it waits for one to end', () => {
     expect(waitOf('Me paro porque espero a que la PR del atril termine su CI, que me avisará.')).toBe('process');
     expect(waitOf('Me paro por el merge, que corre en segundo plano.')).toBe('process');
