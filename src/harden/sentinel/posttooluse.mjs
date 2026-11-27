@@ -7,7 +7,7 @@ import process from "node:process";
 import { readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
-import { CODE, TESTS, ROOT, cardOf, branchOf, enterLane, insideRepo, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, boardCardOf, branchOf, enterLane, insideRepo, laneFor, laneTop, load, save, session } from "./sentinel-lib.mjs";
 import { remindersFor } from "./sentinel-reminders.mjs";
 import { traceHost } from "./sentinel-activity.mjs";
 let raw = "";
@@ -170,7 +170,7 @@ process.stdin.on("end", () => {
       if (mergedPr !== null) {
         const state = load();
         const s = session(state, sid);
-        const ref = cardOf(headRef || branchOf() || "");
+        const ref = boardCardOf(headRef || branchOf() || "");
         // KJC-BUG-0230: una EPICA (…-PCS-…) no tiene estado que mover: el PG
         // la deja en To Do por mas status que reciba y kj hu move no la
         // conoce. Registrarla como pendiente era un bloqueo sin cauce. Se dice
@@ -178,6 +178,9 @@ process.stdin.on("end", () => {
         const epic = ref && /-PCS-/i.test(ref);
         if (epic) {
           console.error("karajan sentinel: board-sync — la PR #" + mergedPr + " pertenece a la epica " + ref.toUpperCase() + ", que no tiene estado que mover: no queda pendiente (su cierre va en la descripcion de la epica)");
+        } else if (headRef && !ref) {
+          // HU-4749: the head is KNOWN and names no card: nothing to move. (Head unknown stays fail-closed below.)
+          console.error("karajan sentinel: board-sync — la PR #" + mergedPr + " tiene una rama (" + headRef + ") que no nombra ninguna card: no queda nada que mover, no queda pendiente");
         } else {
           (s.pending_moves ||= []).push({ card: ref ? ref.toUpperCase() : null, pr: mergedPr, at: Date.now(), ...(headRef ? {} : { head: "unknown" }) });
         }

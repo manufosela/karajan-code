@@ -31,6 +31,17 @@ export const cardOf = (ref) => {
   const m = CARD.exec(ref || "");
   return m && m[0] + (/^-[A-Z](?![A-Za-z0-9])/.exec(String(ref).slice(m.index + m[0].length))?.[0] ?? "");
 };
+// HU-4749 (#4733): board-sync reads a card from a branch only when the id LEADS the slug
+// (after any "type/" segments): rules-email-hash-required-hu-390 is words, not a card.
+// A bare slug (no "/") must carry the id in capitals, so fix-login-12 is not a card either.
+// Keep behaviourally identical to cardOf in src/review/board-pending.js.
+const LEADING_CARD = /^(?:[^/]+\/)*([a-z][a-z0-9]{1,9}(?:-[a-z][a-z0-9]{1,9})?-\d{1,6})(?![A-Za-z0-9]|\.\d)/i;
+export const boardCardOf = (branch) => {
+  const ref = String(branch || "");
+  const m = LEADING_CARD.exec(ref);
+  if (!m || (!ref.includes("/") && m[1] !== m[1].toUpperCase())) return null;
+  return m[1].toUpperCase() + (/^-[A-Z](?![A-Za-z0-9])/.exec(ref.slice(m[0].length))?.[0] ?? "");
+};
 export const BASE_BRANCHES = new Set(["main", "master"]);
 // KJC-BUG-0501: valid JSON of another type (null, 7, []) is as unusable as corrupt JSON.
 export const load = () => {
