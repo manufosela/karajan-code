@@ -3,7 +3,7 @@
 // núcleo — payload canónico byte-estable, enrolamiento validado y verificación
 // contra una firma REAL generada con node:crypto.
 import { generateKeyPairSync, sign as cryptoSign } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -11,7 +11,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   addSigner, canonicalPayload, enrollPhone, isPhoneEnrolled, readEnrolledKey, readEnrolledKeys,
-  readSigners, requestPhoneSignature, validatePhonePublicKey, verifyPhoneSignature,
+  readPasskeyCredentials, readSigners, requestPhoneSignature, rosterFromText, validatePhonePublicKey,
+  verifyPhoneSignature,
 } from "../../src/harden/phone-sign.js";
 
 const FILES = [
@@ -202,6 +203,29 @@ describe("signer padrón (KJC-TSK-0831, ADR 0010)", () => {
     addSigner(other, { projectDir });
     addSigner(rawPub, { projectDir }); // dedup: no third entry
     expect(readSigners({ projectDir }).sort()).toEqual([rawPub, other].sort());
+  });
+
+  it("rosterFromText reads the same document as readSigners and readPasskeyCredentials (HU-4969)", () => {
+    const text = JSON.stringify({ signers: [
+      null,
+      { publicKey: "live-key" },
+      { publicKey: "revoked-key" },
+      { publicKey: "revoked-key", revoked: { at: "2026-11-11T00:00:00Z" } },
+      { type: "webauthn", credentialId: "cred-1", publicKey: "spki", alg: -7 },
+      { type: "other", publicKey: "not-an-ed25519-key" },
+    ] });
+    mkdirSync(join(projectDir, ".karajan"));
+    writeFileSync(join(projectDir, ".karajan", "supervisor-signers.json"), text);
+    const roster = rosterFromText(text);
+    expect(roster).toEqual({ keys: ["live-key"], passkeys: [{ credentialId: "cred-1", publicKey: "spki", alg: -7, label: null }] });
+    expect(readSigners({ projectDir })).toEqual(roster.keys);
+    expect(readPasskeyCredentials({ projectDir })).toEqual(roster.passkeys);
+  });
+
+  it("rosterFromText gives no keys and no passkeys for unparseable or missing text", () => {
+    for (const text of [undefined, null, "", "not json", "null", '{"signers":{}}']) {
+      expect(rosterFromText(text), String(text)).toEqual({ keys: [], passkeys: [] });
+    }
   });
 
   it("addSigner rejects a non-canonical / wrong-length key", () => {

@@ -3,9 +3,12 @@
  * afterwards, by luck. Before gh pr merge the Sentinel asks kj, and kj reads the PR's checks:
  * one running or red stops the merge. With no check yet, a repo that has CI stops it too (the
  * CI has not started); a repo without workflows has nothing to wait for. --auto passes:
- * GitHub itself waits for the checks.
+ * GitHub itself waits for the checks. Red checks pass only under a signed main-guard exception.
  */
 import { spawnSync } from "node:child_process";
+
+import { rosterFromText } from "../harden/phone-sign.js";
+import { exceptionsFor, findValidException } from "./main-guard-exception.js";
 
 const VALUE_OPTIONS = new Set(["-b", "--body", "-F", "--body-file", "-t", "--subject", "-A", "--author-email", "--match-head-commit"]);
 const RED = new Set(["FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "STALE", "ERROR"]);
@@ -89,20 +92,70 @@ export function checksVerdict(checks, { hasWorkflows }) {
   return parts.length ? { ok: false, reason: parts.join("; ") } : { ok: true };
 }
 
+// The PR's own repo, from its URL: a cross-repo selector is not the current repo.
+const repoOf = (url) => /github\.com\/([^/]+\/[^/]+)\/pull\//.exec(url)?.[1];
+
+const ROSTER = ".karajan/supervisor-signers.json";
+const ghSaid = (r) => r.stderr.trim() || "gh gave no output";
+
+/**
+ * HU-4969: who may sign an exception for a PR into `base`, asked to GitHub, never to the local
+ * clone, whose refs and files whoever runs the merge can rewrite. Only the default branch is
+ * excepted. An unreadable roster trusts nobody and says so in `unread`.
+ * @returns {{refused: string} | {keys: Set<string>, passkeys: object[], unread?: string}}
+ */
+function trustedRoster(run, repo, base) {
+  const head = run("gh", ["api", `repos/${repo}`, "--jq", ".default_branch"]);
+  const main = head.status === 0 ? head.stdout.trim() : "";
+  if (!main) return { refused: `could not read the default branch of ${repo} from GitHub: ${ghSaid(head)}` };
+  if (base !== main) return { refused: `the main-guard exception covers only merges into ${main}, this PR targets ${base}` };
+  const file = run("gh", ["api", `repos/${repo}/contents/${ROSTER}?ref=${encodeURIComponent(base)}`, "--jq", ".content"]);
+  const { keys, passkeys } = rosterFromText(file.status === 0 ? Buffer.from(file.stdout, "base64").toString("utf8") : "");
+  const unread = file.status === 0 ? undefined : `could not read ${ROSTER} on ${base} from GitHub: ${ghSaid(file)}`;
+  return { keys: new Set(keys), passkeys, unread };
+}
+
+/**
+ * HU-4969: a refusal for red checks, lifted by the maintainer's signed main-guard exception
+ * (KJC-TSK-1402) for this PR and head. A check still running is never excepted.
+ */
+function underException(refusal, checks, { url = "", number, headRefOid, baseRefName, comments = [] }, run) {
+  const runs = latestRuns(checks);
+  if (runs.some((c) => stateOf(c) === "pending")) return refusal;
+  const pull = { bodies: comments.map((c) => c.body), repo: repoOf(url), pr: number };
+  const signed = exceptionsFor(pull);
+  if (signed.length === 0) return refusal;
+  const refused = (why) => ({ ok: false, reason: `${refusal.reason}; ${why}` });
+  if (!signed.some((b) => b.head === headRefOid)) {
+    const heads = signed.map((b) => String(b.head).slice(0, 7)).join(", ");
+    return refused(`the exception for #${number} was signed for head ${heads}, not for the PR's head ${headRefOid.slice(0, 7)}`);
+  }
+  const roster = trustedRoster(run, pull.repo, baseRefName);
+  if (roster.refused) return refused(roster.refused);
+  const found = findValidException({ ...pull, head: headRefOid, keys: roster.keys, passkeys: roster.passkeys });
+  if (!found.ok) return refused([roster.unread, found.reason].filter(Boolean).join("; "));
+  const red = runs.filter((c) => stateOf(c) === "red").map(nameOf).join(", ");
+  return { ok: true, note: `red: ${red}, merged under the main-guard exception signed by ${found.signer}: ${found.why}` };
+}
+
 /**
  * The verdict on a shell command: {ok: true} when it merges no PR, merges with --auto, or the
- * PR's checks allow it; otherwise {ok: false, reason}. run(cmd, args) -> {status, stdout, stderr}.
+ * PR's checks allow it, or its red checks carry an exception signed by the roster GitHub has on
+ * the default branch (with a `note`); otherwise {ok: false, reason}. run(cmd, args) -> {status, stdout, stderr}.
  */
 export function mergeGate({ command, run }) {
   const target = mergeTarget(command);
   if (!target || target.auto) return { ok: true };
   const repo = target.repo ? ["--repo", target.repo] : [];
-  const pr = run("gh", ["pr", "view", ...(target.selector ? [target.selector] : []), ...repo, "--json", "statusCheckRollup,url"]);
+  const pr = run("gh", ["pr", "view", ...(target.selector ? [target.selector] : []), ...repo, "--json", "statusCheckRollup,url,number,headRefOid,baseRefName,comments"]);
   if (pr.status !== 0) return { ok: false, reason: `could not read the PR's checks: ${pr.stderr.trim() || "gh gave no output"}` };
-  const { statusCheckRollup: checks = [], url = "" } = JSON.parse(pr.stdout);
-  if (checks.length > 0) return checksVerdict(checks, { hasWorkflows: true });
-  // The PR's own repo, from its URL: a cross-repo selector is not the current repo.
-  const prRepo = /github\.com\/([^/]+\/[^/]+)\/pull\//.exec(url)?.[1];
+  const view = JSON.parse(pr.stdout);
+  const { statusCheckRollup: checks = [], url = "" } = view;
+  if (checks.length > 0) {
+    const verdict = checksVerdict(checks, { hasWorkflows: true });
+    return verdict.ok ? verdict : underException(verdict, checks, view, run);
+  }
+  const prRepo = repoOf(url);
   if (!prRepo) return { ok: false, reason: `no check yet, and kj could not tell the PR's repo from ${url || "gh's answer"}` };
   const wf = run("gh", ["api", `repos/${prRepo}/actions/workflows`, "--jq", ".total_count"]);
   if (wf.status !== 0) return { ok: false, reason: `no check yet, and kj could not tell whether the repo has CI: ${wf.stderr.trim()}` };

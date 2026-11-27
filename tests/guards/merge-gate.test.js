@@ -1,8 +1,11 @@
 // KJC-BUG-0494: a PR was merged while its CI was still running. Before gh pr merge, kj reads
 // the PR's checks: one running or red stops it; no check yet in a repo with CI stops it too.
 import { describe, expect, it } from "vitest";
+import { generateKeyPairSync, sign } from "node:crypto";
 
+import { exceptionFiles, renderException } from "../../src/guards/main-guard-exception.js";
 import { checksVerdict, mergeGate, mergeTarget } from "../../src/guards/merge-gate.js";
+import { canonicalPayload } from "../../src/harden/phone-sign.js";
 
 const run = (name, status, conclusion, startedAt = "2026-11-05T10:00:00Z") => ({ __typename: "CheckRun", workflowName: "CI", name, status, conclusion, startedAt });
 const done = (name, conclusion = "SUCCESS", startedAt) => run(name, "COMPLETED", conclusion, startedAt);
@@ -71,7 +74,7 @@ describe("mergeGate", () => {
   it("asks gh for the merged PR's checks in its repo", () => {
     const calls = [];
     mergeGate({ command: "gh pr merge 12 --repo o/r --merge", run: (cmd, args) => { calls.push([cmd, ...args]); return gh([done("a")])(cmd, args); } });
-    expect(calls[0]).toEqual(["gh", "pr", "view", "12", "--repo", "o/r", "--json", "statusCheckRollup,url"]);
+    expect(calls[0]).toEqual(["gh", "pr", "view", "12", "--repo", "o/r", "--json", "statusCheckRollup,url,number,headRefOid,baseRefName,comments"]);
   });
 
   it("lets --auto through without asking: GitHub waits for the checks", () => {
@@ -91,5 +94,77 @@ describe("mergeGate", () => {
   it("stops, with gh's reason, when the checks cannot be read", () => {
     const v = mergeGate({ command: "gh pr merge 12", run: () => ({ status: 1, stdout: "", stderr: "no pull requests found" }) });
     expect(v).toEqual({ ok: false, reason: "could not read the PR's checks: no pull requests found" });
+  });
+});
+
+// HU-4969 (#4964): the maintainer's signed main-guard exception lets a red merge through.
+describe("mergeGate with a main-guard exception", () => {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const signer = publicKey.export({ format: "der", type: "spki" }).subarray(12).toString("base64");
+  const exception = { repo: "o/r", pr: 12, head: "abc1234def", why: "transition merge" };
+
+  const comment = (over = {}, key = privateKey) => {
+    const fields = { ...exception, ...over };
+    const challenge = { cid: "c1", nonce: "n1", project: "r", v: 2, kjVersion: "5.5.0", issuedMs: 1, expiresMs: 2 };
+    const payload = Buffer.from(canonicalPayload({ ...challenge, files: exceptionFiles(fields) }), "utf8");
+    return renderException({ ...fields, signature: { ...challenge, signer, signature: sign(null, payload, key).toString("base64") } });
+  };
+  const ok = (stdout) => ({ status: 0, stdout, stderr: "" });
+  const failed = (stderr) => ({ status: 1, stdout: "", stderr });
+  // As the contents API gives it: base64 wrapped in lines.
+  const rosterFile = (publicKey) => ok(`${Buffer.from(JSON.stringify({ signers: [{ publicKey }] })).toString("base64").replace(/.{60}/g, "$&\n")}\n`);
+  const verdictOn = (rollup, bodies, { base = "main", defaultBranch = ok("main\n"), roster = rosterFile(signer) } = {}) => {
+    const view = { statusCheckRollup: rollup, url: "https://github.com/o/r/pull/12", number: 12, headRefOid: exception.head, baseRefName: base, comments: bodies.map((body) => ({ body })) };
+    const api = { "repos/o/r": defaultBranch, "repos/o/r/contents/.karajan/supervisor-signers.json?ref=main": roster };
+    return mergeGate({ command: "gh pr merge 12", run: (cmd, args) => (args[0] === "api" ? api[args[1]] ?? failed("HTTP 404") : ok(JSON.stringify(view))) });
+  };
+  const red = [done("a"), done("lint", "FAILURE"), done("scan", "FAILURE")];
+
+  it("lets red checks through, naming them, the signer and the reason", () => {
+    expect(verdictOn(red, ["looks good", comment()])).toEqual({ ok: true, note: `red: lint, scan, merged under the main-guard exception signed by ${signer}: transition merge` });
+  });
+
+  it("says the signed exception is for another head", () => {
+    const v = verdictOn(red, [comment({ head: "fff0000aaa" })]);
+    expect(v.ok).toBe(false);
+    expect(v.reason).toMatch(/^red: lint, scan; the exception for #12 .*fff0000.*abc1234/);
+  });
+
+  it("says the signature does not verify when its key is not in the roster", () => {
+    const { privateKey: other } = generateKeyPairSync("ed25519");
+    const v = verdictOn(red, [comment({}, other)]);
+    expect(v.ok).toBe(false);
+    expect(v.reason).toMatch(/^red: lint, scan; the exception for #12 .*firma/);
+  });
+
+  it("refuses a PR that targets another branch than the default one on GitHub, naming both", () => {
+    expect(verdictOn(red, [comment()], { base: "agent-base" })).toEqual({ ok: false, reason: "red: lint, scan; the main-guard exception covers only merges into main, this PR targets agent-base" });
+  });
+
+  it("refuses, naming what it could not read, when GitHub gives no default branch or no roster", () => {
+    for (const defaultBranch of [failed("HTTP 502"), ok("\n")]) {
+      const v = verdictOn(red, [comment()], { defaultBranch });
+      expect(v.ok).toBe(false);
+      expect(v.reason).toMatch(/^red: lint, scan; could not read the default branch of o\/r from GitHub/);
+    }
+    const v = verdictOn(red, [comment()], { roster: failed("HTTP 404") });
+    expect(v.ok).toBe(false);
+    expect(v.reason).toMatch(/^red: lint, scan; could not read \.karajan\/supervisor-signers\.json on main from GitHub: HTTP 404; the exception for #12 .*firma/);
+  });
+
+  it("trusts only the roster GitHub returns for the base branch", () => {
+    const v = verdictOn(red, [comment()], { roster: rosterFile("another-key") });
+    expect(v.ok).toBe(false);
+    expect(v.reason).toMatch(/^red: lint, scan; the exception for #12 .*firma/);
+  });
+
+  it("stops while a check is still running, exception or not", () => {
+    expect(verdictOn([...red, run("Test", "IN_PROGRESS", null)], [comment()])).toEqual({ ok: false, reason: "still running: Test; red: lint, scan" });
+  });
+
+  it("keeps the refusal as it was with no exception for this PR", () => {
+    for (const bodies of [[], ["plain", "```kj-exception\nnull\n```"], [comment({ pr: 13 })], [comment({ repo: "o/other" })]]) {
+      expect(verdictOn(red, bodies)).toEqual({ ok: false, reason: "red: lint, scan" });
+    }
   });
 });
