@@ -317,7 +317,7 @@ async function installExtras({ projectDir, roots, profile, config, ci, guideline
 function printHardenSummary({ out, result, profile, dryRun, logger }) {
   const verb = dryRun ? "would install" : "installed";
   logger.info?.(`kj harden (${profile}) — ${verb} ${result.hooks.length} hook(s) → ${result.hooksPath}`);
-  for (const h of result.hooks) logger.info?.(`  • ${h.hook}: ${h.action}`);
+  for (const h of result.hooks) printHook(h, logger);
   for (const c of out.configs) {
     const note = c.note ? ` (${c.note})` : "";
     logger.info?.(`  • ${c.file}: ${c.action}${note}`);
@@ -330,6 +330,12 @@ function printHardenSummary({ out, result, profile, dryRun, logger }) {
   // KJC-TSK-1504: an old agent file is gone; say where its words went.
   for (const m of out.migrated ?? []) logger.info?.(`  • ${m.file}: ${dryRun ? "would move" : "moved"} into AGENTS.md (${m.moved} paragraph(s) written by hand)`);
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");
+}
+
+function printHook({ hook, action }, logger) {
+  logger.info?.(`  • ${hook}: ${action}`);
+  if (action !== "kept-edited") return;
+  logger.warn?.(`⚠ ${hook} has a managed block edited by hand, so kj harden left it as it is. If kj generated something that does not fit this project, say it in .karajan/kj.config.yml (for example base_branch), then delete .karajan/hooks/${hook} and run kj harden: kj writes it again with your settings.`);
 }
 
 function printGuideline(g, logger) {
