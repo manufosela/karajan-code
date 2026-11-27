@@ -1,17 +1,43 @@
 // KJC-TSK-1651 (ADR 0059): the turn does not end while the board holds work the agent can do.
 // The work is the session's own: the cards it created or started (decision of the maintainer,
 // 16-nov), followed through what kj printed in the session's transcript, with no network.
+import { headIndex, shellSegments } from "../harden/sentinel/sentinel-shell.mjs";
+
 const CARD_LINE = /HU created: (HU-\d+) \((\w+)\)|✓ (HU-\d+) → (\w+)/g;
 const STARTED = /Command running in background with ID: (\w+)/g;
 const NOTIFIED = /<task-id>(\w+)<\/task-id>/g;
 const STATED_STOP = /^\s*(Me paro por|Stopping because)\b/im;
 const OPEN = new Set(["pending", "running"]);
 
+// KJC-BUG-0680: a test run prints these lines from its fixtures, so a known producer must be kj hu alone.
+// It is read by the shell's words: an echo, a grep or a quoted text names kj hu without running it,
+// and another command that prints in the same call (kj hu list && npx vitest run) shares the output.
+const nameOf = (word) => word?.split("/").at(-1);
+const isKjHu = (words) => {
+  const i = headIndex(words, ["kj"]);
+  return nameOf(words[i]) === "kj" && words[i + 1] === "hu";
+};
+// A cd prints nothing of its own; tail and head with only options print just what they read (kj hu's, piped).
+const INPUT_ONLY_ARG = /^(?:[-+]\S*|\d+|\d*>\S*)$/;
+const addsNoText = (words) => {
+  const i = headIndex(words, ["cd", "tail", "head"]);
+  const name = nameOf(words[i]);
+  if (name === "cd") return true;
+  return (name === "tail" || name === "head") && words.slice(i + 1).every((w) => INPUT_ONLY_ARG.test(w));
+};
+const printsOnlyKjHu = (command) => {
+  const segments = shellSegments(command ?? "");
+  return segments.some(isKjHu) && segments.every((words) => isKjHu(words) || addsNoText(words));
+};
+// No known producer (older transcript shape): the output keeps counting.
+const speaksForSession = ({ tool, command }) => !tool || (tool === "Bash" && printsOnlyKjHu(command));
+
 /** Each card the session created or moved, with the last status kj printed for it, in order. */
 export function sessionCards(texts) {
   const status = new Map();
-  for (const { kind, text } of texts) {
-    if (kind !== "output") continue;
+  for (const output of texts) {
+    const { kind, text } = output;
+    if (kind !== "output" || !speaksForSession(output)) continue;
     for (const m of text.matchAll(CARD_LINE)) status.set(m[1] ?? m[3], m[2] ?? m[4]);
   }
   return status;

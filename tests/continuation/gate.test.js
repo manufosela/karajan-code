@@ -19,6 +19,39 @@ describe("sessionCards", () => {
   it("leaves out cards the session only read", () => {
     expect(sessionCards([out("HU-20 pending - someone else's card")])).toEqual(new Map());
   });
+  // KJC-BUG-0680: a test run prints kj's lines from its fixtures; only kj hu speaks for the session.
+  const from = (tool, command, text) => ({ ...out(text), tool, command });
+  it.each([
+    ["a test run", "Bash", "npx vitest run"],
+    ["a file read", "Read", undefined],
+    ["a word that only ends in kj", "Bash", "okj hu list"],
+    ["a test run after an echo of the words", "Bash", "echo 'kj hu ' && npx vitest run"],
+    ["a search for the words", "Bash", 'grep -rn "kj hu add" tests'],
+    ["another kj command quoting them", "Bash", 'kj rag query "kj hu add"'],
+    ["an assignment with no command word", "Bash", "HU=HU-7"],
+    ["a test run chained after kj hu", "Bash", "kj hu list && npx vitest run"],
+    ["a test run chained before kj hu", "Bash", "npx vitest run; kj hu list"],
+    ["a filter reading a file after kj hu", "Bash", "kj hu list && tail -1 tests/fixture.txt"],
+    ["a filter fed a file after kj hu", "Bash", "kj hu list && tail -1 < tests/fixture.txt"],
+  ])("leaves out the lines printed by %s", (_name, tool, command) => {
+    expect(sessionCards([from(tool, command, "✓ HU created: HU-7 (pending)")])).toEqual(new Map());
+  });
+  it("does not let a test run beside kj hu settle a card of the session", () => {
+    const texts = [
+      from("Bash", 'kj hu add "x" --ref Y', "✓ HU created: HU-4978 (pending) in the shared board"),
+      from("Bash", "kj hu list && npx vitest run", "HU-4978 pending x\n✓ HU-4978 → done"),
+    ];
+    expect(sessionCards(texts)).toEqual(new Map([["HU-4978", "pending"]]));
+  });
+  it("takes the lines kj hu prints, also behind a cd, a pipe, an assignment or a path", () => {
+    const texts = [
+      from("Bash", 'kj hu add "x" --ref Y', "✓ HU created: HU-4978 (pending) in the shared board"),
+      from("Bash", "cd lane && kj hu move HU-4978 done 2>&1 | tail -1", "✓ HU-4978 → done"),
+      from("Bash", "KARAJAN_HOME=k ~/.local/bin/kj hu add y", "✓ HU created: HU-4979 (pending)"),
+      from("Bash", "kj hu add z && kj hu move HU-4980 running 2>&1 | head -n 5", "✓ HU created: HU-4980 (pending)\n✓ HU-4980 → running"),
+    ];
+    expect(sessionCards(texts)).toEqual(new Map([["HU-4978", "done"], ["HU-4979", "pending"], ["HU-4980", "running"]]));
+  });
 });
 
 describe("runningBackground", () => {

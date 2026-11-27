@@ -26,14 +26,23 @@ function textOf(value) {
   return "";
 }
 
+/** An output, with the tool call that produced it when the transcript pairs them. */
+function outputOf(part, calls) {
+  const output = { kind: "output", text: textOf(part.content) };
+  const call = calls.get(part.tool_use_id);
+  return call ? { ...output, tool: call.name, command: call.input?.command } : output;
+}
+
 /** The transcript as ordered texts: kj's outputs, what reaches the agent as the user, what it said. */
 function transcriptTexts(entries) {
   const texts = [];
+  const calls = new Map();
   for (const entry of entries) {
     const content = entry?.message?.content;
     const parts = Array.isArray(content) ? content : [{ type: "text", text: content }];
     for (const part of parts) {
-      if (part?.type === "tool_result") texts.push({ kind: "output", text: textOf(part.content) });
+      if (part?.type === "tool_use" && part.id) calls.set(part.id, part);
+      else if (part?.type === "tool_result") texts.push(outputOf(part, calls));
       else if (part?.type === "text" && typeof part.text === "string") texts.push({ kind: entry.type === "assistant" ? "assistant" : "user", text: part.text });
     }
   }
