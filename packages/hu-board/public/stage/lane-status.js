@@ -3,6 +3,7 @@
 // its open pull request, whose pipeline the board reads (HU-4029). Pure, so the board (to open on it) and
 // the scene (live) decide it the same way.
 import { atHome } from './cards.js';
+import { isIdle } from './idle-waits.js';
 
 /** The main checkout, as src/lanes.js names it: it has no branch of its own to wait on. */
 const MAIN_LANE = 'main';
@@ -44,11 +45,13 @@ export function laneStatus({ lane, working = [], mail = 0, branch, pipeline = nu
 function hostsStatus(working, mail) {
   // KJC-TSK-1607: a lane whose only work is a host waiting for the person waits for the person.
   if (working.length && working.every((w) => w.waiting) && working.some((w) => w.waiting === 'person')) return { state: 'waiting-person', why: 'its host waits for you' };
-  // KJC-TSK-1805: a lane whose only hosts rest, open with nothing to do, is idle, unless its mail waits.
-  const resting = working.length > 0 && working.every((w) => w.waiting === 'rest');
-  if (working.length && !resting) return { state: 'working', why: null };
+  // KJC-TSK-1805: a lane whose only hosts rest, open with nothing to do, is idle, unless its mail waits;
+  // KJC-TSK-1811: so is one whose hosts have no work left.
+  const idle = working.length > 0 && working.every(isIdle);
+  if (working.length && !idle) return { state: 'working', why: null };
   if (mail > 0) return { state: 'waiting-person', why: `waits for you: ${plural(mail, 'handoff')}` };
-  return resting ? { state: 'idle', why: 'its host rests' } : null;
+  if (!idle) return null;
+  return { state: 'idle', why: working.every((w) => w.waiting === 'done') ? 'its host is done' : 'its host rests' };
 }
 
 /** What a lane's own branch says, null when it says nothing (a branch of its own, unlike main). */

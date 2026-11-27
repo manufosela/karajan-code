@@ -5,6 +5,7 @@ import * as THREE from 'three';
 
 const AMBER = 0xffb347;
 const BLUE = 0x4fb3e8;
+const GREEN = 0x5fd38d;
 const SIZE = 2;
 const glow = (color) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.2 });
 
@@ -35,19 +36,34 @@ function hourglass() {
   return group;
 }
 
+// KJC-TSK-1811: a green check over a host with no work left, its short stroke and its long one.
+function check() {
+  const group = new THREE.Group();
+  const ink = glow(GREEN);
+  for (const [length, x, y, angle] of [[0.45, -0.32, -0.05, Math.PI / 4], [0.95, 0.12, 0.2, -Math.PI / 5]]) {
+    const stroke = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, length, 6, 12), ink);
+    stroke.position.set(x, y, 0);
+    stroke.rotation.z = angle;
+    group.add(stroke);
+  }
+  return group;
+}
+
 /** Puts the marks on `robot` (beside its head, in its own frame) and shows the one `look` asks for. */
 export function showWaitMark(robot, look) {
   if (!robot.waitMarks) {
-    robot.waitMarks = { alert: alert(), hourglass: hourglass() };
+    robot.waitMarks = { alert: alert(), hourglass: hourglass(), check: check() };
     for (const mark of Object.values(robot.waitMarks)) {
       mark.position.set(1.9, 3.2, 0);
       mark.visible = false;
       robot.hover.add(mark);
     }
   }
-  const { alert: bang, hourglass: glass } = robot.waitMarks;
+  const { alert: bang, hourglass: glass, check: tick } = robot.waitMarks;
   bang.visible = look?.mark === 'alert';
   glass.visible = look?.mark === 'hourglass';
+  tick.visible = look?.mark === 'check';
+  if (tick.visible) tick.scale.setScalar(SIZE);
   // Big enough to be read from the whole hall.
   if (bang.visible) bang.scale.setScalar(SIZE * look.pulse);
   if (glass.visible) {

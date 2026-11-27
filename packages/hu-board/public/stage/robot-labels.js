@@ -3,6 +3,7 @@
 // owner; the robot pointed at (the mouse over it, or a tap) shows its full label; and of two labels
 // that would overlap on screen the more important stays. Pure: agents-floor.js places them.
 import { hostLabel, ownerOf } from './host-look.js';
+import { WAITS } from './idle-waits.js';
 import { labelOf } from './workers.js';
 
 /** How far from a robot, in css px, the pointer still points at it. */
@@ -21,9 +22,6 @@ export function tagText(worker, { own, pointed = false }) {
   // KJC-TSK-1699: and one inside a long tool says so, so it does not look stopped.
   return worker.long ? `${base} · long run` : base;
 }
-
-// KJC-TSK-1805: an open session with nothing to do rests.
-const WAITS = { person: 'waits for you', process: 'waits for a process', rest: 'resting' };
 
 /** The key of the robot nearest the pointer on screen within `reach`; null when none or no pointer. */
 export function pickNear(pointer, robots, reach = REACH_PX) {

@@ -26,10 +26,12 @@ export const CARDS = [
       { mark: 'Hologram over its head', means: 'Your emblem (or your initial), turning slowly: whose host it is.' },
       { mark: 'Chest plate', means: 'Your emblem again, in your colour.' },
       BACKPACK,
-      { mark: 'Label', means: 'Its owner\'s login. "waits for you" in amber, "waits for a process" in blue, "resting" in grey (open, nothing to do).' },
+      { mark: 'Label', means: 'Its owner\'s login. "waits for you" in amber, "waits for a process" in blue, "resting" in grey (open, nothing to do), "done" in green (no work left).' },
       // KJC-TSK-1653: what it waits for, seen from across the hall.
       { mark: 'Raised hand and amber "!"', means: 'It waits for you: it turns to you, its hand up, and the "!" beats.' },
       { mark: 'Blue hourglass', means: 'It waits for a process (CI, a job, a task in the background); the hourglass turns.' },
+      // KJC-TSK-1811: no work left is not a wait.
+      { mark: 'Green check', means: 'It has no work left: it waits for nothing.' },
     ],
   },
   {

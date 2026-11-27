@@ -63,7 +63,7 @@ describe('the census', () => {
   ];
 
   it('counts every factory', () => {
-    expect(censusOf(factories)).toEqual({ indexing: 2, answering: 1, working: 3, coding: 1, reviewing: 1, waiting: 1, resting: 0 });
+    expect(censusOf(factories)).toEqual({ indexing: 2, answering: 1, working: 3, coding: 1, reviewing: 1, waiting: 1, resting: 0, done: 0 });
   });
 
   it('says it without zeros, and says when all is quiet', () => {

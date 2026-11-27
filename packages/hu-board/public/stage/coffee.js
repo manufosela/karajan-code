@@ -1,6 +1,7 @@
 // KJC-TSK-1663 (asked by the maintainer on 2026-11-17): "a coffee cart robot could come and serve the
 // waiting agents a cup; when they have to work again it comes back and takes it". Pure: coffee-floor.js
 // draws it. A trip is { host, serve, at, spot }: serve true brings a cup, false takes it back.
+import { IDLE } from './idle-waits.js';
 import { AISLE_DZ, WORKSHOP } from './layout.js';
 import { BUD_MS, HOST_WALK_MS, hostAt } from './workers.js';
 
@@ -19,7 +20,7 @@ const lastOf = (trips, host) => trips.findLast((t) => t.host === host);
  */
 export function withCoffee(trips, hosts, now) {
   const called = hosts.flatMap(({ key, waiting: wait, spot }) => {
-    const waiting = wait && wait !== 'rest'; // KJC-TSK-1805: a resting host waits for nothing, so no cup
+    const waiting = wait && !IDLE.has(wait); // KJC-TSK-1805, 1811: a resting or done host waits for nothing, so no cup
     const last = lastOf(trips, key);
     if (waiting && !last?.serve) return [{ host: key, serve: true, at: now, spot }];
     if (!waiting && last?.serve && now >= last.at + HAND_AT_MS) return [{ host: key, serve: false, at: now, spot }];
