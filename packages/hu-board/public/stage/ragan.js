@@ -2,13 +2,14 @@
 // question it walks from its post to that lane's bench, behind the host that
 // asked, hands the answer over and walks back. Pure: live.js moves its robot.
 import { CREW, WORKSHOP } from './layout.js';
+import { SEATS } from './workers.js';
 
 /** How long kaRAGan walks each way, and how long it stays handing the answer over. */
 export const RAGAN_WALK_MS = 2200;
 export const HAND_MS = 1500;
 // KJC-BUG-0616 (the maintainer, 2026-11-16): beside the host's seat (workers.js SEATS[0]), level with
 // it, facing it; behind it, the host being big, it covered the host from the camera.
-const BESIDE_HOST = { dx: -2.55 - 1.3, dz: 0, yaw: Math.PI / 2 };
+const BESIDE_HOST = { dx: SEATS[0] - 1.21, dz: 0, yaw: Math.PI / 2 };
 
 /** A query of `lane` kaRAGan is working at (KJC-TSK-1630), with no answer yet. */
 const askedIn = (index, lane) => Boolean(index?.query && index.lane === lane && index.end === null);

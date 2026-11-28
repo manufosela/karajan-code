@@ -39,19 +39,21 @@ describe('withPipelines', () => {
 
 describe('plumberAt', () => {
   const spot = plumberSpot(xOf('c'), zOf('c'));
-  const onPad = ({ x, z }) => lanes.some((lane) => Math.abs(x - xOf(lane)) < WORKSHOP.width / 2 - 0.2 && Math.abs(z - zOf(lane)) < WORKSHOP.depth / 2 - 0.2);
 
-  it('stands behind its lane\'s belt, facing it, outside every workshop', () => {
+  // KJC-TSK-1826: the belt went beside the desks; the plumber works behind it, on its own pad, facing
+  // the belt and the camera (the belt is low: it hides nothing).
+  const onOtherPad = ({ x, z }) => lanes.some((lane) => lane !== 'c' && Math.abs(x - xOf(lane)) < WORKSHOP.width / 2 - 0.2 && Math.abs(z - zOf(lane)) < WORKSHOP.depth / 2 - 0.2);
+  it('stands behind its lane\'s belt, facing it, on no other workshop', () => {
     expect(spot.z).toBeLessThan(zOf('c') + BELT.z);
     expect(spot.x).toBeGreaterThan(xOf('c') + BELT.from);
     expect(spot.x).toBeLessThan(xOf('c') + BELT.to);
-    expect(onPad(spot)).toBe(false);
+    expect(onOtherPad(spot)).toBe(false);
   });
 
   it('teleports into the booth, walks round the workshops to its spot, and works there', () => {
     const p = { lane: 'c', since: 0 };
     expect(plumberAt(p, 0, xOf, zOf, door)).toMatchObject({ x: door.x, z: door.z, size: 0, working: false });
-    for (let t = BUD_MS; t < PLUMBER_IN_MS; t += 50) expect(onPad(plumberAt(p, t, xOf, zOf, door)), `t=${t}`).toBe(false);
+    for (let t = BUD_MS; t < PLUMBER_IN_MS; t += 50) expect(onOtherPad(plumberAt(p, t, xOf, zOf, door)), `t=${t}`).toBe(false);
     const at = plumberAt(p, PLUMBER_IN_MS, xOf, zOf, door);
     expect(at).toMatchObject({ x: spot.x, z: spot.z, walking: false, working: true, yaw: 0 });
     expect(PLUMBER_IN_MS).toBe(BUD_MS + HOST_WALK_MS);
