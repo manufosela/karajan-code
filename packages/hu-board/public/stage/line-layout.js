@@ -11,15 +11,15 @@ export const LINE_ORDER = ['booth', 'team', 'pieces', 'lanes', 'wall', 'release'
 /** Width in metres of each group; the lanes depend on their number, so they are computed. */
 const WIDTHS = Object.freeze({
   booth: 2.4, // the teleport booth
-  team: 6, // kaRAGan, atril, Karajan and his console
-  pieces: STATIONS.length * 1.6, // one post each
+  team: 5, // kaRAGan, atril, Karajan and his console
+  pieces: STATIONS.length * 1.1, // one post each
   wall: 4,
   release: 5.5, // table, counter, kaWATCHan
   mailbox: 2,
   warehouse: 4,
 });
 /** The gap between groups, in metres. */
-const GAP = 1.2;
+const GAP = 0.6;
 
 const widthOf = (id, lanes) => (id === 'lanes' ? lanes * (WORKSHOP.width + WORKSHOP.gap) : WIDTHS[id]);
 

@@ -36,7 +36,7 @@ describe('the left of the line', () => {
   it('puts every piece, the Sentinel too, in the pieces\' stretch, in the film\'s order, a post apart, on the line', () => {
     const xs = STATIONS.map(postX);
     for (const x of xs) inside(x, 'pieces');
-    for (const [a, b] of xs.slice(1).map((x, i) => [xs[i], x])) expect(b - a).toBeGreaterThanOrEqual(1.4);
+    for (const [a, b] of xs.slice(1).map((x, i) => [xs[i], x])) expect(b - a).toBeGreaterThan(1);
     expect(POST.z).toBe(LINE.z);
     expect(SENTINEL_POST.x).toBe(postX('sentinel'));
     expect(SENTINEL_POST.z).toBe(LINE.z);

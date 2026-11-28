@@ -32,7 +32,7 @@ describe('the one-line hall', () => {
 
   it('has room for every piece of Karajan, a post apart', () => {
     const pieces = lineGroups(1).find((g) => g.id === 'pieces');
-    expect(pieces.to - pieces.from).toBeGreaterThanOrEqual(STATIONS.length * 1.4);
+    expect(pieces.to - pieces.from).toBeGreaterThan(STATIONS.length * 1);
   });
 
   it('measures the line and finds its middle, for the camera', () => {
