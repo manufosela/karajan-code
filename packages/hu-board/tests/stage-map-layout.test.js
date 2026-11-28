@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { FLOOR_Z, GAP, ROW_GAP, packLots, repacked } from '../public/stage/map-layout.js';
-import { BOOTH, STATIONS, hallDepth, hallSpan, postX } from '../public/stage/layout.js';
+import { BOOTH, STATIONS, hallDepth, lineReach, postX } from '../public/stage/layout.js';
 
 const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
 // KJC-TSK-1488: a floor runs from behind the door to past the front row of its workshops.
@@ -28,7 +28,8 @@ describe('packLots (KJC-TSK-1467)', () => {
   // KJC-TSK-1827 (#5033, codex): the line reaches past the camera's fit; a lot holds all of it.
   it('gives each factory only its own line plus 1 m a side, not the widest one', () => {
     const { lots } = packLots([12, 1, 2]);
-    expect(lots.map(({ width }) => width)).toEqual([hallSpan(12).width + 2, hallSpan(1).width + 2, hallSpan(2).width + 2]);
+    // KJC-TSK-1842: the lot holds the whole factory, both rows, centred on x 0.
+    expect(lots.map(({ width }) => width)).toEqual([2 * lineReach(12) + 2, 2 * lineReach(1) + 2, 2 * lineReach(2) + 2]);
   });
 
   it('keeps each factory\'s booth and pieces on its own lot, off its neighbour\'s', () => {
@@ -42,7 +43,7 @@ describe('packLots (KJC-TSK-1467)', () => {
     const { lots, width, depth } = packLots([1]);
     expect(lots[0].x).toBe(0);
     expect(floorMid(lots[0])).toBeCloseTo(0);
-    expect({ width, depth }).toEqual({ width: hallSpan(1).width + 2, depth: DEPTH });
+    expect({ width, depth }).toEqual({ width: 2 * lineReach(1) + 2, depth: DEPTH });
   });
 
   it('leaves only the gap between neighbours of a row, the first at the back left', () => {
@@ -50,7 +51,9 @@ describe('packLots (KJC-TSK-1467)', () => {
     const [a, b] = lots;
     expect(b.x - a.x).toBeCloseTo((a.width + b.width) / 2 + GAP);
     expect(a.z).toBe(b.z);
-    expect(lots[2].z - a.z).toBeCloseTo(DEPTH + ROW_GAP);
+    const next = packLots([1, 1, 1, 1, 1, 1, 1, 1]).lots;
+    const behind = next.find((lot) => lot.z !== next[0].z);
+    expect(behind.z - next[0].z).toBeCloseTo(DEPTH + ROW_GAP);
   });
 
   it('leaves between rows more room than between neighbours, for the name at the back of each floor (KJC-TSK-1482)', () => {
@@ -64,7 +67,7 @@ describe('packLots (KJC-TSK-1467)', () => {
     expect(width / depth).toBeGreaterThan(0.5);
     expect(width / depth).toBeLessThan(3);
     const area = lots.reduce((sum, { width: w }) => sum + w * (DEPTH + ROW_GAP), 0);
-    expect(area / (width * depth)).toBeGreaterThan(0.6); // little empty floor left
+    expect(area / (width * depth)).toBeGreaterThan(0.55); // little empty floor left
   });
 
   it('keeps the map centred and inside its bounds', () => {

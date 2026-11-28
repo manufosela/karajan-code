@@ -37,7 +37,7 @@ describe('the workshops in one row', () => {
     for (const n of COUNTS) {
       const lanes = lineGroups(n).find((g) => g.id === 'lanes');
       const booth = lineGroups(n).find((g) => g.id === 'booth');
-      expect(viewCentre(n)).toBeCloseTo((workshopAt(0, n).x + workshopAt(n - 1, n).x) / 2);
+      // KJC-TSK-1842: stage-line-rows.test.js says where it looks now, both rows in view.
       const half = hallSpan(n).width / 2;
       expect(viewCentre(n) - half).toBeLessThanOrEqual(booth.from);
       expect(viewCentre(n) + half).toBeGreaterThanOrEqual(workshopAt(n - 1, n).x + WORKSHOP.width / 2);

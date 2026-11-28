@@ -14,11 +14,12 @@ describe('the one-line hall', () => {
     for (const n of COUNTS) expect(lineGroups(n).map((g) => g.id)).toEqual(LINE_ORDER);
   });
 
-  it('gives each group its own stretch, strictly left to right, with room between them', () => {
+  // KJC-TSK-1842: two rows; stage-line-rows.test.js checks the back row's order.
+  it('gives each group its own stretch, the warehouse last of all', () => {
     for (const n of COUNTS) {
       const groups = lineGroups(n);
       for (const g of groups) expect(g.to).toBeGreaterThan(g.from);
-      for (const [a, b] of groups.slice(1).map((g, i) => [groups[i], g])) expect(b.from).toBeGreaterThan(a.to);
+      for (const g of groups.slice(0, -1)) expect(groups.at(-1).from).toBeGreaterThanOrEqual(g.to); // no gaps
     }
   });
 
@@ -40,7 +41,7 @@ describe('the one-line hall', () => {
       const groups = lineGroups(n);
       expect(lineWidth(n)).toBeCloseTo(groups.at(-1).to - groups[0].from);
       expect(lineCentre(n)).toBeCloseTo((groups.at(-1).to + groups[0].from) / 2);
-      if (n > 1) expect(lineWidth(n)).toBeGreaterThan(lineWidth(n - 1));
+      if (n > 1) expect(lineWidth(n)).toBeGreaterThanOrEqual(lineWidth(n - 1)); // KJC-TSK-1842: the back row may be the longer
     }
   });
 

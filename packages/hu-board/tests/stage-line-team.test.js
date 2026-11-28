@@ -42,8 +42,8 @@ describe('the left of the line', () => {
     expect(SENTINEL_POST.z).toBe(LINE.z);
   });
 
-  it('leaves nothing of Karajan\'s side in front of or behind the lanes', () => {
-    const lanesFrom = group('lanes').from;
-    for (const x of [BOOTH.x, CREW.rag.x, STAND.x, CREW.conductor.x, CONSOLE.x, ...STATIONS.map(postX)]) expect(x).toBeLessThan(lanesFrom);
+  // KJC-TSK-1842 (the maintainer's sketch, 2026-11-28): Karajan's side is the back row, the lanes in front.
+  it('keeps Karajan\'s side in the back row, behind the lanes\' workshops', () => {
+    for (const z of [BOOTH.z, CREW.rag.z, STAND.z, CREW.conductor.z, POST.z]) expect(z).toBeLessThan(WORKSHOP.z - WORKSHOP.depth / 2);
   });
 });

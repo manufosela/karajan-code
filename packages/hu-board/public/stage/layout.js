@@ -30,11 +30,11 @@ export const wallAt = (n) => {
 };
 const releaseX = (n, offset) => stretchOf(n, 'release').from + offset;
 /** KJC-TSK-1526: the "Ready to release" table, first in its stretch, turned a little to the camera. */
-export const releaseAt = (n) => ({ x: releaseX(n, 1.2), z: LINE.z + 0.2, yaw: -0.3 });
+export const releaseAt = (n) => ({ x: releaseX(n, 1.1), z: LINE.z + 0.2, yaw: -0.3 });
 /** KJC-TSK-1545: the version counter, on its post right of the table. */
-export const versionAt = (n) => ({ x: releaseX(n, 3.3), z: LINE.z - 0.2, yaw: -0.3 });
+export const versionAt = (n) => ({ x: releaseX(n, 2.6), z: LINE.z - 0.2, yaw: -0.3 });
 /** KJC-TSK-1829: kaWATCHan, last in the release stretch. */
-export const watchAt = (n) => ({ x: releaseX(n, 4.7), z: LINE.z + 0.3, yaw: 0.3 });
+export const watchAt = (n) => ({ x: releaseX(n, 3.7), z: LINE.z + 0.3, yaw: 0.3 });
 export const WALL = wallAt(1);
 export const RELEASE_TABLE = releaseAt(1);
 export const VERSION_BOARD = versionAt(1);
@@ -74,8 +74,15 @@ const MAX_FIT_WIDTH = 45;
 /** How wide the hall is with `n` workshops, so the camera can fit it: four slots' worth, then the lanes up to 45 m. */
 export const hallWidth = (n) => (n <= 2 ? MIN_FIT_WIDTH : Math.max(4 * PITCH, Math.min(n * PITCH, MAX_FIT_WIDTH)));
 
-/** The x the camera looks at: the middle of the lanes' workshops; the drag's reach is measured from it. */
-export const viewCentre = (n) => (workshopAt(0, n).x + workshopAt(n - 1, n).x) / 2;
+/**
+ * The x the camera looks at (KJC-TSK-1842): the middle of both rows, the lanes' and Karajan's back row
+ * up to the mailbox, the warehouse left for the drag; the drag's reach is measured from it.
+ */
+export const viewCentre = (n) => {
+  const lanes = stretchOf(n, 'lanes');
+  const mailbox = stretchOf(n, 'mailbox');
+  return (lanes.from + Math.max(lanes.to, mailbox.to)) / 2;
+};
 
 /**
  * KJC-TSK-1592: how far a drag may walk the view over a hall of `n` workshops: its width, and its
@@ -102,13 +109,13 @@ export const hallSpan = (n) => {
 };
 
 /**
- * KJC-BUG-0578: where a factory opened alone stands its mailbox (KJC-TSK-1473), level with its last
- * row, and how small, since here it is seen up close. KJC-TSK-1830: in the middle of its stretch
- * of the line, after the release table.
+ * KJC-BUG-0578: where a factory opened alone stands its mailbox (KJC-TSK-1473), and how small, since
+ * here it is seen up close. KJC-TSK-1830: in the middle of its stretch of the line. KJC-TSK-1842: in
+ * Karajan's back row (LINE.z), behind the workshops.
  */
 export function mailboxSpot(n) {
   const { from, to } = stretchOf(n, 'mailbox');
-  return { x: (from + to) / 2, z: workshopAt(n - 1, n).z, scale: 0.55 };
+  return { x: (from + to) / 2, z: LINE.z, scale: 0.55 };
 }
 
 /** KJC-TSK-1827: kaRAGan, atril, Karajan and his console, left to right in the team's stretch of the line. */
