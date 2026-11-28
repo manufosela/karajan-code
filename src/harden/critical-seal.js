@@ -13,8 +13,11 @@ const below = (a, b) => {
   return i >= 0 && a[i] < b[i];
 };
 
+/** Whether a kj version (as [major, minor, patch]) is older than `since`; false when there is none. */
+export const predates = (pin, since) => Array.isArray(pin) && below(pin, since);
+
 /** Whether a kj version (as [major, minor, patch]) is older than the first that reads an unsigned seal. */
-export const predatesCritical = (pin) => Array.isArray(pin) && below(pin, CRITICAL_SINCE);
+export const predatesCritical = (pin) => predates(pin, CRITICAL_SINCE);
 
 const PINS = /(?:karajan-code|@karajan-family\/code)@(\d+)\.(\d+)\.(\d+)/g;
 const versionsOf = (text) => [...text.matchAll(PINS)].map((m) => m.slice(1).map(Number));

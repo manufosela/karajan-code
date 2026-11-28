@@ -6,6 +6,7 @@
  * (eslint/prettier) and CI gates land in later slices (H-C / H-D).
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -28,6 +29,7 @@ import { commandsForLanguage } from "../harden/hook-commands.js";
 import { makefileCommands } from "../harden/makefile-targets.js";
 import { HOOK_STEPS, pinnedCommands } from "../harden/pinned-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
+import { basePinOf } from "../harden/critical-seal.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
 import { installSentinelHooks } from "../harden/sentinel-hooks.js";
 import { installTransversalWiring, isTransversalParent, uninstallTransversalWiring } from "../harden/transversal-install.js";
@@ -199,15 +201,17 @@ export async function hardenCommand({
   // harden keeps working on repos that never ran kj init.
   const baseBranch = await resolveBaseBranch(projectDir, loadConfig, logger);
   const commitConvention = await resolveCommitConvention(projectDir);
+  // HU-5032: resolved once; the workflows pin it and, on a base with no judges yet, it is the judge.
+  const pin = ci && profile !== "minimal" ? await resolveKjPin({ projectDir, fetchFn }) : null;
   let result;
   try {
-    result = await installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention, commitSupervisor, sandbox, logger });
+    result = await installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention, commitSupervisor, sandbox, pin, logger });
   } catch (err) {
     if (json) logger.info?.(JSON.stringify({ ok: false, error: err.message }));
     else logger.error?.(`kj harden: ${err.message}`);
     return { ok: false, error: err.message };
   }
-  const out = { ok: true, ...result, ...(await installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, fetchFn, logger, baseBranch })) };
+  const out = { ok: true, ...result, ...(await installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, logger, baseBranch, pin })) };
   // KJC-BUG-0289 (#1984): what kj harden generates, kj commits (KJC-BUG-0273's
   // path): only that, never on the base branch. Left to the agent, 3.2k generated
   // lines exceeded its own PR size and stayed untracked. The seal (--commit, ADR
@@ -252,9 +256,17 @@ function hardenTransversal({ projectDir, uninstallTransversal, dryRun, logger })
   return (uninstallTransversal ? uninstallTransversalWiring : installTransversalWiring)({ parent: projectDir, logger });
 }
 
+/** git's stdout; its stderr kept off the terminal (a path missing on the base is no error here). */
+const quietGit = (projectDir) => (args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+
+/** HU-5032: the kj judging the next seal PR: the base's judges, else the pin kj writes into them. */
+const judgeVersionOf = (projectDir, baseBranch, pin) =>
+  basePinOf(quietGit(projectDir), baseBranch ?? undefined) ?? (pin?.version ? pin.version.split(".").slice(0, 3).map(Number) : null);
+
 /** The git hooks and, from standard up, the tool gate, the Sentinel and the optional sandbox. */
-async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention, commitSupervisor, sandbox, logger }) {
-  const result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention });
+async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention, commitSupervisor, sandbox, pin, logger }) {
+  const judgeVersion = judgeVersionOf(projectDir, baseBranch, pin);
+  const result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch, commitConvention, judgeVersion });
   // KJC-TSK-0710 — the TOOL gate: rules imposed at tool time (Claude Code
   // PreToolUse). Standard+ only; minimal stays hooks-lite.
   if (profile === "minimal" || dryRun) return result;
@@ -277,22 +289,21 @@ async function installSupervisor({ projectDir, profile, cmds, dryRun, baseBranch
 const geminiContext = (projectDir, dryRun) => (detectRulesync(projectDir) ? [] : [installGeminiContext({ projectDir, dryRun })]);
 
 /** The CI workflows (standard+). HU-4645: kj-quality gives way to the repo's own CI only once no required check needs it. */
-async function installCiWorkflows({ projectDir, baseBranch, fetchFn, logger, ...opts }) {
+async function installCiWorkflows({ projectDir, baseBranch, pin, logger, ...opts }) {
   // KJC-BUG-0420: consumer CI installs kj from npm, so the workflows pin a published version.
-  const pin = await resolveKjPin({ projectDir, fetchFn });
   if (pin?.note) logger.warn?.(`⚠ ${pin.note}`);
   const requiredChecks = ownTestWorkflow(projectDir) ? await baseBranchRequiredChecks({ projectDir, branch: baseBranch }) : undefined;
   return installWorkflows({ projectDir, baseBranch, kjVersion: null, published: pin?.published, requiredChecks, ...opts });
 }
 
 /** Configs, workflows and guidelines (standard+), with the language detected for the first root. */
-async function installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, fetchFn, logger, baseBranch }) {
+async function installExtras({ projectDir, roots, profile, config, ci, guidelines, mutation, dryRun, logger, baseBranch, pin }) {
   const full = profile !== "minimal";
   const language = roots[0]?.language ?? null;
   // Config (lint/format/commit) ships with standard+, per language root so a
   // fullstack monorepo is hardened on every side, not just one.
   const cfg = config && full ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
-  const wf = ci && full ? await installCiWorkflows({ projectDir, language, roots, profile, mutation, dryRun, baseBranch, fetchFn, logger }) : null;
+  const wf = ci && full ? await installCiWorkflows({ projectDir, language, roots, profile, mutation, dryRun, baseBranch, pin, logger }) : null;
   const withGuidelines = guidelines && full;
   // KJC-BUG-0199 (issue #1773): the same detected language the workflows and
   // the configs already use — a Python project must not be told to use `const`.
@@ -332,8 +343,10 @@ function printHardenSummary({ out, result, profile, dryRun, logger }) {
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");
 }
 
-function printHook({ hook, action }, logger) {
+function printHook({ hook, action, judgeVersion }, logger) {
   logger.info?.(`  • ${hook}: ${action}`);
+  // HU-5032 (ADR 0069): the verifier first, the writer after.
+  if (action === "deferred") logger.warn?.(`⚠ the ${hook} changes in two steps because the base branch's judges run kj ${judgeVersion}, which cannot verify the new one: merge this seal PR (it moves the judges to this kj), then run kj harden again to bring the new ${hook}.`);
   if (action !== "kept-edited") return;
   logger.warn?.(`⚠ ${hook} has a managed block edited by hand, so kj harden left it as it is. If kj generated something that does not fit this project, say it in .karajan/kj.config.yml (for example base_branch), then delete .karajan/hooks/${hook} and run kj harden: kj writes it again with your settings.`);
 }

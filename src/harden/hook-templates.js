@@ -36,6 +36,14 @@ export const PROFILE_HOOKS = {
   strict: ["pre-commit", "prepare-commit-msg", "commit-msg", "pre-push", "post-merge"],
 };
 
+/**
+ * HU-5032 (ADR 0069): the kj release since which each hook's CURRENT template exists. A judge on an
+ * older kj cannot recompute it, so until the base runs this kj, kj harden writes the hook with its
+ * previous template (hookBody's previousTemplate) and the current settings.
+ * Changing a hook template means bumping its entry here (and the hashes tests/harden/template-since pins).
+ */
+export const TEMPLATE_SINCE = { "pre-push": "5.41.0" };
+
 /** Build the managed body for a single hook. */
 // KJC-TSK-0645: `core.hooksPath .karajan/hooks` eclipses the user's global
 // hooks dir, silently disabling personal guards. Every generated hook ends by
@@ -125,7 +133,26 @@ function destinationTips() {
 // identity (.karajan/identity.local.yml) governs authorship on commit and the
 // gh session on push, on ANY host. Undeclared = advisory only (old clones keep
 // working); the fail-closed default is the Sentinel's (IDN-B).
-function identityGuard(hook) {
+// HU-5032 (ADR 0069): the pre-push identity check before HU-4994, byte for byte what kj 5.40.0
+// rendered. Kept only for judges older than TEMPLATE_SINCE; removed once no supported base predates it.
+const PREVIOUS_PUSHED_COMMITS = [
+  '      case "$kj_rsha" in *[!0]*) kj_new=$(git rev-list "$kj_lsha" --not "$kj_rsha" --remotes="${1:-origin}") ;; *) kj_new=$(git rev-list "$kj_lsha" --not --remotes="${1:-origin}") ;; esac || { echo "kj harden: identity lock — cannot list the commits pushed to $kj_rref (git fetch, then push again)"; exit 1; }',
+];
+
+/** The lines that leave in kj_new the commits a pushed ref brings, with the current or the previous template. */
+function pushedCommits(previousTemplate) {
+  if (previousTemplate) return PREVIOUS_PUSHED_COMMITS;
+  return [
+    // What the PUSH DESTINATION does not have yet. KJC-BUG-0436: an existing ref's tip is excluded
+    // too, or merging main into a pushed branch judges main's own merges.
+    // HU-4815 (#4808): a remote tip this clone lacks makes rev-list fail; refuse rather than push unchecked.
+    '      kj_old=; case "$kj_rsha" in *[!0]*) kj_old="^$kj_rsha" ;; esac',
+    // The tips go through stdin: thousands of refs would overflow a command line.
+    '      kj_new=$(printf "%s\\n" "$kj_have" | git rev-list --stdin "$kj_lsha" $kj_old) || { echo "kj harden: identity lock — cannot list the commits pushed to $kj_rref (git fetch, then push again)"; exit 1; }',
+  ];
+}
+
+function identityGuard(hook, previousTemplate = false) {
   const head = [
     "# Identity lock (IDN-C, ADR 0005) — this clone's declared identity governs.",
     "if [ -f .karajan/identity.local.yml ]; then",
@@ -154,15 +181,10 @@ function identityGuard(hook) {
     // (a rebase, cherry-pick, merge or tag never ran pre-commit).
     "  kj_declared_email=$(sed -n 's/^git_email:[[:space:]]*//p' .karajan/identity.local.yml | head -n1)",
     '  if [ -n "$kj_declared_email" ]; then',
-    ...destinationTips(),
+    ...(previousTemplate ? [] : destinationTips()),
     '    printf "%s\\n" "$kj_push_refs" | while read -r kj_lref kj_lsha kj_rref kj_rsha; do',
     '      case "$kj_lsha" in *[!0]*) ;; *) continue ;; esac',
-    // What the PUSH DESTINATION does not have yet. KJC-BUG-0436: an existing ref's tip is excluded
-    // too, or merging main into a pushed branch judges main's own merges.
-    // HU-4815 (#4808): a remote tip this clone lacks makes rev-list fail; refuse rather than push unchecked.
-    '      kj_old=; case "$kj_rsha" in *[!0]*) kj_old="^$kj_rsha" ;; esac',
-    // The tips go through stdin: thousands of refs would overflow a command line.
-    '      kj_new=$(printf "%s\\n" "$kj_have" | git rev-list --stdin "$kj_lsha" $kj_old) || { echo "kj harden: identity lock — cannot list the commits pushed to $kj_rref (git fetch, then push again)"; exit 1; }',
+    ...pushedCommits(previousTemplate),
     "      for kj_c in $kj_new; do",
     '        kj_who=$(git log -1 --format="%ae %ce" "$kj_c")',
     '        if [ "$kj_who" != "$kj_declared_email $kj_declared_email" ]; then',
@@ -208,7 +230,8 @@ function prePushWithoutTests(cmds) {
   return [...why, "# No test command detected for this stack: say so, do not block the push.", "echo 'kj harden: tests skipped: no test command detected for this stack'"];
 }
 
-export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention = "conventional" } = {}) {
+/** `previousTemplate`: the hook as a judge older than TEMPLATE_SINCE[hook] renders it (HU-5032). */
+export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention = "conventional", previousTemplate = false } = {}) {
   const chain = hook === "pre-commit" ? chainToGlobalOnly(hook) : chainToGlobal(hook);
   const conv = bakedConvention(commitConvention);
   switch (hook) {
@@ -343,7 +366,7 @@ export function hookBody(hook, cmds = {}, { baseBranch = null, commitConvention 
         "  echo 'kj harden: git user.name/user.email not set — refusing to push'; exit 1",
         "fi",
         'echo "kj harden: pushing as $(git config user.name) <$(git config user.email)>"',
-        ...identityGuard("pre-push"),
+        ...identityGuard("pre-push", previousTemplate),
         "# Run the test suite before pushing.",
       ];
       if (cmds.test) lines.push(`${cmds.test} || { echo 'kj harden: tests failed'; exit 1; }`);
