@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { buildFactory, createFactory, framing } from './factory.js';
 import { glideAt } from './camera-glide.js';
-import { hallDepth, hallSpan, hallWidth, mailboxSpot } from './layout.js';
+import { hallSpan, hallWidth, mailboxSpot, viewCentre } from './layout.js';
 import { RACK } from './warehouse.js';
 import { glowAt } from './mail.js';
 import { createMailbox } from './mailbox.js';
@@ -82,16 +82,14 @@ function buildScene(lanes, signal) {
   const refit = ({ glide: smoothly = false } = {}) => {
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
-    // KJC-TSK-1488: the camera looks at the middle of the rows and fits their depth too.
+    // KJC-TSK-1828: one row, so there is no depth to fit: the camera looks at the middle of the line.
     const n = hall.count();
-    // The status lines sit over the bottom of the view, so the front row needs some room below it.
-    const deep = hallDepth(n) > 0 ? hallDepth(n) + 10 : 0;
     const from = { pos: camera.position.clone(), target: target.clone() };
-    target.x = pan.x;
-    target.z = HALL_CENTRE_Z + deep / 2 + pan.z;
+    target.x = viewCentre(hall.count()) + pan.x;
+    target.z = HALL_CENTRE_Z + pan.z;
     // KJC-TSK-1704: and the warehouse beside it, when it holds any workshop.
     const rack = scene.userData.shelved ? 2 * (RACK.x + RACK.w / 2 + 1.5) : 0;
-    const to = { pos: target.clone().add(framing(Math.max(hallWidth(n), rack, deep * camera.aspect), camera.aspect).multiplyScalar(zoom)), target: target.clone() };
+    const to = { pos: target.clone().add(framing(Math.max(hallWidth(n), rack), camera.aspect).multiplyScalar(zoom)), target: target.clone() };
     glide = smoothly && !matchMedia('(prefers-reduced-motion: reduce)').matches ? { from, to, at: performance.now() } : null;
     look(glide ? from.pos : to.pos, glide ? from.target : to.target);
     camera.updateProjectionMatrix();

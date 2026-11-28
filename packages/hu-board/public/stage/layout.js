@@ -30,25 +30,14 @@ export const DOOR = { x: 0, z: -7.5 };
 /** The x of the centre of workshop `i` of `n`, the row centred on the hall. */
 export const workshopX = (i, n) => (i - (n - 1) / 2) * (WORKSHOP.width + WORKSHOP.gap);
 
-// KJC-TSK-1488 (decided by the maintainer on 2026-11-09): a factory of many lanes lays
-// its workshops in rows and columns, wider than deep as the screen is, the first row in
-// front of the posts and the next ones towards the camera; up to four stay in one row.
-const ONE_ROW = 4;
-/** From one row of workshops to the next: a workshop and room for its nameplate. */
-const ROW_STEP = WORKSHOP.depth + 2.4;
-/**
- * KJC-TSK-1702 (the maintainer, 2026-11-19): "no quiero baile de bloques de trabajo". Each slot has one
- * place whatever the number of workshops: four columns, filled from the centre out, row after row.
- * The columns the hall spans are the ones its slots use: the middle two for up to two, all four after.
- */
-const CENTRE_OUT = [1, 2, 0, 3];
-const columnsOf = (n) => (n <= 2 ? 2 : ONE_ROW);
-const rowsOf = (n) => Math.ceil(n / ONE_ROW);
+// KJC-TSK-1828 (ADR "kj stage en una línea", accepted 2026-11-27): the workshops go in one row, left to
+// right in the lanes' stretch of the line. KJC-TSK-1702 (the maintainer, 2026-11-19, "no quiero baile
+// de bloques de trabajo"): a slot keeps its place whatever the number of workshops.
+const PITCH = WORKSHOP.width + WORKSHOP.gap;
+const lanesGroup = (n) => lineGroups(n).find((g) => g.id === 'lanes');
 
-/** The centre `{x, z}` of slot `i` (of `_n`, which no longer moves it), row by row from the front. */
-export function workshopAt(i, _n) {
-  return { x: workshopX(CENTRE_OUT[i % ONE_ROW], ONE_ROW), z: WORKSHOP.z + Math.floor(i / ONE_ROW) * ROW_STEP };
-}
+/** The centre `{x, z}` of slot `i` (of `_n`, which does not move it), in the lanes' stretch of the line. */
+export const workshopAt = (i, _n) => ({ x: lanesGroup(1).from + WORKSHOP.gap / 2 + WORKSHOP.width / 2 + i * PITCH, z: WORKSHOP.z });
 
 /**
  * KJC-TSK-1628 (the maintainer, 2026-11-14): the aisle in front of a row of workshops, past their
@@ -56,8 +45,8 @@ export function workshopAt(i, _n) {
  */
 export const AISLE_DZ = WORKSHOP.depth / 2 + 1.9;
 
-/** How much deeper than a one-row hall the rows of `n` workshops make it. */
-export const hallDepth = (n) => (rowsOf(n) - 1) * ROW_STEP;
+/** How much deeper than a one-row hall `n` workshops make it: none, there is one row. */
+export const hallDepth = (_n) => 0;
 const lineGroup = (id) => lineGroups(1).find((g) => g.id === id);
 const pieces = lineGroup('pieces');
 const team = lineGroup('team');
@@ -69,22 +58,32 @@ export const SENTINEL_POST = { x: postX('sentinel'), z: LINE.z, height: 1.8 };
 export const PASSAGE = { x: WALL.x, front: { x: WALL.x, z: LINE.z } };
 // The camera's fit stays as it was (the maintainer, 2026-11-28: fit about 45 m at most, drag for the rest).
 const MIN_FIT_WIDTH = 26.2;
-/** How wide the hall is with `n` workshops, so the camera can fit it. */
-export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSHOP.gap), MIN_FIT_WIDTH);
+const MAX_FIT_WIDTH = 45;
+/** How wide the hall is with `n` workshops, so the camera can fit it: four slots' worth, then the lanes up to 45 m. */
+export const hallWidth = (n) => (n <= 2 ? MIN_FIT_WIDTH : Math.max(4 * PITCH, Math.min(n * PITCH, MAX_FIT_WIDTH)));
+
+/** The x the camera looks at: the middle of the lanes' workshops; the drag's reach is measured from it. */
+export const viewCentre = (n) => (workshopAt(0, n).x + workshopAt(n - 1, n).x) / 2;
 
 /**
  * KJC-TSK-1592: how far a drag may walk the view over a hall of `n` workshops: its width, and its
  * depth from the door to the front of the last row, with room for that row's nameplates.
  */
 // KJC-TSK-1827: the drag reaches the booth, at the left end of the line.
-export const hallSpan = (n) => ({ width: Math.max(hallWidth(n), 2 * Math.abs(booth.from)), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z });
+export const hallSpan = (n) => {
+  const centre = viewCentre(n);
+  const half = Math.max(centre - booth.from, workshopAt(n - 1, n).x + WORKSHOP.width / 2 - centre);
+  // Still wide enough for the reach measured from x 0 (the drag clamps around the view centre).
+  const fromZero = Math.max(2 * Math.abs(booth.from), 2 * Math.abs(lanesGroup(n).to));
+  return { width: Math.max(hallWidth(n), 2 * half + 0.01, fromZero), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z };
+};
 
 /**
  * KJC-BUG-0578: where a factory opened alone stands its mailbox (KJC-TSK-1473): just right of its
  * rightmost workshop, level with its last row; and how small, since here it is seen up close.
  */
 export function mailboxSpot(n) {
-  const right = Math.max(...Array.from({ length: n }, (_, i) => workshopAt(i, n).x)) + WORKSHOP.width / 2;
+  const right = workshopAt(n - 1, n).x + WORKSHOP.width / 2;
   return { x: right + 1.2, z: workshopAt(n - 1, n).z, scale: 0.55 };
 }
 
@@ -111,6 +110,4 @@ export const CONSOLE = { x: CREW.conductor.x + 0.9, z: LINE.z + 0.5 };
  * KJC-TSK-1632: the booth, and `edgeX`, where a host's way turns down past the left edge of the
  * first column of `n` workshops (KJC-TSK-1628), so it crosses none.
  */
-// KJC-TSK-1702: the leftmost slot is not the first one now that slots fill from the centre out.
-const leftmostX = (n) => Math.min(...Array.from({ length: Math.min(Math.max(1, n), ONE_ROW) }, (_, i) => workshopAt(i, n).x));
-export const boothAt = (n) => ({ ...BOOTH, edgeX: Math.min(BOOTH.x, leftmostX(n) - WORKSHOP.width / 2 - 0.8) });
+export const boothAt = (n) => ({ ...BOOTH, edgeX: Math.min(BOOTH.x, workshopAt(0, n).x - WORKSHOP.width / 2 - 0.8) });

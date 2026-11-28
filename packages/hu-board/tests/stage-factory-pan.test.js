@@ -17,8 +17,9 @@ describe('hallSpan', () => {
     }
   });
 
-  it('a factory of more rows reaches further', () => {
-    expect(hallSpan(9).depth).toBeGreaterThan(hallSpan(4).depth);
+  it('a factory of more lanes reaches further along its one row, and no deeper', () => {
+    expect(hallSpan(9).width).toBeGreaterThan(hallSpan(4).width);
+    expect(hallSpan(9).depth).toBe(hallSpan(4).depth);
   });
 
   it('a long drag stops at the edge of the hall: the point looked at never leaves it', () => {

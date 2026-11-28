@@ -3,14 +3,15 @@
 // with nobody in it for a while goes to the warehouse beside the hall; one with an agent, or its
 // pipeline running, comes back. Main, the factory's own line, never leaves. Pure: live.js applies it.
 
-import { WORKSHOP, workshopX } from './layout.js';
+import { lineGroups } from './line-layout.js';
+import { WORKSHOP } from './layout.js';
 
 /** Shelves `high` levels tall at a fixed `x` right of the hall's four columns; a slab per stored workshop. */
 // KJC-BUG-0644 (the maintainer, 2026-11-19): "muy alejado... más cerca del centro y más arriba": right
 // against the columns, taller, and growing to the back of the hall instead of towards the camera.
 const RACK_W = 1.8;
-// KJC-TSK-1826: 0.6 m clear of the hall's rightmost column, whatever the workshop's width.
-export const RACK = { x: workshopX(3, 4) + WORKSHOP.width / 2 + 0.6 + RACK_W / 2, high: 6, step: 0.62, bay: 1.15, w: RACK_W, h: 0.32, d: 0.9 };
+// KJC-TSK-1826: 0.6 m clear of the lanes' stretch for four workshops (KJC-TSK-1830 moves it again).
+export const RACK = { x: lineGroups(4).find((g) => g.id === 'lanes').to - WORKSHOP.gap / 2 + 0.6 + RACK_W / 2, high: 6, step: 0.62, bay: 1.15, w: RACK_W, h: 0.32, d: 0.9 };
 
 /** Where the slab of slot `i` of the warehouse stands: bottom shelf first, then the next bay back. */
 export function rackSpot(i) {
