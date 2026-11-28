@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.41.0] - 2026-11-28
+## [5.41.1] - 2026-11-28
 
-Public repos get warned before GitHub stops running their `pull_request_target` workflows, and a timed-out command is killed for real.
+Public repos get warned before GitHub stops running their `pull_request_target` workflows, and a timed-out command is killed for real. 5.41.0 was tagged but never published: its release run stopped at the upgrade-path guard, which found that a repo could not merge the seal of the new pre-push (fixed below). Everything listed under 5.41.0 ships here.
+
+### Fixed
+- **A hook template newer than a repo's judges reaches it in two steps**: a repo's judge workflows run the kj pinned on its base branch, which cannot recompute a hook template that came later, so the seal PR of the new pre-push could never merge. While the judges are older, `kj harden` writes that hook with its previous template and your current settings, and tells you to run `kj harden` again once the seal PR is merged: the new hook comes then (ADR 0069, #5032).
+- **kj harden no longer prints `fatal:` when the base branch lacks a file it looks for.**
+
+### Changed
+- **kj stage**: one row of workshops on the line, the booth, Karajan's team and his pieces on it; one big drone at the task wall carries the cards; TDD is Karajan as an inspector with a traffic light at the coder's desk, and the ledger, the gates and Sonar are his robot in costume.
+
+## [5.41.0] - 2026-11-28 (not published)
 
 ### Added
 - **kj warns in every public repo that lacks the Actions event policy**: from 2026-12-02 GitHub blocks `pull_request_target` in public repos without a policy that allows it, and `kj-policy.yml` and `kj-secrets.yml` use it. Until now only `kj harden` said so. `kj doctor` and `kj check` warn with the settings link and the exact events to allow, and any kj command reminds it once a day per repo until the policy exists. A private repo or one with the policy gets nothing (#5005).
