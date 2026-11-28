@@ -1,6 +1,6 @@
 {
   "name": "karajan-core",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Shared modules for Karajan Code CLI and @karajan/hu-board (atomic-write, paths, RAG store, plan ops, process runner).",
   "type": "module",
   "license": "AGPL-3.0",
