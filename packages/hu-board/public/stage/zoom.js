@@ -10,18 +10,27 @@ export const wheelZoom = (zoom, deltaY, limits = ZOOM) => clamp(zoom * Math.exp(
 /** The zoom after a pinch from `from` to `to` px between the fingers: apart comes closer. */
 export const pinchZoom = (zoom, from, to, limits = ZOOM) => (from > 0 && to > 0 ? clamp((zoom * from) / to, limits) : zoom);
 
+/** KJC-TSK-1847: Shift and the wheel tilt (browsers may send it as deltaX); the wheel alone zooms. */
+// Without a tilt listener (the map) Shift and the wheel still zoom.
+export const wheelAction = (e, canTilt = true) => (e.shiftKey && canTilt ? { tilt: e.deltaY || e.deltaX } : { zoom: e.deltaY });
+
 /**
  * Listens to the wheel and to two-finger pinches on `el`; `onZoom(k)` gets each new zoom.
  * Returns the zoom's getter and setter.
  * The map passes deeper `limits`, down to one workshop (KJC-TSK-1454).
  */
-export function listenZoom(el, onZoom, limits = ZOOM) {
+export function listenZoom(el, onZoom, limits = ZOOM, onTilt = null) {
   let zoom = 1;
   let gap = 0;
   const span = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
   el.addEventListener('wheel', (e) => {
     e.preventDefault();
-    zoom = wheelZoom(zoom, e.deltaY, limits);
+    const action = wheelAction(e, Boolean(onTilt));
+    if ('tilt' in action) {
+      onTilt(action.tilt);
+      return;
+    }
+    zoom = wheelZoom(zoom, action.zoom, limits);
     onZoom(zoom);
   }, { passive: false });
   el.addEventListener('touchstart', (e) => { if (e.touches.length === 2) gap = span(e.touches); });

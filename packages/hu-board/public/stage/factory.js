@@ -101,8 +101,8 @@ export function relayFloor(scene, old, { x, width, z, depth }) {
 }
 
 /** Where the camera sits, at three quarters, to fit a hall `width` metres wide on a screen of `aspect`. */
-export function framing(width, aspect) {
+export function framing(width, aspect, elevation = CAMERA.elevation) {
   // KJC-TSK-1831: from the front of the line; the maths lives in camera-fit.js.
-  const { x, y, z } = framingOffset(width, aspect);
+  const { x, y, z } = framingOffset(width, aspect, elevation);
   return new THREE.Vector3(x, y, z);
 }

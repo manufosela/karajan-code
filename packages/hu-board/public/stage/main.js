@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { buildFactory, createFactory, framing, relayFloor } from './factory.js';
 import { glideAt } from './camera-glide.js';
-import { fitWidth } from './camera-fit.js';
+import { CAMERA, fitWidth, tiltBy } from './camera-fit.js';
 import { hallSpan, mailboxSpot, viewCentre } from './layout.js';
 import { floorFor } from './warehouse.js';
 import { glowAt } from './mail.js';
@@ -74,6 +74,8 @@ function buildScene(lanes, signal) {
   // The camera pulls back as the hall grows or the screen narrows, so every workshop
   // fits; the wheel or a pinch brings it closer or further (KJC-TSK-1433).
   let zoom = 1;
+  // KJC-TSK-1847: how high the camera looks from; Shift and the wheel change it.
+  let elevation = CAMERA.elevation;
   // KJC-TSK-1592: how far a drag has walked the view from the middle of the hall.
   let pan = { x: 0, z: 0 };
   // KJC-TSK-1655: when the hall grows or shrinks (`glide`), the camera glides to its new framing.
@@ -97,7 +99,7 @@ function buildScene(lanes, signal) {
       floor = relayFloor(scene, floor, laid);
       laidFloor = laid;
     }
-    const to = { pos: target.clone().add(framing(fitWidth(n), camera.aspect).multiplyScalar(zoom)), target: target.clone() };
+    const to = { pos: target.clone().add(framing(fitWidth(n), camera.aspect, elevation).multiplyScalar(zoom)), target: target.clone() };
     glide = smoothly && !matchMedia('(prefers-reduced-motion: reduce)').matches ? { from, to, at: performance.now() } : null;
     look(glide ? from.pos : to.pos, glide ? from.target : to.target);
     camera.updateProjectionMatrix();
@@ -111,7 +113,7 @@ function buildScene(lanes, signal) {
     look(at.pos, at.target);
   };
   addEventListener('resize', () => refit(), { signal });
-  listenZoom(canvas, (k) => { zoom = k; refit(); });
+  listenZoom(canvas, (k) => { zoom = k; refit(); }, undefined, (delta) => { elevation = tiltBy(elevation, delta); refit(); });
   // KJC-TSK-1592: dragging walks over the hall at any zoom, as on the map, and stops at its edge.
   listenPan(canvas, (dx, dy) => {
     const metresPerPx = (2 * camera.position.distanceTo(target) * Math.tan((camera.fov * Math.PI) / 360)) / innerHeight;
