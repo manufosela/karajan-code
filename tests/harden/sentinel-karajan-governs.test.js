@@ -37,6 +37,8 @@ describe("Karajan governs", () => {
   });
 
   it("every deny ends with the same line: Karajan governs", () => {
+    // HU-5055: the line follows the project's language; this one is Spanish.
+    fs.writeFileSync(path.join(dir, ".karajan", "kj.config.yml"), "language: es\n");
     const r = hook("Edit", { file_path: path.join(dir, ".karajan", "harness", "stop.mjs") });
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/Karajan gobierna/);
