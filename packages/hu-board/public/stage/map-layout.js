@@ -2,7 +2,7 @@
 // busiest factory (first in the list) at the back left. KJC-TSK-1467: each lot is
 // only as wide as its own hall, and the lots are packed in rows with a narrow gap;
 // one lot as wide as the widest hall left the small factories in a sea of floor.
-import { hallDepth, hallWidth } from './layout.js';
+import { hallDepth, hallSpan } from './layout.js';
 
 /** The hall from behind its door to past its nameplates, along z (layout.js). */
 export const FLOOR_Z = { back: -9.5, front: 6 };
@@ -11,14 +11,14 @@ export const GAP = 1.5;
 // rose over the factory behind, so rows keep more room between them than neighbours.
 export const ROW_GAP = 7;
 const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
-const WIDER = 1.5; // rows a little wider than a square, as the screen is
+const WIDER = 2.4; // rows wider than a square: a lot holds the whole line, so it is wide
 
-/** Splits the widths into rows of about `target` metres, in order. */
+/** Splits the widths into rows of about `target` metres, in order; a lot joins the row if that lands nearer the target. */
 function rowsOf(widths, target) {
   const rows = [];
   for (const [i, width] of widths.entries()) {
     const row = rows.at(-1);
-    if (row && row.width + GAP + width <= target) {
+    if (row && Math.abs(row.width + GAP + width - target) <= Math.abs(row.width - target)) {
       row.items.push(i);
       row.width += GAP + width;
     } else rows.push({ items: [i], width });
@@ -46,7 +46,7 @@ export function repacked(before, now) {
 }
 
 function pack(laneCounts) {
-  const widths = laneCounts.map((n) => hallWidth(n) + 2);
+  const widths = laneCounts.map((n) => hallSpan(n).width + 2); // the whole line, booth included
   const depths = laneCounts.map((n) => DEPTH + hallDepth(n));
   const area = widths.reduce((sum, w, i) => sum + (w + GAP) * (depths[i] + ROW_GAP), 0);
   const rows = rowsOf(widths, Math.max(...widths, Math.sqrt(area * WIDER)));

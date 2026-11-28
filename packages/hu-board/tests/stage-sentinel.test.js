@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { SENTINEL_POST } from '../public/stage/layout.js';
 import { DESCENT_MS, STAY_MS, placeDenial, sentinelAt, withWatch } from '../public/stage/sentinel-watch.js';
 
-const xOf = (lane) => ({ main: -6, 'kj-stage': 6 })[lane] ?? 0;
+// The lanes either side of the Sentinel's post, wherever the line puts it.
+const xOf = (lane) => SENTINEL_POST.x + (({ main: -6, 'kj-stage': 6 })[lane] ?? 0);
 const beat = (lane) => ({ type: 'agent-activity', role: 'host', phase: 'start', lane });
 const deny = (lane) => ({ type: 'sentinel-deny', lane, tool: 'Bash' });
 

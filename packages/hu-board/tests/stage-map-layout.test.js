@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { FLOOR_Z, GAP, ROW_GAP, packLots, repacked } from '../public/stage/map-layout.js';
-import { hallDepth, hallWidth } from '../public/stage/layout.js';
+import { BOOTH, STATIONS, hallDepth, hallSpan, postX } from '../public/stage/layout.js';
 
 const DEPTH = FLOOR_Z.front - FLOOR_Z.back;
 // KJC-TSK-1488: a floor runs from behind the door to past the front row of its workshops.
@@ -25,16 +25,24 @@ describe('repacked', () => {
 });
 
 describe('packLots (KJC-TSK-1467)', () => {
-  it('gives each factory only its own hall plus 1 m a side, not the widest one', () => {
+  // KJC-TSK-1827 (#5033, codex): the line reaches past the camera's fit; a lot holds all of it.
+  it('gives each factory only its own line plus 1 m a side, not the widest one', () => {
     const { lots } = packLots([12, 1, 2]);
-    expect(lots.map(({ width }) => width)).toEqual([hallWidth(12) + 2, hallWidth(1) + 2, hallWidth(2) + 2]);
+    expect(lots.map(({ width }) => width)).toEqual([hallSpan(12).width + 2, hallSpan(1).width + 2, hallSpan(2).width + 2]);
+  });
+
+  it('keeps each factory\'s booth and pieces on its own lot, off its neighbour\'s', () => {
+    const { lots } = packLots([1, 1, 1, 1]);
+    for (const lot of lots) {
+      for (const x of [BOOTH.x, ...STATIONS.map(postX)]) expect(Math.abs(x) + 0.5).toBeLessThanOrEqual(lot.width / 2);
+    }
   });
 
   it('puts a lone factory with its floor at the centre of the map', () => {
     const { lots, width, depth } = packLots([1]);
     expect(lots[0].x).toBe(0);
     expect(floorMid(lots[0])).toBeCloseTo(0);
-    expect({ width, depth }).toEqual({ width: hallWidth(1) + 2, depth: DEPTH });
+    expect({ width, depth }).toEqual({ width: hallSpan(1).width + 2, depth: DEPTH });
   });
 
   it('leaves only the gap between neighbours of a row, the first at the back left', () => {

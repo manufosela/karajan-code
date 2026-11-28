@@ -1,7 +1,7 @@
 // KJC-TSK-1817 (ADR "kj stage en una línea", accepted 2026-11-27, decided by the maintainer): the hall
 // in one line, left to right, nothing behind anything, the camera in front.
 // The next PRs place each group from this module.
-import { STATIONS, WORKSHOP } from './layout.js';
+import { STATIONS, WORKSHOP } from './hall-sizes.js';
 
 /** The z the whole line stands on, and the aisle in front of it where robots walk. */
 export const LINE = { z: -1, aisleZ: 2.6 };
@@ -23,15 +23,24 @@ const GAP = 1.2;
 
 const widthOf = (id, lanes) => (id === 'lanes' ? lanes * (WORKSHOP.width + WORKSHOP.gap) : WIDTHS[id]);
 
-/** The groups laid one after the other from x = 0: [{ id, from, to }]. A factory shows at least one lane. */
+/** Where the lanes start: the left edge of the hall's first column of four workshops, centred on x = 0. */
+const LANES_FROM = -2 * (WORKSHOP.width + WORKSHOP.gap);
+
+/** The groups laid from the lanes outwards: [{ id, from, to }]. A factory shows at least one lane. */
 export function lineGroups(n) {
   const lanes = Math.max(1, Math.floor(n));
-  let from = 0;
-  return LINE_ORDER.map((id) => {
-    const group = { id, from, to: from + widthOf(id, lanes) };
-    from = group.to + GAP;
-    return group;
-  });
+  const at = LINE_ORDER.indexOf('lanes');
+  const groups = [];
+  groups[at] = { id: 'lanes', from: LANES_FROM, to: LANES_FROM + widthOf('lanes', lanes) };
+  for (let i = at - 1; i >= 0; i--) {
+    const to = groups[i + 1].from - GAP;
+    groups[i] = { id: LINE_ORDER[i], from: to - widthOf(LINE_ORDER[i], lanes), to };
+  }
+  for (let i = at + 1; i < LINE_ORDER.length; i++) {
+    const from = groups[i - 1].to + GAP;
+    groups[i] = { id: LINE_ORDER[i], from, to: from + widthOf(LINE_ORDER[i], lanes) };
+  }
+  return groups;
 }
 
 export const lineWidth = (n) => {
