@@ -39,8 +39,19 @@ export const makefileTargets = (projectDir) => new Set(makefileRecipes(projectDi
 const COMPOSE = String.raw`docker(?:-compose|[ \t]+compose)(?:[ \t]+-\S+(?:[ \t]+(?!(?:exec|run)\b)[^-\s]\S*)?)*[ \t]+`;
 const IN_DOCKER = new RegExp(String.raw`\b(?:${COMPOSE}(?:exec|run)|docker[ \t]+exec)\b`);
 
+// A command substitution or a separator: the line may run more than its first command.
+const MAY_RUN_MORE = /\$\(|`|&&|[;|]/;
+
+// A comment, or a line that only prints its text (`echo`, `printf`, `:`) and cannot run anything else.
+const onlyMentions = (line) => {
+  const command = line.replace(/^[\s@+-]+/, "");
+  if (command.startsWith("#")) return true;
+  return ["echo", "printf", ":"].includes(command.split(/\s/, 1)[0]) && !MAY_RUN_MORE.test(command);
+};
+
 /** Whether any recipe of the root Makefile runs its tool inside a container. */
-export const makefileRunsInDocker = (projectDir) => [...makefileRecipes(projectDir).values()].flat().some((line) => IN_DOCKER.test(line));
+export const makefileRunsInDocker = (projectDir) =>
+  [...makefileRecipes(projectDir).values()].flat().some((line) => IN_DOCKER.test(line) && !onlyMentions(line));
 
 /** The hook commands the Makefile gives, by step; a step it has no target for is left out. */
 export function makefileCommands(projectDir) {
