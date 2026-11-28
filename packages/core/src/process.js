@@ -3,11 +3,24 @@ import { execa } from "execa";
 const isWin = process.platform === "win32";
 const KILL_SIGNAL = isWin ? "SIGTERM" : "SIGKILL";
 
-function buildSilenceKilledResult(silenceTimeoutMs, stdout, signal) {
+/**
+ * execa 9 only accepts an Error as the second argument of kill(); it escalates to SIGKILL by itself.
+ * Returns the stderr suffix that reports a failed kill, empty when it worked.
+ */
+function killChild(subprocess) {
+  try {
+    subprocess.kill(KILL_SIGNAL);
+    return "";
+  } catch (error) {
+    return `; kill failed: ${error.message}`;
+  }
+}
+
+function buildSilenceKilledResult(silenceTimeoutMs, stdout, signal, killFailure = "") {
   return {
     exitCode: 143,
     stdout,
-    stderr: `Command killed after ${Number(silenceTimeoutMs)}ms without output`,
+    stderr: `Command killed after ${Number(silenceTimeoutMs)}ms without output${killFailure}`,
     timedOut: true,
     signal: signal || KILL_SIGNAL
   };
@@ -50,26 +63,22 @@ function setupOutputStreaming(subprocess, onOutput, partialOutputFlushMs) {
   });
 }
 
-async function awaitWithTimeout(subprocess, timeout, getStdout) {
+async function awaitWithTimeout(subprocess, completion, timeout, getStdout) {
   let timer = null;
   const timeoutResult = new Promise((resolve) => {
     timer = setTimeout(() => {
-      try {
-        subprocess.kill(KILL_SIGNAL, { forceKillAfterDelay: 1000 });
-      } catch {
-        // no-op
-      }
+      const killFailure = killChild(subprocess);
       resolve({
         exitCode: 143,
         stdout: getStdout(),
-        stderr: `Command timed out after ${timeout}ms`,
+        stderr: `Command timed out after ${timeout}ms${killFailure}`,
         timedOut: true,
         signal: KILL_SIGNAL
       });
     }, timeout);
   });
 
-  const result = await Promise.race([subprocess, timeoutResult]);
+  const result = await Promise.race([completion, timeoutResult]);
   if (timer) clearTimeout(timer);
   return result;
 }
@@ -77,10 +86,13 @@ async function awaitWithTimeout(subprocess, timeout, getStdout) {
 /**
  * KJC-TSK-1274: kills the subprocess after `silenceTimeoutMs` with no output; every chunk re-arms it.
  * A non-positive or non-numeric value turns it off.
+ * `killFailed` resolves only when kill() throws: that child may never end, so the run must not wait for it.
  */
 function silenceWatchdog(subprocess, silenceTimeoutMs) {
   let timer = null;
   let timedOut = false;
+  let killFailure = "";
+  const { promise: killFailed, resolve: reportKillFailure } = Promise.withResolvers();
   const clear = () => {
     if (timer) {
       clearTimeout(timer);
@@ -93,14 +105,11 @@ function silenceWatchdog(subprocess, silenceTimeoutMs) {
     clear();
     timer = setTimeout(() => {
       timedOut = true;
-      try {
-        subprocess.kill(KILL_SIGNAL, { forceKillAfterDelay: 1000 });
-      } catch {
-        // no-op
-      }
+      killFailure = killChild(subprocess);
+      if (killFailure) reportKillFailure({});
     }, ms);
   };
-  return { arm, clear, timedOut: () => timedOut };
+  return { arm, clear, killFailed, timedOut: () => timedOut, killFailure: () => killFailure };
 }
 
 /** What a thrown run reports: exit 1 with every detail execa gave, never an empty message. */
@@ -138,15 +147,20 @@ export async function runCommand(command, args = [], options = {}) {
   watchdog.arm();
 
   try {
+    const completion = Promise.race([subprocess, watchdog.killFailed]);
     const result = timeout
-      ? await awaitWithTimeout(subprocess, timeout, () => stdoutAccum)
-      : await subprocess;
+      ? await awaitWithTimeout(subprocess, completion, timeout, () => stdoutAccum)
+      : await completion;
     watchdog.clear();
-    if (watchdog.timedOut()) return buildSilenceKilledResult(silenceTimeoutMs, stdoutAccum);
+    if (watchdog.timedOut()) {
+      return buildSilenceKilledResult(silenceTimeoutMs, stdoutAccum, null, watchdog.killFailure());
+    }
     return enrichResult(result, stdoutAccum, stderrAccum);
   } catch (error) {
     watchdog.clear();
-    if (watchdog.timedOut()) return buildSilenceKilledResult(silenceTimeoutMs, error?.stdout || stdoutAccum, error?.signal);
+    if (watchdog.timedOut()) {
+      return buildSilenceKilledResult(silenceTimeoutMs, error?.stdout || stdoutAccum, error?.signal, watchdog.killFailure());
+    }
     return thrownResult(error, stdoutAccum);
   }
 }
