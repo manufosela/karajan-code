@@ -24,7 +24,23 @@ function hold(robot, part, prop) {
 }
 const solid = (geometry, material, x, y, z) => at(new THREE.Mesh(geometry, material), x, y, z);
 
+const lamp = (color, y) => ({ material: new THREE.MeshStandardMaterial({ color, emissive: 0x000000 }), y });
+
 const BUILD = {
+  hivis: ({ hover }, trim) => {
+    const yellow = cloth(0xd7f22a);
+    hover.add(coat(0.9, 0.88, 0.85, 0.5, yellow), ring(0.9, 0.04, trim, 0.75), ring(0.9, 0.04, trim, 1.05));
+  },
+  trafficlight: (robot) => {
+    const light = new THREE.Group();
+    const dark = cloth(0x22262c);
+    const lamps = { red: lamp(0x5a1a1a, 0.8), green: lamp(0x1a5a2a, 0.5) };
+    light.add(solid(new THREE.CylinderGeometry(0.035, 0.035, 0.3, 10), dark, 0, 0.15, 0),
+      solid(new THREE.BoxGeometry(0.26, 0.6, 0.2), dark, 0, 0.6, 0));
+    for (const { material, y } of Object.values(lamps)) light.add(solid(new THREE.SphereGeometry(0.08, 12, 12), material, 0, y, 0.1));
+    hold(robot, 'trafficlight', light);
+    return { red: lamps.red.material, green: lamps.green.material };
+  },
   trenchcoat: ({ hover }) => {
     const beige = cloth(0xc8a675);
     hover.add(coat(0.85, 0.95, 1.2, 0.05, beige), ring(0.9, 0.05, beige, 0.55), ring(0.82, 0.07, beige, 1.25));
@@ -132,9 +148,13 @@ const BUILD = {
   },
 };
 
-/** Dresses `robot` in `costume.parts`; returns the material its accent parts share, for the piece to light. */
+/** Dresses `robot` in `costume.parts`; returns the accent material they share and, for a costume with a traffic light, its two lamp materials (`lamps`, else null). */
 export function dressPiece(robot, costume) {
   const trim = new THREE.MeshStandardMaterial({ color: 0xd8dde3, metalness: 0.6, roughness: 0.3, emissive: 0x000000 });
-  for (const part of costume.parts) BUILD[part](robot, trim);
-  return { trim };
+  let lamps = null;
+  for (const part of costume.parts) {
+    const made = BUILD[part](robot, trim);
+    if (part === 'trafficlight') lamps = made;
+  }
+  return { trim, lamps };
 }

@@ -129,7 +129,8 @@ export const CARDS = [
       { mark: 'Cup on the desk', means: 'The host works again and left its cup there, until the cart comes to take it.' },
     ],
   },
-  { id: 'tdd', kind: 'tool', name: 'TDD', does: 'The failing test first, and the suite never left red.', when: 'At its post; it lights when a test run is judged, and sends its green drone to look at that workshop.', calledBy: 'The method, on every change.', marks: [] },
+  { id: 'tdd', kind: 'tool', name: 'TDD', does: 'The failing test first, and the suite never left red.', when: 'At the coder\'s desk of the lane kj review checks; its light is the result of that check.', calledBy: 'The method, on every change.',
+    marks: [{ mark: 'Inspector with a traffic light', means: 'Karajan as an inspector at the coder\'s desk: green when the tests come with the code, red and a raised hand to stop it when they do not.' }] },
   {
     id: 'sentinel', kind: 'piece', name: 'Sentinel',
     does: 'Checks every tool call of the host against the method, and stops the ones that break it.',

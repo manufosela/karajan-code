@@ -24,7 +24,9 @@ describe('the pieces in costume', () => {
 
   it('only dresses pieces of the floor, and leaves the others as they are until their turn', () => {
     for (const id of Object.keys(PIECE_COSTUMES)) expect(STATIONS).toContain(id);
-    expect(costumeOfPiece('tdd')).toBeNull();
+    expect(costumeOfPiece('karagan')).toBeNull();
+    // KJC-TSK-1816: with TDD, every piece of the floor is Karajan in costume.
+    for (const id of STATIONS) expect(costumeOfPiece(id)).not.toBeNull();
   });
 
   // #5002: a prop hung below the hand went into the floor. Every prop says which hand holds it, at most
@@ -35,7 +37,7 @@ describe('the pieces in costume', () => {
       for (const hand of hands) expect(['left', 'right']).toContain(hand);
       expect(new Set(hands).size).toBe(hands.length);
     }
-    for (const prop of ['magnifier', 'tray', 'gavel', 'book', 'barrier', 'radar']) expect(HELD_PROPS).toHaveProperty(prop);
+    for (const prop of ['magnifier', 'tray', 'gavel', 'book', 'barrier', 'radar', 'trafficlight']) expect(HELD_PROPS).toHaveProperty(prop);
   });
 
   it('tells each costume in the legend, in English and Spanish', () => {

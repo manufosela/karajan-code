@@ -19,9 +19,10 @@ const pieceOf = (event) => (event?.type === 'method-check' && METHOD_PIECES.has(
 // KJC-TSK-1594 (the maintainer, 2026-11-13): AI review stands at the side of the coder it reviews
 // (seat 1, workers.js), on the camera's side: on the far one the robots hid it.
 // KJC-TSK-1609: AI review by the coder, whose seat moved with the wider workshop.
+// KJC-TSK-1816: TDD inspects at the coder's desk.
 export const VISIT_SPOTS = {
   review: { dx: -0.8, dz: 0.75 }, gates: { dx: 1.4, dz: -2.2 }, ledger: { dx: -1.5, dz: -2.2 },
-  tdd: { dx: -1.2, dz: -3.1 }, sonar: { dx: 0.2, dz: -3.1 }, steward: { dx: 1.6, dz: -3.1 },
+  tdd: { dx: -1.75, dz: 0.75 }, sonar: { dx: 0.2, dz: -3.1 }, steward: { dx: 1.6, dz: -3.1 },
 };
 
 const lerp = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, z: a.z + (b.z - a.z) * k });
