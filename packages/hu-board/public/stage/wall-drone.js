@@ -10,7 +10,9 @@ export const WALL_DRONE_TRIP_MS = 9000;
 export const DOCK = { x: WALL.x, y: WALL.y + WALL.height + 1.2, z: WALL.z + 0.8 };
 
 const CRUISE = 5;
-const LOW = 1.2;
+/** Where the carried note hangs: its centre this far under the drone, and how tall it is. */
+export const NOTE = { below: 1.1, height: 1 };
+const LOW = NOTE.below + NOTE.height / 2 + 0.3; // keeps the note's bottom 0.3 m over the floor
 const WALL_TAKE = WALL.y + WALL.height - 0.1; // the top of the cards, in sight above the lane rows
 
 /**

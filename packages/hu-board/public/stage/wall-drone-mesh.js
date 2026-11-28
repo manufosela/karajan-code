@@ -2,9 +2,7 @@
 // light underneath and, while it carries a card, the card's note hanging under it. wall-drone.js
 // says where it is and what it holds.
 import * as THREE from 'three';
-import { noteLines } from './wall-drone.js';
-
-const NOTE_DROP = 1.1; // how far under the body the note hangs
+import { NOTE, noteLines } from './wall-drone.js';
 
 /** The card's note, its id painted on it, as the wall shows it (bench-notes.js puts it on the benches too). */
 export function cardNote(id) {
@@ -27,7 +25,7 @@ export function cardNote(id) {
   fit(number, 72, prefix ? 106 : 80);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));
+  return new THREE.Mesh(new THREE.PlaneGeometry(NOTE.height * 1.6, NOTE.height), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));
 }
 
 /** Mounts the drone on `parent`; `show(pose, now)` flies it, holding the note of `pose.carrying`. */
@@ -59,7 +57,7 @@ export function createWallDrone(parent) {
     }
     note = id ? cardNote(id) : null;
     if (note) {
-      note.position.y = -NOTE_DROP;
+      note.position.y = -NOTE.below;
       drone.add(note);
     }
     noted = id;

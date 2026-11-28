@@ -4,7 +4,7 @@
 // the card is, takes it, flies it to where it goes, leaves it and comes back, always in sight.
 import { describe, expect, it } from 'vitest';
 
-import { DOCK, WALL_DRONE_TRIP_MS, droneTrips, tripFor, wallDroneAt } from '../public/stage/wall-drone.js';
+import { DOCK, NOTE, WALL_DRONE_TRIP_MS, droneTrips, tripFor, wallDroneAt } from '../public/stage/wall-drone.js';
 import { WALL } from '../public/stage/layout.js';
 
 const xOf = (lane) => ({ main: -6, a: 6 })[lane];
@@ -61,6 +61,16 @@ describe('wallDroneAt', () => {
     expect(atLane).toBeGreaterThan(0);
     expect(picks[atLane - 1].carrying).toBe('HU-1');
     expect(picks.at(-1).carrying).toBeNull();
+  });
+
+  // #5029 (codex): down at the lane, the note hanging under it went half into the floor.
+  it('keeps the card it carries whole above the floor', () => {
+    for (const trip of [toWall, fromWall]) {
+      for (let t = 0; t <= WALL_DRONE_TRIP_MS; t += 20) {
+        const at = wallDroneAt([trip], t, xOf, zOf);
+        if (at.carrying) expect(at.y - NOTE.below - NOTE.height / 2, `t=${t}`).toBeGreaterThanOrEqual(0.3);
+      }
+    }
   });
 
   it('never jumps: from one moment to the next it moves a short way, and never goes through the floor', () => {
