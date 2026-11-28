@@ -18,8 +18,7 @@ import { teleportLook } from './teleport.js';
 import { waitLook } from './wait-look.js';
 import { showWaitMark } from './wait-mark.js';
 import { avoidance } from './avoid.js';
-import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, withErrand, withLongRuns, workerAt, workersFrom } from './workers.js';
-import { cardNote } from './wall-drone-mesh.js';
+import { TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, withLongRuns, workerAt, workersFrom } from './workers.js';
 import { createCup } from './cast/coffee-cart.js';
 import { hostsAtDesks, inHand } from './coffee.js';
 
@@ -164,18 +163,6 @@ const work = (robot, worker, pose, t) => {
   }
 };
 
-/** KJC-TSK-1650: the card a host on its errand holds, before its chest, while it holds it. */
-function holdCard(robot, pose) {
-  if (pose.holding && robot.note?.userData.card !== pose.card) {
-    if (robot.note) robot.hover.remove(robot.note);
-    robot.note = cardNote(pose.card);
-    robot.note.userData.card = pose.card;
-    robot.note.position.set(0, 2.3, 1.1);
-    robot.hover.add(robot.note);
-  }
-  if (robot.note) robot.note.visible = Boolean(pose.holding);
-}
-
 /** KJC-TSK-1663: the cup of coffee a waiting host holds in its left hand, from the cart's hand-over to its taking it. */
 const CUP_ARM = 1.2;
 function holdCup(robot, holds) {
@@ -243,14 +230,6 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
     avoid(others) { obstacles = others; },
     /** KJC-TSK-1660: where the agents stood on the last frame, for the other groups to step aside. */
     bodies: () => bodies,
-    /** KJC-TSK-1650: a card's `trip` at `at`: its lane's host at work runs it; true when one took it. */
-    errand(trip, at) {
-      const next = withErrand(workers, trip, at);
-      workers = next.workers;
-      return next.taken;
-    },
-    /** KJC-TSK-1650: the cards hosts are carrying at `now`, not on their bench yet. */
-    carried: (now) => new Set(workers.filter((w) => w.errand && now - w.errand.at < ERRAND_MS).map((w) => w.errand.id)),
     /** KJC-BUG-0581: the robots at work now (not walking out), each with its lane. */
     working: () => workers.filter((w) => w.leftAt === undefined).map(({ agent, role, lane, id, waiting }) => ({ agent, role, lane, id, ...(waiting ? { waiting } : {}) })),
     /** KJC-TSK-1569: a new own avatar; every robot is built again, in it, on the next frame. */
@@ -297,7 +276,6 @@ export function createAgentsFloor({ scene, camera, xOf, zOf, origin, avatar = nu
         if (robot.hologram) robot.hologram.rotation.y = t / 1200; // KJC-TSK-1601: it turns slowly
         robot.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(t / 110)) : 0);
         work(robot, worker, pose, t);
-        holdCard(robot, pose);
         // KJC-TSK-1813: once it works again, its cup stands on its desk (coffee-floor.js), not in its hand.
         holdCup(robot, worker.role === 'host' && inHand(worker.waiting) && holdsCup?.(key, t) === true);
         dress(robot, worker); // KJC-TSK-1538: its model's accessory and its effort's build

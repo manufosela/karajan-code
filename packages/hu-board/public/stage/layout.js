@@ -67,8 +67,6 @@ const booth = lineGroup('booth');
 /** The x of each piece's post, in the film's order, centred in the pieces' stretch of the line. */
 export const postX = (id) => (pieces.from + pieces.to) / 2 + (STATIONS.indexOf(id) - (STATIONS.length - 1) / 2) * POST.spacing;
 export const SENTINEL_POST = { x: postX('sentinel'), z: LINE.z, height: 1.8 };
-/** The way to the wall no longer crosses the posts, which stand left of the lanes. */
-export const PASSAGE = { x: WALL.x, front: { x: WALL.x, z: LINE.z } };
 // The camera's fit stays as it was (the maintainer, 2026-11-28: fit about 45 m at most, drag for the rest).
 const MIN_FIT_WIDTH = 26.2;
 const MAX_FIT_WIDTH = 45;
