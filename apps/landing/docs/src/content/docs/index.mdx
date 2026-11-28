@@ -84,7 +84,11 @@ The full page: [karajancode.com/family](/family.html).
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.40.0: a workflow change gets its verdict, a signed exception lets its merge through, the turn stops looping (current)
+### v5.41.0: public repos are warned about the Actions event policy, a timed-out command is killed for real (current)
+
+From 2026-12-02 GitHub blocks `pull_request_target` in public repos without an Actions event policy, and kj's policy and secrets workflows use it. `kj doctor` and `kj check` now warn in every public repo that lacks it, with the settings link and the exact events to allow, and any kj command reminds it once a day until the policy exists. A `runCommand` timeout and the silence watchdog now kill a hung `gh`, `git` or agent (karajan-core 1.7.1). Also: `kj harden` keeps a hook whose managed block you edited by hand, the coder rules follow the project's base branch and language, the pre-push identity check trusts only the push destination, and the cross reviewer is never the panel coder. kj stage gets a coffee cart on rounds and agents with a figure of their own.
+
+### v5.40.0: a workflow change gets its verdict, a signed exception lets its merge through, the turn stops looping
 
 A day of field bugs. The seal of `kj harden --commit` now records the harness deletions it commits, so a PR that changes `.github/workflows/` gets its verdict again. Before `gh pr merge`, kj reads the maintainer's signed main-guard exception on the PR, checked against the roster on the default branch. The end of the turn no longer loops after a Stop hook hold, and a blocking handoff lets read-only commands through. Also: board-sync no longer invents cards from a branch slug, the mutation pre-gate reads the tool's report, and review batches keep the files that fit. kj stage marks a session with no work left as done. New docs section: [the pieces](/docs/pieces/).
 
