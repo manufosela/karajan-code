@@ -38,10 +38,11 @@ describe('spotOf (ADR 0048)', () => {
   });
 
   // KJC-TSK-1528: the AI review piece does the reviewing, so a reviewer gets no robot of its own.
-  it('draws no robot for the reviewer, live or at work when the stage opens', () => {
+  // KJC-TSK-1846 (the maintainer, 2026-11-28): the reviewer is an agent, with a robot of its own.
+  it('draws a robot for the reviewer, live or at work when the stage opens', () => {
     const reviewing = { ...start('agy', 'solomon', 'a'), agent: 'codex', role: 'reviewer' };
-    expect(withActivity([], reviewing, 0)).toEqual([]);
-    expect(workersFrom([{ agent: 'codex', role: 'reviewer', at: 'x' }, { agent: 'agy', role: 'solomon', at: 'x' }], 0, 'a').map((w) => w.role)).toEqual(['solomon']);
+    expect(withActivity([], reviewing, 0).map((w) => w.role)).toEqual(['reviewer']);
+    expect(workersFrom([{ agent: 'codex', role: 'reviewer', at: 'x' }, { agent: 'agy', role: 'solomon', at: 'x' }], 0, 'a').map((w) => w.role)).toEqual(['reviewer', 'solomon']);
   });
 
   it('keeps one robot per agent and role in each lane', () => {
@@ -207,7 +208,7 @@ describe('a worker that starts with skills', () => {
 
   it('atril turns its pages while the agent stands before it, not before it arrives', () => {
     expect(turnFrom(withSkills(['tdd']), 1000)).toBe(1000 + BUD_MS + WALK_MS);
-    expect(turnFrom({ ...start('codex', 'reviewer'), skills: ['tdd'] }, 1000)).toBe(1000); // no robot comes
+    expect(turnFrom({ ...start('codex', 'reviewer'), skills: ['tdd'] }, 1000)).toBe(1000 + BUD_MS + WALK_MS); // KJC-TSK-1846: its robot comes
   });
 
   it('with no skills, or already at work when the stage opens, it goes straight to its desk', () => {

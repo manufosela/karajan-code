@@ -106,8 +106,6 @@ export function spotOf(role, laneX = 0, slot = undefined, laneZ = WORKSHOP.z, ho
 }
 
 const laneOf = (ev) => ev.lane ?? 'main';
-/** KJC-TSK-1528 (decided by the maintainer on 2026-11-11): the AI review piece does the reviewing, so no robot. */
-const PIECE_ROLE = 'reviewer';
 /**
  * The worker this event is about that has not left yet (a leftAt of 0 is a real
  * departure): by its id when the trace names one (the host's session, a subagent),
@@ -168,7 +166,7 @@ function launcherSeat(workers, lane) {
 
 /** The workers after an agent-activity event at `now` (ms); other events change nothing. */
 export function withActivity(workers, event, now) {
-  if (event?.type !== 'agent-activity' || event.role === PIECE_ROLE) return workers;
+  if (event?.type !== 'agent-activity') return workers;
   if (event.phase === 'start') {
     // A start of someone already at work is its beat: it says which tool it uses now, and
     // KJC-TSK-1538: the model it answers with, which the host may switch mid-session.
@@ -213,7 +211,7 @@ export function withLongRuns(workers, server) {
 export const workersFrom = (working, now, lane = 'main') =>
   // KJC-TSK-1596: already at its desk, it took its skills before the stage opened.
   // KJC-TSK-1637: long enough ago to have teleported in and walked the host's longer way.
-  working.filter((w) => w.role !== PIECE_ROLE).reduce((all, w) => [...all, newWorker(all, { ...w, lane, skills: [] }, now - BUD_MS - HOST_WALK_MS)], []);
+  working.reduce((all, w) => [...all, newWorker(all, { ...w, lane, skills: [] }, now - BUD_MS - HOST_WALK_MS)], []);
 
 const lerp = (from, to, k) => ({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k });
 const facing = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
@@ -328,9 +326,9 @@ function gateOf(laneX, laneZ, hostSeat = ROLE_SEAT.host) {
 
 /**
  * KJC-TSK-1596: when atril starts turning the pages of a start at `now`: once its robot stands
- * before it; at once for the reviewer, which has no robot, and for a subagent.
+ * before it; at once for a subagent (KJC-TSK-1846: the reviewer walks in like the coder).
  */
-export const turnFrom = (event, now) => (event.role === PIECE_ROLE || event.role === 'subagent' ? now : now + BUD_MS + WALK_MS);
+export const turnFrom = (event, now) => (event.role === 'subagent' ? now : now + BUD_MS + WALK_MS);
 
 /**
  * What the label over a worker says: the host its session's name (KJC-TSK-1483; its
