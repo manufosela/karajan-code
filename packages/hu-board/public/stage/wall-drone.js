@@ -3,17 +3,21 @@
 // One drone docked over the task wall takes every card errand, one after another: it flies to where
 // the card is, takes it, flies it to where it goes, leaves it and comes back, always in sight.
 // Pure: wall-drone-mesh.js draws it.
-import { WALL } from './layout.js';
+import { wallAt } from './layout.js';
 
 export const WALL_DRONE_TRIP_MS = 9000;
-/** Where it waits, over the wall, in sight. */
-export const DOCK = { x: WALL.x, y: WALL.y + WALL.height + 1.2, z: WALL.z + 0.8 };
+/** How far over the top of the wall it waits. */
+export const DOCK_ABOVE = 1.2;
+/** Where it waits for `n` lanes: over the wall, a little in front, in sight. */
+export const dockAt = (n) => {
+  const wall = wallAt(n);
+  return { x: wall.x, y: wall.y + wall.height + DOCK_ABOVE, z: wall.z + 0.8 };
+};
 
 const CRUISE = 5;
 /** Where the carried note hangs: its centre this far under the drone, and how tall it is. */
 export const NOTE = { below: 1.1, height: 1 };
 const LOW = NOTE.below + NOTE.height / 2 + 0.3; // keeps the note's bottom 0.3 m over the floor
-const WALL_TAKE = WALL.y + WALL.height - 0.1; // the top of the cards, in sight above the lane rows
 
 /**
  * KJC-TSK-1493: the two lines of a card's note, its prefix small and its number big,
@@ -47,24 +51,26 @@ const ease = (k) => k * k * (3 - 2 * k);
 const high = (p) => ({ ...p, y: CRUISE });
 
 /** The legs of an errand: where each ends, how long it takes, and whether the card is held after it. */
-function legsOf(trip, xOf, zOf) {
+function legsOf(trip, xOf, zOf, n) {
   const lane = { x: xOf(trip.lane), y: LOW, z: zOf(trip.lane) };
-  const wall = { x: WALL.x, y: WALL_TAKE, z: WALL.z + 0.6 };
+  const at = wallAt(n);
+  const wall = { x: at.x, y: at.y + at.height - 0.1, z: at.z + 0.6 }; // the top of the cards, in sight above the lane rows
   const [from, to] = trip.out ? [lane, wall] : [wall, lane];
   return [
     [high(from), 1500, false], [from, 700, false], [from, 450, true], [high(from), 700, true],
-    [high(to), 2000, true], [to, 700, true], [to, 450, false], [high(to), 700, false], [DOCK, 1800, false],
+    [high(to), 2000, true], [to, 700, true], [to, 450, false], [high(to), 700, false], [dockAt(n), 1800, false],
   ];
 }
 
-/** Where the drone is at `now` and the card it holds (an id, or null); `scheduled` is droneTrips' answer. */
-export function wallDroneAt(scheduled, now, xOf, zOf) {
+/** Where the drone is at `now` and the card it holds (an id, or null); `scheduled` is droneTrips' answer, `n` the lanes. */
+export function wallDroneAt(scheduled, now, xOf, zOf, n = 1) {
+  const dock = dockAt(n);
   const trip = scheduled.find((t) => now >= t.start && now < t.start + WALL_DRONE_TRIP_MS);
-  if (!trip) return { ...DOCK, carrying: null };
+  if (!trip) return { ...dock, carrying: null };
   let left = now - trip.start;
-  let from = DOCK;
+  let from = dock;
   let carrying = null;
-  for (const [to, ms, holds] of legsOf(trip, xOf, zOf)) {
+  for (const [to, ms, holds] of legsOf(trip, xOf, zOf, n)) {
     if (left < ms) {
       const k = ease(left / ms);
       const at = (axis) => from[axis] + (to[axis] - from[axis]) * k;
@@ -74,5 +80,5 @@ export function wallDroneAt(scheduled, now, xOf, zOf) {
     from = to;
     carrying = holds ? trip.id : null;
   }
-  return { ...DOCK, carrying: null };
+  return { ...dock, carrying: null };
 }

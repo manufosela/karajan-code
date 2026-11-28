@@ -2,7 +2,7 @@
 // busiest factory (first in the list) at the back left. KJC-TSK-1467: each lot is
 // only as wide as its own hall, and the lots are packed in rows with a narrow gap;
 // one lot as wide as the widest hall left the small factories in a sea of floor.
-import { hallDepth, hallSpan } from './layout.js';
+import { hallDepth, lineReach } from './layout.js';
 
 /** The hall from behind its door to past its nameplates, along z (layout.js). */
 export const FLOOR_Z = { back: -9.5, front: 6 };
@@ -46,7 +46,7 @@ export function repacked(before, now) {
 }
 
 function pack(laneCounts) {
-  const widths = laneCounts.map((n) => hallSpan(n).width + 2); // the whole line, booth included
+  const widths = laneCounts.map((n) => 2 * lineReach(n) + 2); // centred on x 0: the whole line, both ends
   const depths = laneCounts.map((n) => DEPTH + hallDepth(n));
   const area = widths.reduce((sum, w, i) => sum + (w + GAP) * (depths[i] + ROW_GAP), 0);
   const rows = rowsOf(widths, Math.max(...widths, Math.sqrt(area * WIDER)));

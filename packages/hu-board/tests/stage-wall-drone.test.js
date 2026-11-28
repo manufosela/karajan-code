@@ -4,7 +4,9 @@
 // the card is, takes it, flies it to where it goes, leaves it and comes back, always in sight.
 import { describe, expect, it } from 'vitest';
 
-import { DOCK, NOTE, WALL_DRONE_TRIP_MS, droneTrips, tripFor, wallDroneAt } from '../public/stage/wall-drone.js';
+import { NOTE, WALL_DRONE_TRIP_MS, dockAt, droneTrips, tripFor, wallDroneAt } from '../public/stage/wall-drone.js';
+
+const DOCK = dockAt(1); // the dock of a hall of one lane, where the wall is by default (WALL)
 import { WALL } from '../public/stage/layout.js';
 
 const xOf = (lane) => ({ main: -6, a: 6 })[lane];
