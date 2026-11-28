@@ -3,7 +3,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { BUD_MS, DOOR, HOST_WALK_MS, KEY_MS, READER, SCROLL_MS, TURN_MS, codeScrollAt, WALK_MS, accentOf, labelOf, spotOf, turnFrom, turnAt, typingAt, visitKey, withActivity, workerAt, workersFrom } from '../public/stage/workers.js';
-import { CREW, STAND, WORKSHOP } from '../public/stage/layout.js';
+import { STAND, WORKSHOP, boothAt } from '../public/stage/layout.js';
+
+// KJC-TSK-1844 (the maintainer, 2026-11-28): every agent kj launches comes and goes by the booth.
+const BOOTH_DOOR = boothAt(1);
 
 const start = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'start', lane });
 const end = (agent, role, lane) => ({ type: 'agent-activity', agent, role, phase: 'end', outcome: 'ok', lane });
@@ -29,7 +32,7 @@ describe('spotOf (ADR 0048)', () => {
   it('sends each agent to the workshop of its own lane', () => {
     const xOf = (lane) => ({ main: -5, 'kj-stage': 5 })[lane];
     const [w] = withActivity([], start('agy', 'solomon', 'kj-stage'), 0);
-    expect(workerAt(w, BUD_MS + WALK_MS, xOf)).toMatchObject({ ...spotOf('solomon', 5), walking: false });
+    expect(workerAt(w, BUD_MS + HOST_WALK_MS, xOf)).toMatchObject({ ...spotOf('solomon', 5), walking: false });
     const [m] = withActivity([], start('agy', 'solomon'), 0);
     expect(m.lane).toBe('main');
   });
@@ -146,15 +149,15 @@ describe('bench seats', () => {
 });
 
 describe('a worker over time', () => {
-  // KJC-TSK-1611: an agent Karajan launches comes out of Karajan (stage-mitosis.test.js).
-  it('comes in from Karajan, works at its spot, then walks out and is gone', () => {
+  // KJC-TSK-1844: an agent kj launches comes in by the booth (stage-mitosis.test.js).
+  it('comes in by the booth, works at its spot, then walks out and is gone', () => {
     let workers = withActivity([], start('agy', 'solomon'), 1000);
     const [codex] = workers;
-    expect(workerAt(codex, 1000)).toMatchObject({ x: CREW.conductor.x, z: CREW.conductor.z, walking: false });
-    expect(workerAt(codex, 1000 + BUD_MS + WALK_MS)).toMatchObject({ ...spotOf('solomon'), walking: false });
+    expect(workerAt(codex, 1000)).toMatchObject({ x: BOOTH_DOOR.x, z: BOOTH_DOOR.z, walking: false });
+    expect(workerAt(codex, 1000 + BUD_MS + HOST_WALK_MS)).toMatchObject({ ...spotOf('solomon'), walking: false });
     workers = withActivity(workers, end('agy', 'solomon'), 9000);
-    expect(workerAt(workers[0], 9000 + WALK_MS / 2).walking).toBe(true);
-    expect(workerAt(workers[0], 9000 + WALK_MS + BUD_MS)).toBeNull();
+    expect(workerAt(workers[0], 9000 + HOST_WALK_MS / 2).walking).toBe(true);
+    expect(workerAt(workers[0], 9000 + HOST_WALK_MS + BUD_MS)).toBeNull();
   });
 
   it('a departure at time 0 is a departure: a new start brings a new robot', () => {
@@ -192,9 +195,9 @@ describe('a worker over time', () => {
 describe('a worker that starts with skills', () => {
   const withSkills = (skills) => ({ ...start('claude', 'coder'), skills });
 
-  it('walks from Karajan to atril, reads one page per skill facing it, then walks to its desk', () => {
+  it('walks from the booth to atril, reads one page per skill facing it, then walks to its desk', () => {
     const [w] = withActivity([], withSkills(['tdd', 'sonar']), 0);
-    expect(workerAt(w, 0)).toMatchObject({ x: CREW.conductor.x, z: CREW.conductor.z, walking: false });
+    expect(workerAt(w, 0)).toMatchObject({ x: BOOTH_DOOR.x, z: BOOTH_DOOR.z, walking: false });
     const reading = workerAt(w, BUD_MS + WALK_MS + TURN_MS);
     expect(reading).toMatchObject({ ...READER, walking: false, reading: true });
     expect(reading.yaw).toBeCloseTo(Math.atan2(STAND.x - READER.x, STAND.z - READER.z));
@@ -209,7 +212,7 @@ describe('a worker that starts with skills', () => {
 
   it('with no skills, or already at work when the stage opens, it goes straight to its desk', () => {
     const [plain] = withActivity([], start('claude', 'coder'), 0);
-    expect(workerAt(plain, BUD_MS + WALK_MS)).toMatchObject({ ...spotOf('coder'), walking: false });
+    expect(workerAt(plain, BUD_MS + HOST_WALK_MS)).toMatchObject({ ...spotOf('coder'), walking: false });
     const [open] = workersFrom([{ agent: 'claude', role: 'coder', at: 'x', skills: ['tdd'] }], 5000, 'main');
     expect(workerAt(open, 5000)).toMatchObject({ ...spotOf('coder'), walking: false });
   });

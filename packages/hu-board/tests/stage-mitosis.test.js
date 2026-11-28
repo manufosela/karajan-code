@@ -13,24 +13,31 @@ const KARAJAN = { x: CREW.conductor.x, z: CREW.conductor.z };
 describe('mitosis', () => {
   // KJC-TSK-1637 (the maintainer, 2026-11-15): "they must not disintegrate until they have reached the
   // booth perfectly; they disintegrate on the way. Put in a delay, there is no hurry".
-  it('an agent Karajan launches teleports in standing by it, whole before it takes a step, then walks to its desk', () => {
+  // KJC-TSK-1844 (the maintainer, 2026-11-28): "no quiero que aparezcan cosas de la nada, todo lo que
+  // aparezca, está o aparece desde la cabina"; the agents "se van no por la cabina sino por encima de
+  // Karajan". Every agent kj launches now comes and goes by the booth, as the host does, never by Karajan.
+  it('an agent kj launches teleports in at the booth, whole before it takes a step, then walks to its desk', () => {
+    const door = boothAt(1);
     const [w] = withActivity([], start('coder'), 0);
-    expect(workerAt(w, 0)).toMatchObject({ ...KARAJAN, walking: false, size: 0 });
-    expect(workerAt(w, BUD_MS / 2)).toMatchObject({ ...KARAJAN, walking: false });
-    expect(workerAt(w, BUD_MS / 2).size).toBeCloseTo(0.5);
-    expect(workerAt(w, BUD_MS + 1)).toMatchObject({ walking: true, size: 1 });
-    expect(workerAt(w, BUD_MS + WALK_MS)).toMatchObject({ ...spotOf('coder'), walking: false, size: 1 });
+    expect(workerAt(w, 0)).toMatchObject({ x: door.x, z: door.z, walking: false, size: 0 });
+    expect(workerAt(w, BUD_MS)).toMatchObject({ x: door.x, z: door.z, size: 1 });
+    for (let t = BUD_MS; t <= BUD_MS + HOST_WALK_MS; t += 100) {
+      const at = workerAt(w, t);
+      expect(Math.hypot(at.x - KARAJAN.x, at.z - KARAJAN.z)).toBeGreaterThan(0.8);
+    }
+    expect(workerAt(w, BUD_MS + HOST_WALK_MS)).toMatchObject({ ...spotOf('coder'), walking: false, size: 1 });
   });
 
-  it('when it ends it walks back whole to Karajan, stops by it, and only then teleports out', () => {
+  it('when it ends it walks back whole to the booth, and only then teleports out', () => {
+    const door = boothAt(1);
     let workers = withActivity([], start('solomon', 'agy'), 0);
     workers = withActivity(workers, end('solomon', 'agy'), 10_000);
-    expect(workerAt(workers[0], 10_000 + WALK_MS - 1)).toMatchObject({ walking: true, size: 1 });
-    const arrived = workerAt(workers[0], 10_000 + WALK_MS + 1);
-    expect(arrived).toMatchObject({ walking: false });
-    expect(arrived.x).toBeCloseTo(KARAJAN.x, 1);
-    expect(workerAt(workers[0], 10_000 + WALK_MS + BUD_MS - 1).size).toBeLessThan(0.01);
-    expect(workerAt(workers[0], 10_000 + WALK_MS + BUD_MS)).toBeNull();
+    expect(workerAt(workers[0], 10_000 + HOST_WALK_MS - 1)).toMatchObject({ walking: true, size: 1 });
+    const arrived = workerAt(workers[0], 10_000 + HOST_WALK_MS + 1);
+    expect(arrived.x).toBeCloseTo(door.x, 1);
+    expect(arrived.z).toBeCloseTo(door.z, 1);
+    expect(workerAt(workers[0], 10_000 + HOST_WALK_MS + BUD_MS - 1).size).toBeLessThan(0.01);
+    expect(workerAt(workers[0], 10_000 + HOST_WALK_MS + BUD_MS)).toBeNull();
   });
 
   it('there is no hurry: the teleport takes over a second', () => {
