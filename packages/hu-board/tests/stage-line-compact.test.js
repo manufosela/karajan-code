@@ -8,11 +8,21 @@ import { CONSOLE, CREW, PLINTH_WIDTH, POST, STAND, STATIONS, postX } from '../pu
 const group = (id) => lineGroups(1).find((g) => g.id === id);
 
 describe('a more compact line', () => {
-  it('leaves half the gap it did between one group and the next', () => {
+  // KJC-TSK-1842 (the maintainer, 2026-11-28: "no quiero huecos"): none at all now.
+  it('leaves no gap between one group and the next', () => {
     for (const n of [1, 5]) {
-      const groups = lineGroups(n);
-      for (const [a, b] of groups.slice(1).map((g, i) => [groups[i], g])) expect(b.from - a.to).toBeCloseTo(0.6);
+      // KJC-TSK-1842: in the back row, Karajan's side.
+      const groups = lineGroups(n).filter((g) => !['lanes', 'warehouse'].includes(g.id));
+      for (const [a, b] of groups.slice(1).map((g, i) => [groups[i], g])) expect(b.from - a.to).toBeCloseTo(0);
     }
+  });
+
+  // KJC-TSK-1842 (the maintainer, 2026-11-28: "no quiero huecos"): each stretch as wide as what it holds.
+  it('gives the wall, the release table and the mailbox no more room than they take', () => {
+    const width = (id) => group(id).to - group(id).from;
+    expect(width('wall')).toBeLessThanOrEqual(3.6);
+    expect(width('release')).toBeLessThanOrEqual(4.4);
+    expect(width('mailbox')).toBeLessThanOrEqual(1.5);
   });
 
   it('stands the pieces 1.1 m apart, so their 1 m plinths do not touch', () => {

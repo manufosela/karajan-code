@@ -2,15 +2,15 @@
 // map of every factory; a factory opened alone stands it at the front right corner of its hall.
 import { describe, expect, it } from 'vitest';
 
+import { LINE } from '../public/stage/line-layout.js';
 import { WORKSHOP, mailboxSpot, workshopAt } from '../public/stage/layout.js';
 
 describe('mailboxSpot', () => {
-  it('stands just right of the rightmost workshop, level with the last row, smaller than on the map', () => {
+  // KJC-TSK-1842 (the maintainer's sketch, 2026-11-28): at the end of Karajan's row, behind the workshops.
+  it('stands in Karajan\'s row, behind the workshops, smaller than on the map', () => {
     for (const n of [1, 4, 9]) {
       const spot = mailboxSpot(n);
-      const right = Math.max(...Array.from({ length: n }, (_, i) => workshopAt(i, n).x)) + WORKSHOP.width / 2;
-      expect(spot.x).toBeGreaterThan(right);
-      expect(spot.z).toBe(workshopAt(n - 1, n).z);
+      expect(spot.z).toBe(LINE.z);
       expect(spot.scale).toBeLessThan(1);
     }
   });

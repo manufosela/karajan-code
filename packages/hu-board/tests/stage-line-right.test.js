@@ -36,11 +36,11 @@ describe('the right of the line', () => {
     }
   });
 
-  it('moves them all right as lanes come, by exactly the lanes added', () => {
-    const pitch = stretch(2, 'lanes').to - stretch(1, 'lanes').to;
-    expect(wallAt(2).x - wallAt(1).x).toBeCloseTo(pitch);
-    expect(releaseAt(2).x - releaseAt(1).x).toBeCloseTo(pitch);
-    expect(watchAt(2).x - watchAt(1).x).toBeCloseTo(pitch);
+  // KJC-TSK-1842: in the back row, they stay put as lanes come.
+  it('keeps them where they are as lanes come', () => {
+    expect(wallAt(2).x).toBeCloseTo(wallAt(1).x);
+    expect(releaseAt(2).x).toBeCloseTo(releaseAt(1).x);
+    expect(watchAt(2).x).toBeCloseTo(watchAt(1).x);
   });
 
   // #5037 (codex): with many lanes the wall and the release stretch stood past the map's lot and the

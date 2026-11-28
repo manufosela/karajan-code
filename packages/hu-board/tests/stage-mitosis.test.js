@@ -59,8 +59,8 @@ describe('mitosis', () => {
       expect(door.x).toBeLessThan(CREW.rag.x);
       expect(door.x).toBeLessThan(CREW.conductor.x);
       expect(Math.abs(door.z - CREW.conductor.z)).toBeLessThan(0.3);
-      for (const near of [CREW.conductor, { x: postX(POSTS[0]), z: POST.z }]) expect(room(near)).toBeGreaterThanOrEqual(1.9);
-      for (const near of [STAND, READER, CREW.rag]) expect(room(near)).toBeGreaterThan(2.5);
+      // KJC-TSK-1842 (the maintainer, 2026-11-28: "no quiero huecos"): the row is packed, a robot's room is enough.
+      for (const near of [CREW.conductor, { x: postX(POSTS[0]), z: POST.z }, STAND, READER, CREW.rag]) expect(room(near)).toBeGreaterThanOrEqual(1.9);
       expect(BOOTH.height).toBeGreaterThanOrEqual(1.8); // taller than a robot
       expect(boothAt(8)).toMatchObject({ x: door.x, z: door.z });
       // The way out runs left of every workshop; the booth already stands left of them all (KJC-TSK-1827),
