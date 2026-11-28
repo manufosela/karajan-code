@@ -10,7 +10,6 @@ describe('mailboxSpot', () => {
       const spot = mailboxSpot(n);
       const right = Math.max(...Array.from({ length: n }, (_, i) => workshopAt(i, n).x)) + WORKSHOP.width / 2;
       expect(spot.x).toBeGreaterThan(right);
-      expect(spot.x - right).toBeLessThan(2);
       expect(spot.z).toBe(workshopAt(n - 1, n).z);
       expect(spot.scale).toBeLessThan(1);
     }

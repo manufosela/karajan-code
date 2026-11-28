@@ -102,12 +102,13 @@ export const hallSpan = (n) => {
 };
 
 /**
- * KJC-BUG-0578: where a factory opened alone stands its mailbox (KJC-TSK-1473): just right of its
- * rightmost workshop, level with its last row; and how small, since here it is seen up close.
+ * KJC-BUG-0578: where a factory opened alone stands its mailbox (KJC-TSK-1473), level with its last
+ * row, and how small, since here it is seen up close. KJC-TSK-1830: in the middle of its stretch
+ * of the line, after the release table.
  */
 export function mailboxSpot(n) {
-  const right = workshopAt(n - 1, n).x + WORKSHOP.width / 2;
-  return { x: right + 1.2, z: workshopAt(n - 1, n).z, scale: 0.55 };
+  const { from, to } = stretchOf(n, 'mailbox');
+  return { x: (from + to) / 2, z: workshopAt(n - 1, n).z, scale: 0.55 };
 }
 
 /** KJC-TSK-1827: kaRAGan, atril, Karajan and his console, left to right in the team's stretch of the line. */

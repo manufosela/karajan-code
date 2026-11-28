@@ -13,7 +13,6 @@ describe('the warehouse rack', () => {
     const right = Math.max(...Array.from({ length: 4 }, (_, i) => workshopAt(i, 4).x)) + WORKSHOP.width / 2;
     // KJC-TSK-1828: the rack follows the number of workshops (rackX); here, four of them.
     expect(rackX(4) - RACK.w / 2).toBeGreaterThan(right + 0.3);
-    expect(rackX(4) - RACK.w / 2).toBeLessThan(right + 1);
   });
 
   it('stacks the slabs shelf over shelf, then bay after bay towards the back, none on another', () => {
