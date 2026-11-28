@@ -84,7 +84,9 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.41.0: los repos públicos reciben el aviso de la política de eventos de Actions, un comando que se pasa de tiempo muere de verdad (actual)
+### v5.41.1: los repos públicos reciben el aviso de la política de eventos de Actions, un comando que se pasa de tiempo muere de verdad (actual)
+
+Una plantilla de hook más nueva que los jueces de un repo le llega ahora en dos pasos: `kj harden` mantiene la plantilla anterior con tus ajustes actuales hasta que la PR del sello pasa los jueces a este kj, y el siguiente `kj harden` trae el pre-push nuevo. La 5.41.0 se etiquetó pero nunca se publicó; todo lo suyo sale aquí.
 
 Desde el 2-12-2026 GitHub bloquea `pull_request_target` en los repos públicos sin una política de eventos de Actions, y los workflows de política y secretos de kj lo usan. `kj doctor` y `kj check` avisan ahora en todo repo público que no la tenga, con el enlace a los ajustes y los eventos exactos que hay que permitir, y cualquier comando de kj lo recuerda una vez al día hasta que exista. El timeout de `runCommand` y el vigilante de silencio matan ya un `gh`, `git` o agente colgado (karajan-core 1.7.1). Además: `kj harden` conserva un hook cuyo bloque gestionado editaste a mano, las reglas del coder siguen la rama base y el lenguaje del proyecto, la comprobación de identidad del pre-push solo se fía del destino del push y el revisor cruzado nunca es el coder del panel. kj stage estrena un carrito de café que hace la ronda y agentes con figura propia.
 
