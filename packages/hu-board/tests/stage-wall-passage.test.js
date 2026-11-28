@@ -3,8 +3,7 @@
 // Steward, and every way to the wall goes through it, so no robot walks through a piece.
 import { describe, expect, it } from 'vitest';
 
-import { COURIER_TRIP_MS, courierAt } from '../public/stage/courier.js';
-import { PASSAGE, PLINTH_WIDTH, POST, POSTS, WALL, boothAt, postX } from '../public/stage/layout.js';
+import { PASSAGE, PLINTH_WIDTH, POST, POSTS, WALL, postX } from '../public/stage/layout.js';
 import { ERRAND_MS, withActivity, withErrand, workerAt } from '../public/stage/workers.js';
 
 // A post's plinth and the figure on it, with room for a robot's body around it.
@@ -28,18 +27,6 @@ describe('the passage to the task wall', () => {
       const host = withActivity([], { type: 'agent-activity', agent: 'claude', role: 'host', phase: 'start', lane: String(lane), id: 's1' }, -1e6);
       const [busy] = withErrand(host, { id: 'HU-1', lane: String(lane), out: true }, 0).workers;
       for (const t of samples(ERRAND_MS)) expect(onAPiece(workerAt(busy, t, xOf))).toBe(false);
-    }
-  });
-
-  it('the courier walks through no piece either, out and back', () => {
-    for (const lane of lanesAt.keys()) {
-      for (const out of [true, false]) {
-        const trip = { id: 'HU-1', lane: String(lane), out, at: 0 };
-        for (const t of samples(COURIER_TRIP_MS)) {
-          const at = courierAt(trip, t, xOf, undefined, boothAt(5));
-          if (at) expect(onAPiece(at)).toBe(false);
-        }
-      }
     }
   });
 });

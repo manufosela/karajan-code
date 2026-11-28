@@ -19,7 +19,7 @@ import { waitLook } from './wait-look.js';
 import { showWaitMark } from './wait-mark.js';
 import { avoidance } from './avoid.js';
 import { ERRAND_MS, TYPING_YAW, accentOf, codeScrollAt, typingAt, visitKey, withActivity, withErrand, withLongRuns, workerAt, workersFrom } from './workers.js';
-import { cardNote } from './couriers.js';
+import { cardNote } from './wall-drone-mesh.js';
 import { createCup } from './cast/coffee-cart.js';
 import { hostsAtDesks, inHand } from './coffee.js';
 

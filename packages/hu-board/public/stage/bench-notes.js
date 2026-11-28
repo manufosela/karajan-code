@@ -1,9 +1,9 @@
 // KJC-TSK-1462 (ADR 0050, point 3): a card in progress stays over its lane's bench while
 // the work lasts, once the robot that fetched it has arrived. bench-notes-layout.js says where.
 import { benchSpots } from './bench-notes-layout.js';
-import { cardNote } from './couriers.js';
+import { cardNote } from './wall-drone-mesh.js';
 
-const SIZE = 0.5; // the courier's note, at the scale of the crew
+const SIZE = 0.5; // the card's note, at the scale of the crew
 const OVER_BENCH = 0.75;
 
 /** The notes over the benches of one factory, mounted on `scene` (the factory's group on the map). */

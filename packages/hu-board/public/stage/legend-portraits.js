@@ -8,7 +8,6 @@ import { createRobot } from './cast/robot.js';
 import { createAgentFigure } from './agent-figure.js';
 import { accentOf } from './agent-colours.js';
 import { createStand } from './cast/stand.js';
-import { COURIER } from './couriers.js';
 import { LOOKS, ROBOTS, pieceFor } from './crew.js';
 import { createDrone } from './drone-mesh.js';
 import { STATIONS } from './layout.js';
@@ -18,6 +17,7 @@ import { createCoffeeCart } from './cast/coffee-cart.js';
 import { TEAMMATE, recipeOf } from './portrait-recipes.js';
 import { createReleaseTable } from './release-table.js';
 import { createWall } from './wall.js';
+import { createWallDrone } from './wall-drone-mesh.js';
 
 const SIZE = { width: 440, height: 320 };
 const FOV = 30;
@@ -51,7 +51,7 @@ function wardrobeOf(models) {
 function crewOf(id) {
   if (id === 'plumber') return turned(createPlumber().root);
   if (id === 'coffee') return turned(createCoffeeCart().root); // KJC-TSK-1663
-  return turned(createRobot(id === 'courier' ? { accent: COURIER, name: 'courier' } : ROBOTS.find(([key]) => key === id)[1]).root);
+  return turned(createRobot(ROBOTS.find(([key]) => key === id)[1]).root);
 }
 function pieceOf(id) {
   const piece = pieceFor(id, STATIONS.indexOf(id));
@@ -69,6 +69,7 @@ function thingOf(id) {
   if (id === 'wall') createWall(group).show(SAMPLE);
   if (id === 'release') createReleaseTable(group).show(SAMPLE.filter((card) => card.status === 'done'), null);
   if (id === 'drone') createDrone(group).show({ x: 0, y: 0, z: 0, carrying: true }, 0);
+  if (id === 'wall-drone') createWallDrone(group).show({ x: 0, y: 0, z: 0, carrying: null }, 0);
   const mailbox = id === 'mailbox' ? createMailbox() : null;
   mailbox?.light(1);
   if (mailbox) group.add(mailbox.group);
