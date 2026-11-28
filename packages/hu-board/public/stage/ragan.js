@@ -7,9 +7,10 @@ import { SEATS } from './workers.js';
 /** How long kaRAGan walks each way, and how long it stays handing the answer over. */
 export const RAGAN_WALK_MS = 2200;
 export const HAND_MS = 1500;
-// KJC-BUG-0616 (the maintainer, 2026-11-16): beside the host's seat (workers.js SEATS[0]), level with
-// it, facing it; behind it, the host being big, it covered the host from the camera.
-const BESIDE_HOST = { dx: SEATS[0] - 1.21, dz: 0, yaw: Math.PI / 2 };
+// KJC-BUG-0616: never behind the host (being big, it covered the host from the camera).
+// KJC-TSK-1837 (the maintainer, 2026-11-28): in front of the host's seat (workers.js SEATS[0]), a
+// little to its left, facing it; beside it, it would stand in the next workshop's belt.
+const BESIDE_HOST = { dx: SEATS[0] - 0.5, dz: 1, yaw: Math.atan2(0.5, -1) };
 
 /** A query of `lane` kaRAGan is working at (KJC-TSK-1630), with no answer yet. */
 const askedIn = (index, lane) => Boolean(index?.query && index.lane === lane && index.end === null);

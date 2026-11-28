@@ -11,15 +11,15 @@ const answer = (lane, sources = 3) => ({ type: 'rag-answer', lane, sources, at: 
 
 /**
  * KJC-BUG-0616 (the maintainer, 2026-11-16, with a picture of HU-4424): it typed right behind the host
- * and, the host being big, covered it from the camera. Beside the host's seat, level with it, facing
- * it, and saying it is out of its post (its name goes over it), never behind it.
+ * and, the host being big, covered it from the camera; never behind it, and saying it is out of its
+ * post (its name goes over it). KJC-TSK-1837 (the maintainer, 2026-11-28): in front of the host's
+ * seat, a little to its left, facing it: in a narrower workshop, beside it is the next one's belt.
  */
 function besideTheHost(pose, lane) {
-  const host = spotOf('host', xOf(lane), undefined, WORKSHOP.z);
-  expect(Math.abs(pose.z - host.z)).toBeLessThan(0.3);
-  expect(host.x - pose.x).toBeGreaterThanOrEqual(1.2);
-  expect(host.x - pose.x).toBeLessThan(WORKSHOP.width / 2);
-  expect(pose.yaw).toBeCloseTo(Math.PI / 2);
+  const host = spotOf('host', xOf(lane), 0, WORKSHOP.z);
+  expect(pose.z - host.z).toBeGreaterThanOrEqual(0.6);
+  expect(host.x - pose.x).toBeGreaterThan(0.3);
+  expect(pose.yaw).toBeCloseTo(Math.atan2(host.x - pose.x, host.z - pose.z));
   expect(pose.away).toBe(true);
 }
 
