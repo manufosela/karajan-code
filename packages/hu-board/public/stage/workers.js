@@ -3,7 +3,7 @@
 // works at the bench of the workshop of its lane (ADR 0048) and walks out when
 // it ends. KJC-TSK-1435: so does the host agent, and each subagent it opens walks
 // out of it and back. Pure: the scene reads the poses.
-import { AISLE_DZ, CREW, STAND, WORKSHOP, boothAt } from './layout.js';
+import { AISLE_DZ, STAND, WORKSHOP, boothAt } from './layout.js';
 
 export { DOOR } from './layout.js';
 export const WALK_MS = 2500;
@@ -57,8 +57,6 @@ export function typingAt(now) {
 
 /** How long atril takes to turn one page, in ms (KJC-TSK-1428). */
 export const TURN_MS = 1200;
-/** KJC-TSK-1611: Karajan, who launches the agents that bud out of it, and how long budding takes. */
-const KARAJAN = { x: CREW.conductor.x, z: CREW.conductor.z };
 // KJC-TSK-1637 (the maintainer, 2026-11-15): "no hurry": the teleport takes its time, standing still.
 export const BUD_MS = 1500;
 // Every robot but a subagent (which walks out of its host and back) teleports in and out.
@@ -240,10 +238,10 @@ export function workerAt(worker, now, xOf = () => 0, zOf = () => WORKSHOP.z, doo
   const laneX = xOf(worker.lane);
   const laneZ = zOf(worker.lane);
   const spot = spotOf(worker.role, laneX, worker.slot, laneZ, worker.hostSeat);
-  // KJC-TSK-1628: the host walks the aisle between the side door and its desk (unless it brings
-  // skills: then by atril, as before, from the side door).
-  if (worker.role === 'host' && !(worker.reads && worker.leftAt === undefined)) return hostAt(worker, now, spot, hostWay(door, spot, laneZ));
-  const gate = worker.role === 'host' ? door : gateOf(worker.role, laneX, laneZ, worker.hostSeat);
+  // KJC-TSK-1628, 1844: every agent but a subagent walks the aisle between the booth and its desk
+  // (unless it brings skills: then by atril, from the booth).
+  if (worker.role !== 'subagent' && !(worker.reads && worker.leftAt === undefined)) return hostAt(worker, now, spot, hostWay(door, spot, laneZ));
+  const gate = worker.role === 'subagent' ? gateOf(laneX, laneZ, worker.hostSeat) : door;
   if (worker.leftAt !== undefined && now >= worker.leftAt) return leavingAt(worker, now, spot, gate);
   // KJC-TSK-1610: a host already at its desk goes to atril and back when kj gives it skills.
   const away = detourAt(worker.detour, now, spot);
@@ -320,12 +318,12 @@ function arrivingAt(worker, now, spot, gate) {
 }
 
 /**
- * KJC-TSK-1611 (the maintainer, 2026-11-13): where a worker comes in and leaves by: a subagent by its
- * host; any agent Karajan launches, by Karajan. KJC-TSK-1628: the host, by the side door (workerAt).
+ * KJC-TSK-1611: where a subagent comes in and leaves by: its host. KJC-TSK-1844: every other agent
+ * comes and goes by the booth (workerAt).
  */
-function gateOf(role, laneX, laneZ, hostSeat = ROLE_SEAT.host) {
+function gateOf(laneX, laneZ, hostSeat = ROLE_SEAT.host) {
   // KJC-BUG-0607: its own host's seat, wherever that host sits.
-  return role === 'subagent' ? spotOf('host', laneX, hostSeat, laneZ) : KARAJAN;
+  return spotOf('host', laneX, hostSeat, laneZ);
 }
 
 /**
