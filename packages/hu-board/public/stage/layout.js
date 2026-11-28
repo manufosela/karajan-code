@@ -12,7 +12,8 @@ export { STATIONS, WORKSHOP } from './hall-sizes.js';
 /** The pieces that wait in the row of posts: the Sentinel has its raised post. */
 export const POSTS = STATIONS.filter((id) => id !== 'sentinel');
 // KJC-TSK-1827: the posts stand on the line, left of the lanes, the Sentinel's too.
-export const POST = { z: LINE.z, spacing: 1.6 };
+// KJC-TSK-1837: tighter posts (a plinth is 1 m) and a shorter team stretch.
+export const POST = { z: LINE.z, spacing: 1.1 };
 /** A piece's plinth is 1 m wide before scaling (cast/piece.js). */
 export const PLINTH_WIDTH = 1;
 /** Pieces and robots are drawn for different shots in the film: these bring them to one smaller height. */
@@ -112,11 +113,11 @@ export function mailboxSpot(n) {
 /** KJC-TSK-1827: kaRAGan, atril, Karajan and his console, left to right in the team's stretch of the line. */
 const teamX = (offset) => team.from + offset;
 export const CREW = {
-  conductor: { x: teamX(3.8), z: LINE.z, yaw: 0.6 },
-  rag: { x: teamX(1), z: LINE.z, yaw: 0.5 },
+  conductor: { x: teamX(3.5), z: LINE.z, yaw: 0.6 },
+  rag: { x: teamX(0.8), z: LINE.z, yaw: 0.5 },
   watch: watchAt(1), // KJC-TSK-1829: its place for one lane; watchAt(n) moves it
 };
-export const STAND = { x: teamX(2.4), z: LINE.z, yaw: 0.7 };
+export const STAND = { x: teamX(2.1), z: LINE.z, yaw: 0.7 };
 
 /**
  * KJC-TSK-1632 (the maintainer, 2026-11-15): the teleport booth the hosts come and go by, beside
@@ -126,7 +127,7 @@ export const STAND = { x: teamX(2.4), z: LINE.z, yaw: 0.7 };
  */
 export const BOOTH = { x: (booth.from + booth.to) / 2, z: LINE.z, height: 2.2, exitZ: LINE.z + 1.8 };
 /** KJC-TSK-1659: Karajan's console, on his right, a little ahead, within his reach. */
-export const CONSOLE = { x: CREW.conductor.x + 0.9, z: LINE.z + 0.5 };
+export const CONSOLE = { x: CREW.conductor.x + 0.95, z: LINE.z + 0.5 };
 /**
  * KJC-TSK-1632: the booth, and `edgeX`, where a host's way turns down past the left edge of the
  * first column of `n` workshops (KJC-TSK-1628), so it crosses none.
