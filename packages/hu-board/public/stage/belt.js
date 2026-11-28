@@ -2,11 +2,10 @@
 // beside its desks (KJC-TSK-1826), not behind them, ending at the right of its workshop. conveyor.js says how it looks and where its
 // boxes go; this draws it: a low frame on legs, the belt, its boxes and a lamp at its far end.
 import * as THREE from 'three';
-import { BELT, beltLook, boxesAt } from './conveyor.js';
+import { BELT, beltLook, boxScale, boxesAt } from './conveyor.js';
 
 const HEIGHT = 0.28;
 const DEPTH = 0.42;
-const BOX = 0.26;
 /** The belt and its lamp for each look: blue riding, red stopped, green done. */
 const TONE = { running: { belt: 0x2b3b52, lamp: 0x4fb3e8 }, failed: { belt: 0x5a1f22, lamp: 0xff4d4d }, passed: { belt: 0x1f4a33, lamp: 0x2fd27a } };
 
@@ -33,7 +32,7 @@ export function createBelt() {
   group.add(mesh(new THREE.SphereGeometry(0.11, 16, 12), glow, BELT.to, HEIGHT + 0.55, BELT.z - DEPTH / 2));
   const cardboard = new THREE.MeshStandardMaterial({ color: 0xb08a5a, roughness: 0.9 });
   const boxes = Array.from({ length: BELT.boxes }, () => {
-    const b = mesh(new THREE.BoxGeometry(BOX, BOX, BOX), cardboard, 0, HEIGHT + BOX / 2, BELT.z);
+    const b = mesh(new THREE.BoxGeometry(BELT.box, BELT.box, BELT.box), cardboard, 0, HEIGHT + BELT.box / 2, BELT.z);
     group.add(b);
     return b;
   });
@@ -55,7 +54,12 @@ export function createBelt() {
       const xs = boxesAt(pipeline, now);
       boxes.forEach((b, i) => {
         b.visible = i < xs.length;
-        if (b.visible) b.position.x = xs[i];
+        if (!b.visible) return;
+        // KJC-BUG-0689: scaled by its place on the belt, and kept sitting on it.
+        const scale = boxScale(xs[i]);
+        b.position.x = xs[i];
+        b.scale.setScalar(Math.max(scale, 0.001));
+        b.position.y = HEIGHT + (BELT.box * scale) / 2;
       });
       glow.emissiveIntensity = pipeline === 'failed' ? 0.4 + 1.4 * Math.abs(Math.sin(now / 300)) : 1.4;
     },

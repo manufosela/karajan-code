@@ -6,7 +6,12 @@
 import { WORKSHOP } from './layout.js';
 
 /** The belt in the workshop's frame: left to right, on the right of the desks, at their depth. */
-export const BELT = { from: 2.8, to: WORKSHOP.width / 2 - 0.2, z: 0.1, boxes: 3 };
+export const BELT = { from: 2.8, to: WORKSHOP.width / 2 - 0.2, z: 0.1, box: 0.18, boxes: 2 };
+// KJC-BUG-0689: a box grows in and shrinks out within this distance of each end of the belt.
+const FADE = 0.15;
+
+/** KJC-BUG-0689: how big a box at x along the belt is drawn, 0 at either end and whole inside. */
+export const boxScale = (x) => Math.min(1, Math.max(0, Math.min(x - BELT.from, BELT.to - x) / FADE));
 /** How long a box takes from one end to the other while the pipeline runs. */
 export const BELT_MS = 6000;
 
