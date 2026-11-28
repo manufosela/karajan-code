@@ -17,9 +17,10 @@ describe('hallSpan', () => {
     }
   });
 
-  it('a factory of more lanes reaches further along its one row, and no deeper', () => {
-    expect(hallSpan(9).width).toBeGreaterThan(hallSpan(4).width);
-    expect(hallSpan(9).depth).toBe(hallSpan(4).depth);
+  // KJC-TSK-1842 (the maintainer, 2026-11-28): two workshops wide at most, more rows towards the camera.
+  it('a factory of more lanes reaches deeper, and no wider', () => {
+    expect(hallSpan(9).width).toBeCloseTo(hallSpan(4).width);
+    expect(hallSpan(9).depth).toBeGreaterThan(hallSpan(4).depth);
   });
 
   it('a long drag stops at the edge of the hall: the point looked at never leaves it', () => {

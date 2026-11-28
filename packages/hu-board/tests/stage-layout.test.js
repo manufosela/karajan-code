@@ -26,8 +26,9 @@ describe('factory layout', () => {
     for (const { x } of [CREW.rag, CREW.conductor]) expect(x).toBeLessThan(postX(POSTS[0]));
   });
 
-  it('grows the hall with its workshops, and lets the drag reach the posts', () => {
-    expect(hallWidth(8)).toBeGreaterThan(hallWidth(2));
+  // KJC-TSK-1842: the fit is Karajan's row, whatever the workshops; they grow towards the camera.
+  it('fits the same width whatever the workshops, and lets the drag reach the posts', () => {
+    expect(hallWidth(8)).toBeCloseTo(hallWidth(2));
     expect(hallSpan(1).width).toBeGreaterThan(2 * Math.abs(postX(POSTS[0])));
   });
 
@@ -41,8 +42,9 @@ describe('factory layout', () => {
 describe('workshops in rows and columns (KJC-TSK-1488)', () => {
   const cells = (n) => Array.from({ length: n }, (_, i) => workshopAt(i, n));
 
-  it('keeps a factory of up to four lanes in one row, as before', () => {
-    for (const n of [1, 2, 4]) expect(cells(n).every((c) => c.z === WORKSHOP.z)).toBe(true);
+  // KJC-TSK-1842 (the maintainer, 2026-11-28): "2 de ancho máximo".
+  it('keeps a factory of up to two lanes in one row', () => {
+    for (const n of [1, 2]) expect(cells(n).every((c) => c.z === WORKSHOP.z)).toBe(true);
   });
 
   // KJC-TSK-1702 (the maintainer, 2026-11-19): "no quiero baile de bloques de trabajo". A slot stands
@@ -51,9 +53,9 @@ describe('workshops in rows and columns (KJC-TSK-1488)', () => {
     for (let n = 1; n <= 12; n += 1) {
       for (let i = 0; i < n; i += 1) expect(workshopAt(i, n)).toEqual(workshopAt(i, 12));
     }
-    expect(new Set(cells(4).map((c) => c.x)).size).toBe(4);
-    expect(workshopAt(4, 5).z).toBe(WORKSHOP.z);
-    expect(hallDepth(5)).toBe(hallDepth(4));
+    expect(new Set(cells(4).map((c) => c.x)).size).toBe(2); // KJC-TSK-1842: two wide
+    expect(workshopAt(4, 5).z).toBeGreaterThan(workshopAt(2, 5).z);
+    expect(hallDepth(5)).toBeGreaterThan(hallDepth(4));
   });
 
   it('is wide enough for every slot it holds: the drag reaches the last one, the fit stops at about 45 m', () => {

@@ -2,7 +2,7 @@
 import { hallWidth } from './layout.js';
 
 /** The lens and how high it looks from, in degrees above the floor. */
-export const CAMERA = { fov: 36, elevation: 20 };
+export const CAMERA = { fov: 36, elevation: 44 };
 
 /** KJC-TSK-1831: the width the camera fits: the lanes, at most 45 m; the warehouse never widens it. */
 export const fitWidth = (n) => hallWidth(n);
