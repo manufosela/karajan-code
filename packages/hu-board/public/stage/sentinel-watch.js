@@ -1,16 +1,13 @@
 // KJC-TSK-1436 (ADR 0048): the Sentinel as it works. It watches from its raised
 // post and turns to the lane whose host it is checking (the host's beat comes
-// from the very hook the Sentinel runs on every tool call); on a denial its drone
-// (KJC-TSK-1707) flies to the agent it stopped, hovers by it, and comes back.
-// Pure: live.js moves the piece and its drone with what this says.
+// from the very hook the Sentinel runs on every tool call); on a denial it
+// turns to the lane and flashes red at its post (KJC-TSK-1818: no drone).
+// Pure: live.js moves the piece with what this says.
 import { SENTINEL_POST, WORKSHOP } from './layout.js';
-import { PIECE_WALK_MS } from './piece-visit.js';
 
 /** How long the Sentinel takes to go down (and back up), and how long it stays. */
 export const DESCENT_MS = 1500;
 export const STAY_MS = 1800;
-// Beside the host at the bench of the lane, facing it.
-const BY_THE_AGENT = { dx: -3, dz: -0.6 }; // KJC-TSK-1612: beside the host's seat, further out
 
 const lane = (event) => event.lane ?? 'main';
 
@@ -59,7 +56,7 @@ function descent(t) {
 
 /**
  * Where the Sentinel is at `now` and where it looks (yaw); `xOf`/`zOf` give a lane's workshop.
- * KJC-TSK-1707 (the maintainer, 2026-11-19): it no longer goes down: it sends its drone (sentinelVisit).
+ * KJC-TSK-1707 (the maintainer, 2026-11-19): it no longer goes down: it flashes red at its post.
  */
 export function sentinelAt(watch, now, xOf, zOf = () => WORKSHOP.z) {
   const post = { x: SENTINEL_POST.x, y: SENTINEL_POST.height, z: SENTINEL_POST.z };
@@ -67,11 +64,4 @@ export function sentinelAt(watch, now, xOf, zOf = () => WORKSHOP.z) {
   const lane = stopping ? watch.stop.lane : watch.lane;
   const yaw = lane ? facing(post, { x: xOf(lane), z: zOf(lane) }) : 0;
   return { ...post, yaw, down: false };
-}
-
-/** KJC-TSK-1707: a denial as the visit of the Sentinel's drone (piece-drone.js), by the agent it stopped; none without one. */
-export function sentinelVisit(watch) {
-  if (!watch.stop) return undefined;
-  const { lane: stopped, at } = watch.stop;
-  return { piece: 'sentinel', lane: stopped, at, until: at + PIECE_WALK_MS + STAY_MS, spot: BY_THE_AGENT, from: null };
 }

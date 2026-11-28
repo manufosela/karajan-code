@@ -14,14 +14,13 @@ import { createBenchNotes } from './bench-notes.js';
 import { atHome, freshCards } from './cards.js';
 import { closedCards, deskSigns } from './desk-signs.js';
 import { turnAt, turnFrom } from './workers.js';
-import { blinkAt, placeDenial, sentinelAt, sentinelVisit, withWatch } from './sentinel-watch.js';
+import { blinkAt, placeDenial, sentinelAt, withWatch } from './sentinel-watch.js';
 import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { buttonAt, conductorAt, withBeat } from './conductor.js';
 import { avoidance } from './avoid.js';
 import { PIECE_WALK_MS, WALKS_TO_WORK, gestureAt, pieceAt, withVisit } from './piece-visit.js';
-import { pieceDroneAt } from './piece-drone.js';
-import { DRONE_TINT, SENTINEL_TINT, createPieceDrone } from './piece-drone-mesh.js';
+import { DRONE_TINT } from './drone-tint.js';
 import { reviewsAt, withReviews } from './review-crew.js';
 import { POST, WORKSHOP, boothAt, postX } from './layout.js';
 import { tagAt } from './screen.js';
@@ -227,18 +226,14 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     return pose.away && by ? [overPiece(by, group.position, camera, origin, 'stage-worker')] : [];
   };
   /**
-   * KJC-TSK-1517, 1524: each piece of the method acts on a workshop; KJC-TSK-1701: it stays on its post
-   * and sends its drone there, and gestures from its post as the drone looks.
+   * KJC-TSK-1517, 1524: each piece of the method acts on a workshop; KJC-TSK-1818: it stays on its post
+   * and gestures from there (TDD walks to the coder's desk himself).
    * KJC-TSK-1595: AI review goes out as one copy per review (moveReviews).
    */
-  const droneIds = Object.keys(DRONE_TINT).filter((id) => !WALKS_TO_WORK.has(id));
-  const drones = Object.fromEntries(droneIds.map((id) => [id, createPieceDrone(scene, DRONE_TINT[id])]));
-  const sentinelDrone = createPieceDrone(scene, SENTINEL_TINT);
   const movePieces = (now) => Object.keys(DRONE_TINT).flatMap((id) => {
     const home = { x: postX(id), z: POST.z };
     const act = gestureAt(visits[id], now);
     if (WALKS_TO_WORK.has(id)) return place(pieces[id].group, pieceAt(visits[id], now, home, hall.xOf, hall.zOf), act, null, now);
-    drones[id].show(pieceDroneAt(visits[id], now, home, hall.xOf, hall.zOf), act, now);
     return place(pieces[id].group, { ...home, yaw: 0, walking: false, away: false }, act, null, now);
   });
   /**
@@ -387,9 +382,6 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);
       pieces.sentinel.group.rotation.y = sentinel.yaw;
-      // KJC-TSK-1707: on a denial its drone flies to the agent it stopped and lights red over it.
-      const guard = pieceDroneAt(sentinelVisit(watch), now, sentinel, hall.xOf, hall.zOf);
-      sentinelDrone.show(guard, guard.cable > 0 ? { kind: 'refuse' } : null, now);
       // KJC-TSK-1584: it blinks its own light each time it lets a host's call through.
       const watchLight = lights.sentinel ?? DARK;
       pieces.sentinel.setLight(Math.max(watchLight.gold, blinkAt(watch, now)), watchLight.red);

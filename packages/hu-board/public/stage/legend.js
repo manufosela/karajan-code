@@ -135,7 +135,7 @@ export const CARDS = [
     id: 'sentinel', kind: 'piece', name: 'Sentinel',
     does: 'Checks every tool call of the host against the method, and stops the ones that break it.',
     when: 'On its raised post, turned to the lane it checks; its light blinks on each call it lets through.',
-    calledBy: 'Every tool call. On a denial it sends its gold drone to that agent, which hovers over it in red and flies back.',
+    calledBy: 'Every tool call. On a denial it flashes red at its post, turned to that lane.',
     marks: [{ mark: 'Trench coat and magnifier', means: 'Karajan as a detective: he watches every move.' }],
   },
   {
@@ -148,10 +148,10 @@ export const CARDS = [
       { mark: 'No agent', means: 'The reviewer is this piece, not an agent at a desk.' },
     ],
   },
-  { id: 'gates', kind: 'piece', name: 'Git gates', does: 'Let a commit in only with a verdict from another AI; main moves only by PR.', when: 'At its post; the back edge of the lane\'s workshop lights with each commit, and its coral drone flies there to look.', calledBy: 'Every commit and push.', marks: [{ mark: 'Doorman with a barrier', means: 'Karajan as a doorman: no commit gets in without a verdict.' }] },
-  { id: 'sonar', kind: 'tool', name: 'SonarQube', does: 'Static analysis and a quality gate on the code you change.', when: 'At its post; it lights when the gate is judged, and sends its blue drone to look at that workshop.', calledBy: 'The method, before a commit.', marks: [{ mark: 'Headphones and radar', means: 'Karajan as a radar operator: he listens for smells in the code.' }] },
-  { id: 'ledger', kind: 'piece', name: 'Ledger', does: 'Seals every command, verdict and exception in a hash chain: the past cannot be rewritten unseen.', when: 'At its post; it lights with each seal, and sends its amber drone to look at that workshop.', calledBy: 'Each sealed event.', marks: [{ mark: 'Accountant with a book', means: 'Karajan as an accountant, eyeshade on: he seals every entry in his book.' }] },
-  { id: 'steward', kind: 'piece', name: 'Steward', does: 'Re-verifies the guarantees on a schedule; stale evidence stops counting.', when: 'At its post; it lights when it checks, and sends its violet drone to look at that workshop.', calledBy: 'Its schedule.', marks: [{ mark: 'Butler with a tray', means: 'Karajan as a butler: he keeps the house in order on schedule.' }] },
+  { id: 'gates', kind: 'piece', name: 'Git gates', does: 'Let a commit in only with a verdict from another AI; main moves only by PR.', when: 'At its post; the back edge of the lane\'s workshop lights with each commit, and it lights (gold) or flashes red at its post.', calledBy: 'Every commit and push.', marks: [{ mark: 'Doorman with a barrier', means: 'Karajan as a doorman: no commit gets in without a verdict.' }] },
+  { id: 'sonar', kind: 'tool', name: 'SonarQube', does: 'Static analysis and a quality gate on the code you change.', when: 'At its post; it lights (gold) or flashes red when the gate is judged on a lane\'s work.', calledBy: 'The method, before a commit.', marks: [{ mark: 'Headphones and radar', means: 'Karajan as a radar operator: he listens for smells in the code.' }] },
+  { id: 'ledger', kind: 'piece', name: 'Ledger', does: 'Seals every command, verdict and exception in a hash chain: the past cannot be rewritten unseen.', when: 'At its post; it lights (gold) with each seal on a lane\'s work.', calledBy: 'Each sealed event.', marks: [{ mark: 'Accountant with a book', means: 'Karajan as an accountant, eyeshade on: he seals every entry in his book.' }] },
+  { id: 'steward', kind: 'piece', name: 'Steward', does: 'Re-verifies the guarantees on a schedule; stale evidence stops counting.', when: 'At its post; it lights (gold) when it checks a lane\'s work.', calledBy: 'Its schedule.', marks: [{ mark: 'Butler with a tray', means: 'Karajan as a butler: he keeps the house in order on schedule.' }] },
   {
     id: 'atril', kind: 'tool', name: 'atril',
     does: 'The music stand: skills, commands and subagents, loaded when a task needs them.',
