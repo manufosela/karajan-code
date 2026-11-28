@@ -2,9 +2,8 @@
 // lane whose actions it checks and goes down to stop the agent when it denies one.
 import { describe, expect, it } from 'vitest';
 
-import { SENTINEL_POST, WORKSHOP } from '../public/stage/layout.js';
-import { DESCENT_MS, STAY_MS, placeDenial, sentinelAt, sentinelVisit, withWatch } from '../public/stage/sentinel-watch.js';
-import { PIECE_WALK_MS } from '../public/stage/piece-visit.js';
+import { SENTINEL_POST } from '../public/stage/layout.js';
+import { DESCENT_MS, STAY_MS, placeDenial, sentinelAt, withWatch } from '../public/stage/sentinel-watch.js';
 
 const xOf = (lane) => ({ main: -6, 'kj-stage': 6 })[lane] ?? 0;
 const beat = (lane) => ({ type: 'agent-activity', role: 'host', phase: 'start', lane });
@@ -21,15 +20,11 @@ describe('the Sentinel at work', () => {
     expect(right.y).toBe(SENTINEL_POST.height);
   });
 
-  // KJC-TSK-1707 (the maintainer, 2026-11-19): the pieces send drones; the Sentinel too.
-  it('on a denial stays on its post and sends its drone to the agent it stopped, for the stop', () => {
+  // KJC-TSK-1818 (ADR "kj stage en una línea", decision 5): no more drones; on a denial the Sentinel
+  // stays on its post and flashes red there.
+  it('on a denial stays on its post', () => {
     const watch = withWatch({}, deny('kj-stage'), 1000);
     expect(sentinelAt(watch, 1000 + DESCENT_MS + STAY_MS / 2, xOf)).toMatchObject({ y: SENTINEL_POST.height, down: false });
-    const visit = sentinelVisit(watch);
-    expect(visit).toMatchObject({ piece: 'sentinel', lane: 'kj-stage', at: 1000, until: 1000 + PIECE_WALK_MS + STAY_MS });
-    // by the agent, within the workshop of the lane it stopped (the pad is WORKSHOP.width wide)
-    expect(Math.abs(visit.spot.dx)).toBeLessThan(WORKSHOP.width / 2);
-    expect(sentinelVisit({ lane: 'main' })).toBeUndefined();
   });
 
   // KJC-BUG-0620 (the maintainer, 2026-11-16): "why does the Sentinel go to look at main if no one
