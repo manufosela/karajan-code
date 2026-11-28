@@ -4,23 +4,24 @@
 // works there and, once the pipeline runs or passes again, walks back and teleports out, as a host
 // does (workers.js hostAt). Pure: plumbers-floor.js draws them.
 import { BELT } from './conveyor.js';
+import { AISLE_DZ } from './layout.js';
 import { BUD_MS, HOST_WALK_MS, hostAt } from './workers.js';
 
 /** How long from its start until it works at its belt, and from its leaving until it is gone. */
 export const PLUMBER_IN_MS = BUD_MS + HOST_WALK_MS;
 export const PLUMBER_GONE_MS = HOST_WALK_MS + BUD_MS;
 
-/** Where it works: behind its lane's belt, near its left end, facing it. */
-export const plumberSpot = (laneX, laneZ) => ({ x: laneX + BELT.from + 1.2, z: laneZ + BELT.z - 0.6 });
+/** Where it works: behind its lane's low belt, mid-way along it, facing it and the camera. */
+export const plumberSpot = (laneX, laneZ) => ({ x: laneX + (BELT.from + BELT.to) / 2, z: laneZ + BELT.z - 0.6 });
 
 /**
  * Out of the booth in front of the crew's row (KJC-BUG-0603), out to the left of every workshop,
- * along behind the row, and in to its spot.
+ * along the aisle in front of them, and in to its spot from the front, as a host does.
  */
-const wayTo = (door, spot) => {
+const wayTo = (door, spot, laneZ) => {
   const edgeX = door.edgeX ?? door.x;
   const exitZ = door.exitZ ?? door.z;
-  return [{ x: door.x, z: door.z }, { x: door.x, z: exitZ }, { x: edgeX, z: exitZ }, { x: edgeX, z: spot.z }, spot];
+  return [{ x: door.x, z: door.z }, { x: door.x, z: exitZ }, { x: edgeX, z: exitZ }, { x: edgeX, z: laneZ + AISLE_DZ }, { x: spot.x, z: laneZ + AISLE_DZ }, spot];
 };
 
 /**
@@ -40,7 +41,7 @@ export function withPipelines(plumbers, pipelines, now) {
 /** Where a plumber is at `now`, and whether it works at its belt; null once gone. */
 export function plumberAt(plumber, now, xOf, zOf, door) {
   const spot = plumberSpot(xOf(plumber.lane), zOf(plumber.lane));
-  const pose = hostAt(plumber, now, spot, wayTo(door, spot));
+  const pose = hostAt(plumber, now, spot, wayTo(door, spot, zOf(plumber.lane)));
   if (!pose) return null;
   const working = plumber.leftAt === undefined && now - plumber.since >= PLUMBER_IN_MS;
   return { ...pose, working };

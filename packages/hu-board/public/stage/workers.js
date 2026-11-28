@@ -17,7 +17,7 @@ const BENCH_DZ = 0;
 // an agent fits between one desk and the next.
 // KJC-TSK-1612 (the maintainer, 2026-11-14): 1.7 m, so a backpack behind one agent clears the desk
 // of the one before it.
-export const SEATS = [-2.55, -0.85, 0.85, 2.55];
+export const SEATS = [-3.3, -1.6, 0.1, 1.8];
 // KJC-TSK-1486: typing, an agent turns side on to the camera, which sees its hands and its screen.
 // KJC-TSK-1591: its desk turns with it.
 export const TYPING_YAW = 1.85;

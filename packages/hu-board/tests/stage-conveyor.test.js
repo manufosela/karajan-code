@@ -7,11 +7,11 @@ import { BELT, BELT_MS, beltLook, boxesAt } from '../public/stage/conveyor.js';
 import { WORKSHOP } from '../public/stage/layout.js';
 
 describe('the belt of a lane', () => {
-  it('runs along the back of the workshop, inside its width, and ends at its git gates', () => {
+  // KJC-TSK-1826: beside the desks now, not behind them (stage-belt-beside.test.js says where).
+  it('runs inside the workshop\'s width and depth', () => {
     expect(BELT.from).toBeGreaterThan(-WORKSHOP.width / 2);
     expect(BELT.to).toBeLessThan(WORKSHOP.width / 2);
-    expect(BELT.to).toBeCloseTo(WORKSHOP.width / 2 - 0.9); // the gates (hall.js)
-    expect(BELT.z).toBeLessThan(-WORKSHOP.depth / 2);
+    expect(Math.abs(BELT.z)).toBeLessThan(WORKSHOP.depth / 2);
   });
 
   it('shows only while the lane has an open pull request: running moves, failed and passed stand still', () => {

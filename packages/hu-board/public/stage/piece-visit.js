@@ -3,6 +3,7 @@
 // the Ledger from its post to the workshop of its lane; it stays a while and goes
 // back. Pure: live.js moves the pieces with what this says.
 import { WORKSHOP } from './layout.js';
+import { SEATS } from './workers.js';
 import { METHOD_PIECES } from './director.js';
 
 /** How long a piece glides each way, and how long it stays at the workshop. */
@@ -21,8 +22,8 @@ const pieceOf = (event) => (event?.type === 'method-check' && METHOD_PIECES.has(
 // KJC-TSK-1609: AI review by the coder, whose seat moved with the wider workshop.
 // KJC-TSK-1816: TDD inspects at the coder's desk.
 export const VISIT_SPOTS = {
-  review: { dx: -0.8, dz: 0.75 }, gates: { dx: 1.4, dz: -2.2 }, ledger: { dx: -1.5, dz: -2.2 },
-  tdd: { dx: -1.75, dz: 0.75 }, sonar: { dx: 0.2, dz: -3.1 }, steward: { dx: 1.6, dz: -3.1 },
+  review: { dx: SEATS[1] + 0.05, dz: 0.75 }, gates: { dx: 1.4, dz: -2.2 }, ledger: { dx: -1.5, dz: -2.2 },
+  tdd: { dx: SEATS[1] - 0.9, dz: 0.75 }, sonar: { dx: 0.2, dz: -3.1 }, steward: { dx: 1.6, dz: -3.1 },
 };
 
 // KJC-TSK-1816: the pieces that go to the workshop themselves instead of sending a drone.

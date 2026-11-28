@@ -6,19 +6,21 @@ import { WORKSHOP } from '../public/stage/layout.js';
 import { huOfLane, laneAtPoint, storyFacts, storyPath, tipOf } from '../public/stage/workshop-info.js';
 
 const lanes = ['main', 'HU-4295-the-signer-page-says-who-signs'];
-const xOf = (lane) => ({ main: -4, 'HU-4295-the-signer-page-says-who-signs': 4 })[lane];
+// Two workshops a workshop and a gap apart, centred on 0 (KJC-TSK-1826 widened them).
+const HALF = (WORKSHOP.width + WORKSHOP.gap) / 2;
+const xOf = (lane) => ({ main: -HALF, 'HU-4295-the-signer-page-says-who-signs': HALF })[lane];
 const zOf = () => WORKSHOP.z;
 
 describe('laneAtPoint', () => {
   it('the workshop whose pad or name plate in front of it holds the point', () => {
-    expect(laneAtPoint({ x: 4.5, z: WORKSHOP.z }, lanes, xOf, zOf)).toBe('HU-4295-the-signer-page-says-who-signs');
+    expect(laneAtPoint({ x: HALF + 0.5, z: WORKSHOP.z }, lanes, xOf, zOf)).toBe('HU-4295-the-signer-page-says-who-signs');
     // The name plate lies on the floor in front of the pad.
-    expect(laneAtPoint({ x: -4, z: WORKSHOP.z + WORKSHOP.depth / 2 + 1.2 }, lanes, xOf, zOf)).toBe('main');
+    expect(laneAtPoint({ x: -HALF, z: WORKSHOP.z + WORKSHOP.depth / 2 + 1.2 }, lanes, xOf, zOf)).toBe('main');
   });
 
   it('none between workshops, far in front of them, or without a point', () => {
     expect(laneAtPoint({ x: 0, z: WORKSHOP.z }, lanes, xOf, zOf)).toBeNull();
-    expect(laneAtPoint({ x: 4, z: WORKSHOP.z + 6 }, lanes, xOf, zOf)).toBeNull();
+    expect(laneAtPoint({ x: HALF, z: WORKSHOP.z + 6 }, lanes, xOf, zOf)).toBeNull();
     expect(laneAtPoint(null, lanes, xOf, zOf)).toBeNull();
   });
 });

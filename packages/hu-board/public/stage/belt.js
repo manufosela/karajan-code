@@ -1,5 +1,5 @@
-// KJC-TSK-1639 (asked by the maintainer on 2026-11-15): a lane's pipeline as a conveyor belt at
-// the back of its workshop, ending at its git gates. conveyor.js says how it looks and where its
+// KJC-TSK-1639 (asked by the maintainer on 2026-11-15): a lane's pipeline as a conveyor belt
+// beside its desks (KJC-TSK-1826), not behind them, ending at the right of its workshop. conveyor.js says how it looks and where its
 // boxes go; this draws it: a low frame on legs, the belt, its boxes and a lamp at its far end.
 import * as THREE from 'three';
 import { BELT, beltLook, boxesAt } from './conveyor.js';
@@ -28,9 +28,9 @@ export function createBelt() {
   group.add(mesh(new THREE.BoxGeometry(span, 0.08, DEPTH), steel, middle, HEIGHT - 0.06, BELT.z));
   group.add(mesh(new THREE.BoxGeometry(span, 0.03, DEPTH - 0.06), surface, middle, HEIGHT, BELT.z));
   for (const x of [BELT.from + 0.1, middle, BELT.to - 0.1]) group.add(mesh(new THREE.BoxGeometry(0.06, HEIGHT - 0.1, DEPTH - 0.1), steel, x, (HEIGHT - 0.1) / 2, BELT.z));
-  // The lamp on a post at the near end, seen from across the hall.
-  group.add(mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), steel, BELT.from, HEIGHT + 0.25, BELT.z - DEPTH / 2));
-  group.add(mesh(new THREE.SphereGeometry(0.11, 16, 12), glow, BELT.from, HEIGHT + 0.55, BELT.z - DEPTH / 2));
+  // The lamp on a post at the far (right) end, on the back side, seen from the camera in front.
+  group.add(mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), steel, BELT.to, HEIGHT + 0.25, BELT.z - DEPTH / 2));
+  group.add(mesh(new THREE.SphereGeometry(0.11, 16, 12), glow, BELT.to, HEIGHT + 0.55, BELT.z - DEPTH / 2));
   const cardboard = new THREE.MeshStandardMaterial({ color: 0xb08a5a, roughness: 0.9 });
   const boxes = Array.from({ length: BELT.boxes }, () => {
     const b = mesh(new THREE.BoxGeometry(BOX, BOX, BOX), cardboard, 0, HEIGHT + BOX / 2, BELT.z);
