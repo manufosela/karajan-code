@@ -4,8 +4,7 @@
 // trip piece-visit.js already draws. Pure: live.js moves the copies with what this says.
 import { PIECE_WALK_MS, gestureAt, pieceAt, withVisit } from './piece-visit.js';
 
-const movesReview = (event) =>
-  (event?.type === 'agent-activity' && event.role === 'reviewer') || event?.type === 'review-verdict';
+const movesReview = (event) => event?.type === 'review-verdict';
 const done = (visit, now) => now >= visit.until + PIECE_WALK_MS;
 
 /** The reviews after an event at `now`, by lane; one whose piece is back at the post is forgotten. */

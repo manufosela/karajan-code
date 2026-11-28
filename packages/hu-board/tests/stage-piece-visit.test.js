@@ -2,7 +2,7 @@
 // Ledger leave their post for the workshop of the lane they act on, and come back.
 import { describe, expect, it } from 'vitest';
 
-import { PIECE_WALK_MS, REVIEW_MAX_MS, VISIT_MS, VISIT_SPOTS, pieceAt, withVisit } from '../public/stage/piece-visit.js';
+import { PIECE_WALK_MS, VISIT_MS, VISIT_SPOTS, pieceAt, withVisit } from '../public/stage/piece-visit.js';
 import { deskParts } from '../public/stage/desk-layout.js';
 import { PLINTH_WIDTH } from '../public/stage/layout.js';
 import { spotOf } from '../public/stage/workers.js';
@@ -76,25 +76,16 @@ describe('pieceAt', () => {
   describe('while an agent reviews', () => {
     const review = (phase, lane = 'a') => ({ type: 'agent-activity', agent: 'codex', role: 'reviewer', phase, lane });
 
-    it('the AI review piece goes to its lane with the agent name and stays as long as the review lasts', () => {
-      const visits = withVisit({}, review('start'), 0);
-      expect(visits.review).toMatchObject({ lane: 'a', by: 'codex' });
-      expect(at(visits, 'review', PIECE_WALK_MS + 10 * 60_000)).toMatchObject({ ...spotIn('review', 'a'), walking: false });
-      expect(withVisit({}, { ...review('start'), role: 'coder' }, 0)).toEqual({});
+    // KJC-TSK-1846 (the maintainer, 2026-11-28): the reviewer is an agent at its own seat; the AI
+    // review piece no longer goes to the desk for it, only to stamp a verdict.
+    it('the AI review piece stays at its post while an agent reviews', () => {
+      expect(withVisit({}, review('start'), 0)).toEqual({});
+      expect(withVisit({}, review('end'), 60_000)).toEqual({});
     });
 
-    it('the end of the review sends it back, and the verdict right after keeps it a while', () => {
-      let visits = withVisit({}, review('start'), 0);
-      visits = withVisit(visits, review('end'), 60_000);
-      expect(at(visits, 'review', 60_000 + PIECE_WALK_MS / 2).walking).toBe(true);
-      visits = withVisit(withVisit({}, review('start'), 0), review('end'), 60_000);
-      visits = withVisit(visits, verdict('a'), 60_000);
+    it('the verdict sends it to the lane for a while', () => {
+      const visits = withVisit({}, verdict('a'), 60_000);
       expect(at(visits, 'review', 60_000 + VISIT_MS - 10)).toMatchObject({ ...spotIn('review', 'a'), walking: false });
-    });
-
-    it('goes back on its own when no end comes', () => {
-      const visits = withVisit({}, review('start'), 0);
-      expect(at(visits, 'review', REVIEW_MAX_MS + 2 * PIECE_WALK_MS)).toMatchObject({ ...home, away: false });
     });
   });
 
