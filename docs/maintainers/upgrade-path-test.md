@@ -25,7 +25,9 @@ KJ_UPGRADE_PATH=1 npx vitest run tests/e2e/upgrade-path.test.js
 4. Runs every judge of that seal PR, with the previous kj (as CI would) and with this checkout:
    `kj privacy scan --range main...<branch>` from the base's checkout,
    `kj policy check --range main...HEAD --strict` from the PR's tree, and the verify-pr check
-   (`verifyPrReview`, with GitHub faked: no published review) on the seal-only rule.
+   (`verifyPrReview`, with GitHub faked: no published review). A signed seal must pass by the
+   seal-only rule; an unsigned one (ADR 0060) passes either by that rule (every commit counted as the
+   seal act) or by getting the missing published review and no other problem.
 
 ## Reading a failure
 
