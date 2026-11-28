@@ -11,6 +11,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gradleCommands } from "./gradle-commands.js";
+import { makefileRunsInDocker } from "./makefile-targets.js";
+import { phpCommands, phpFormatWrite } from "./php-commands.js";
 import { swiftCommands } from "./swift-commands.js";
 
 // KJC-BUG-0411 (#2563): uv and poetry keep pytest and ruff in the project's
@@ -59,6 +61,8 @@ const runnerFor = (language, projectDir) => (language === "python" && projectDir
 export function commandsForLanguage(language, projectDir = null) {
   if (language === "gradle") return gradleCommands(projectDir);
   if (language === "swift") return swiftCommands(projectDir);
+  // HU-5069: with the tools in Docker, a stack command would run on the host: only the Makefile's targets do.
+  if (language === "php" && projectDir) return makefileRunsInDocker(projectDir) ? {} : phpCommands(projectDir);
   const cmds = { ...COMMANDS_BY_LANGUAGE[language] };
   const runner = runnerFor(language, projectDir);
   if (runner) for (const [step, command] of Object.entries(cmds)) cmds[step] = `${runner} ${command}`;
@@ -70,5 +74,9 @@ export function formatWriteFor(language, projectDir = null) {
   if (language === "javascript" || language === "typescript") return projectDir ? jsFormatWrite(projectDir) : null;
   const entry = FORMAT_WRITE_BY_LANGUAGE[language];
   if (!entry) return null;
+  if (language === "php" && projectDir) {
+    const command = makefileRunsInDocker(projectDir) ? null : phpFormatWrite(projectDir);
+    return command ? { ...entry, command } : null;
+  }
   return { ...entry, command: [runnerFor(language, projectDir), entry.command].filter(Boolean).join(" ") };
 }

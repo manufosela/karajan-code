@@ -14,13 +14,44 @@ const MAKEFILES = ["GNUmakefile", "makefile", "Makefile"];
 const NAME = String.raw`[A-Za-z0-9][\w.-]*`;
 const RULE = new RegExp(String.raw`^(${NAME}(?:[ \t]+${NAME})*)[ \t]*:(?![:=])`);
 
-/** The targets the project's root Makefile defines (the first one make itself would read). */
-export function makefileTargets(projectDir) {
+/** Each target of the root Makefile (the first one make itself would read) with its recipe lines. */
+function makefileRecipes(projectDir) {
+  const recipes = new Map();
   const file = MAKEFILES.map((name) => join(projectDir, name)).find((path) => existsSync(path));
-  if (!file) return new Set();
-  const rules = readFileSync(file, "utf8").split("\n").map((line) => RULE.exec(line)?.[1]).filter(Boolean);
-  return new Set(rules.flatMap((rule) => rule.split(/[ \t]+/)));
+  if (!file) return recipes;
+  let current = [];
+  for (const line of readFileSync(file, "utf8").replaceAll(/\\\r?\n[ \t]*/g, " ").split("\n")) {
+    const rule = RULE.exec(line)?.[1];
+    if (rule) {
+      current = rule.split(/[ \t]+/);
+      for (const target of current) if (!recipes.has(target)) recipes.set(target, []);
+    } else if (line.startsWith("\t")) {
+      for (const target of current) recipes.get(target).push(line);
+    }
+  }
+  return recipes;
 }
+
+/** The targets the project's root Makefile defines. */
+export const makefileTargets = (projectDir) => new Set(makefileRecipes(projectDir).keys());
+
+// `docker compose` / `docker-compose`, with any global options before the subcommand.
+const COMPOSE = String.raw`docker(?:-compose|[ \t]+compose)(?:[ \t]+-\S+(?:[ \t]+(?!(?:exec|run)\b)[^-\s]\S*)?)*[ \t]+`;
+const IN_DOCKER = new RegExp(String.raw`\b(?:${COMPOSE}(?:exec|run)|docker[ \t]+exec)\b`);
+
+// A command substitution or a separator: the line may run more than its first command.
+const MAY_RUN_MORE = /\$\(|`|&&|[;|]/;
+
+// A comment, or a line that only prints its text (`echo`, `printf`, `:`) and cannot run anything else.
+const onlyMentions = (line) => {
+  const command = line.replace(/^[\s@+-]+/, "");
+  if (command.startsWith("#")) return true;
+  return ["echo", "printf", ":"].includes(command.split(/\s/, 1)[0]) && !MAY_RUN_MORE.test(command);
+};
+
+/** Whether any recipe of the root Makefile runs its tool inside a container. */
+export const makefileRunsInDocker = (projectDir) =>
+  [...makefileRecipes(projectDir).values()].flat().some((line) => IN_DOCKER.test(line) && !onlyMentions(line));
 
 /** The hook commands the Makefile gives, by step; a step it has no target for is left out. */
 export function makefileCommands(projectDir) {

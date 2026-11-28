@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resolveCmds } from "../../src/commands/harden.js";
-import { makefileCommands } from "../../src/harden/makefile-targets.js";
+import { makefileCommands, makefileRunsInDocker } from "../../src/harden/makefile-targets.js";
 
 let dir;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "kj-makefile-")); });
@@ -45,9 +45,48 @@ describe("makefileCommands (ADR 0051)", () => {
   });
 });
 
+describe("makefileRunsInDocker counts only a recipe that executes docker (HU-5069)", () => {
+  const runs = (line) => {
+    makefile(`test:\n\t${line}\n`);
+    return makefileRunsInDocker(dir);
+  };
+
+  it.each([
+    '@echo "Use docker compose exec app sh"',
+    "@echo docker compose exec app sh",
+    "# docker compose exec app composer test",
+    "printf '%s' 'docker exec app sh'",
+    ": docker exec app sh",
+  ])("not Docker: %s", (line) => {
+    expect(runs(line)).toBe(false);
+  });
+
+  it.each([
+    "@docker compose exec -T app vendor/bin/phpstan",
+    "cd x && docker compose run --rm app composer test",
+    '-+@ docker-compose -f "docker/compose.yml" run app composer test',
+    "echo `docker exec app true`",
+    "false || docker exec app composer test",
+    "cat x | docker exec -i app sh",
+    "V=$(docker compose exec -T app php -v)",
+    "FOO=bar docker exec app cmd",
+    "env FOO=bar docker compose exec app cmd",
+    'echo "$(docker exec app true)"',
+    'echo "php $$(cd $$(pwd) && docker compose exec -T app php -v)"',
+    'echo "`docker exec app true`"',
+    'echo "$(docker exec app sh -c "true")"',
+    "echo starting && docker compose exec app composer test",
+    "printf x; docker exec app true",
+    "printf '%s' 'x && docker exec app sh'",
+  ])("Docker: %s", (line) => {
+    expect(runs(line)).toBe(true);
+  });
+});
+
 describe("resolveCmds puts the Makefile targets over the stack's commands (ADR 0051)", () => {
   it("php: make targets where the Makefile has them, the detected command elsewhere", async () => {
     makefile("lint:\n\t@true\ntest:\n\t@true\n");
+    writeFileSync(join(dir, ".php-cs-fixer.dist.php"), "");
     const cmds = await resolveCmds(dir, "php");
     expect(cmds.lint).toBe("make lint");
     expect(cmds.test).toBe("make test");
