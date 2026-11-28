@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.41.0] - 2026-11-28
+
+Public repos get warned before GitHub stops running their `pull_request_target` workflows, and a timed-out command is killed for real.
+
+### Added
+- **kj warns in every public repo that lacks the Actions event policy**: from 2026-12-02 GitHub blocks `pull_request_target` in public repos without a policy that allows it, and `kj-policy.yml` and `kj-secrets.yml` use it. Until now only `kj harden` said so. `kj doctor` and `kj check` warn with the settings link and the exact events to allow, and any kj command reminds it once a day per repo until the policy exists. A private repo or one with the policy gets nothing (#5005).
+- **kj stage: one coffee cart on its rounds**: it serves a host only after two minutes of waiting, the longest wait first, and only hosts seated at their desks; a host that works again leaves its cup on its desk.
+- **kj stage: agents are a figure of their own**, painted whole in their agent's colour, so Karajan and the agent that codes are never mistaken; the Sentinel, the Steward and the AI review are Karajan's robot in costume (detective, butler, judge).
+
+### Fixed
+- **A timed-out command is killed for real**: in karajan-core, `runCommand`'s timeout and the silence watchdog passed an option to `kill()` that execa 9 rejects before sending the signal, and the error was swallowed, so a hung `gh`, `git` or agent stayed alive and kept kj alive. kj now needs karajan-core 1.7.1, which kills it and reports a failed kill (#5010).
+- **kj harden keeps a hook whose managed block was edited by hand**: it overwrote it without a word. It now keeps it, warns, and says how to get kj's version with your settings; kj's own earlier refresh is not taken for a hand edit (#4811, point 5).
+- **The coder rules follow the project's base branch and language**: the JavaScript parts only for JS/TS projects, and the base branch the project really uses (#4811, point 1).
+- **The pre-push identity check trusts only the push destination's refs** (#4808, point 4). It changes the generated hook: re-run `kj harden` and seal it after updating.
+- **The cross reviewer is never the panel coder either**, not only the host agent.
+- **Solomon: a finding's category decides whether it is security**; keywords count only for uncategorised findings.
+- **kj release approve: the approver is never listed as not having answered**, and it says so when the approver's login cannot be read.
+
 ## [5.40.0] - 2026-11-27
 
 A day of field bugs: the seal of a workflow change gets its verdict again, a signed main-guard exception lets its merge through, and the end of the turn stops looping.

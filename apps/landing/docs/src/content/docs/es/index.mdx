@@ -84,7 +84,11 @@ La página completa: [karajancode.com/family](/family.html).
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v5.40.0: un cambio de workflow consigue su veredicto, una excepción firmada deja pasar su merge, el turno deja de entrar en bucle (actual)
+### v5.41.0: los repos públicos reciben el aviso de la política de eventos de Actions, un comando que se pasa de tiempo muere de verdad (actual)
+
+Desde el 2-12-2026 GitHub bloquea `pull_request_target` en los repos públicos sin una política de eventos de Actions, y los workflows de política y secretos de kj lo usan. `kj doctor` y `kj check` avisan ahora en todo repo público que no la tenga, con el enlace a los ajustes y los eventos exactos que hay que permitir, y cualquier comando de kj lo recuerda una vez al día hasta que exista. El timeout de `runCommand` y el vigilante de silencio matan ya un `gh`, `git` o agente colgado (karajan-core 1.7.1). Además: `kj harden` conserva un hook cuyo bloque gestionado editaste a mano, las reglas del coder siguen la rama base y el lenguaje del proyecto, la comprobación de identidad del pre-push solo se fía del destino del push y el revisor cruzado nunca es el coder del panel. kj stage estrena un carrito de café que hace la ronda y agentes con figura propia.
+
+### v5.40.0: un cambio de workflow consigue su veredicto, una excepción firmada deja pasar su merge, el turno deja de entrar en bucle
 
 Un día de bugs de campo. El sello de `kj harden --commit` anota ahora los borrados del harness que commitea, así que una PR que cambia `.github/workflows/` vuelve a conseguir su veredicto. Antes de `gh pr merge`, kj lee la excepción de main-guard firmada en la PR, comprobada contra el padrón de la rama por defecto. El fin de turno ya no entra en bucle tras una retención del Stop hook, y un encargo bloqueante deja pasar los comandos de solo lectura. Además: board-sync ya no se inventa cards a partir del slug de la rama, la comprobación de mutación lee el informe de la herramienta y los lotes de la revisión conservan los ficheros que caben. kj stage marca como terminada una sesión sin trabajo. Nueva sección de la documentación: [las piezas](/docs/es/pieces/).
 

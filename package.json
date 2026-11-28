@@ -1,6 +1,6 @@
 {
   "name": "karajan-code",
-  "version": "5.40.0",
+  "version": "5.41.0",
   "description": "Local multi-agent coding orchestrator with TDD, SonarQube, and code review pipeline",
   "type": "module",
   "license": "AGPL-3.0",
@@ -120,7 +120,7 @@
     "express-rate-limit": "^8.5.0",
     "helmet": "^8.1.0",
     "js-yaml": "^4.2.0",
-    "karajan-core": "^1.7.0",
+    "karajan-core": "^1.7.1",
     "karajan-rag": "^1.2.0",
     "knip": "^6.15.0",
     "madge": "^8.0.0",
