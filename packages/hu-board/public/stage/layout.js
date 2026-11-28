@@ -82,13 +82,24 @@ export const viewCentre = (n) => (workshopAt(0, n).x + workshopAt(n - 1, n).x) /
  * KJC-TSK-1592: how far a drag may walk the view over a hall of `n` workshops: its width, and its
  * depth from the door to the front of the last row, with room for that row's nameplates.
  */
-// KJC-TSK-1827: the drag reaches the booth, at the left end of the line.
+// KJC-TSK-1829: the drag reaches the whole line, from the booth to the last stretch's end.
+const lineEnds = (n) => {
+  const groups = lineGroups(n);
+  return { start: groups[0].from, end: groups.at(-1).to };
+};
+
+/** How far the line reaches from x 0 (a lot is centred there), in metres. */
+export const lineReach = (n) => {
+  const { start, end } = lineEnds(n);
+  return Math.max(Math.abs(start), Math.abs(end));
+};
+
 export const hallSpan = (n) => {
   const centre = viewCentre(n);
-  const half = Math.max(centre - booth.from, workshopAt(n - 1, n).x + WORKSHOP.width / 2 - centre);
+  const { start, end } = lineEnds(n);
+  const half = Math.max(centre - start, end - centre, workshopAt(n - 1, n).x + WORKSHOP.width / 2 - centre);
   // Still wide enough for the reach measured from x 0 (the drag clamps around the view centre).
-  const fromZero = Math.max(2 * Math.abs(booth.from), 2 * Math.abs(lanesGroup(n).to));
-  return { width: Math.max(hallWidth(n), 2 * half + 0.01, fromZero), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z };
+  return { width: Math.max(hallWidth(n), 2 * half + 0.01, 2 * lineReach(n)), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z };
 };
 
 /**

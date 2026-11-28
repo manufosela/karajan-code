@@ -5,7 +5,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { LINE, lineGroups } from '../public/stage/line-layout.js';
-import { releaseAt, versionAt, wallAt, watchAt } from '../public/stage/layout.js';
+import { hallSpan, releaseAt, versionAt, viewCentre, wallAt, watchAt } from '../public/stage/layout.js';
+import { packLots } from '../public/stage/map-layout.js';
 import { DOCK_ABOVE, dockAt } from '../public/stage/wall-drone.js';
 import { droneAt, releaseFlight, watcherAt } from '../public/stage/drone.js';
 
@@ -40,6 +41,20 @@ describe('the right of the line', () => {
     expect(wallAt(2).x - wallAt(1).x).toBeCloseTo(pitch);
     expect(releaseAt(2).x - releaseAt(1).x).toBeCloseTo(pitch);
     expect(watchAt(2).x - watchAt(1).x).toBeCloseTo(pitch);
+  });
+
+  // #5037 (codex): with many lanes the wall and the release stretch stood past the map's lot and the
+  // drag's reach. Both reach the whole line, from the booth to its last stretch.
+  it('lets the map lot and the drag reach the whole line, its right end included', () => {
+    for (const n of COUNTS) {
+      const groups = lineGroups(n);
+      const [start, end] = [groups[0].from, groups.at(-1).to];
+      const lot = packLots([n]).lots[0];
+      expect(lot.width / 2).toBeGreaterThanOrEqual(Math.max(Math.abs(start), Math.abs(end)));
+      const half = hallSpan(n).width / 2;
+      expect(viewCentre(n) - half).toBeLessThanOrEqual(start);
+      expect(viewCentre(n) + half).toBeGreaterThanOrEqual(end);
+    }
   });
 
   it('docks the wall drone over the wall where the wall is', () => {
