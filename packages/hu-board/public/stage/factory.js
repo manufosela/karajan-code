@@ -3,6 +3,7 @@
 // workshops are in hall.js; where everything stands is in layout.js.
 import * as THREE from 'three';
 import { populate } from './crew.js';
+import { CAMERA, framingOffset } from './camera-fit.js';
 import { createHall } from './hall.js';
 import { SENTINEL_POST } from './layout.js';
 import { createWall } from './wall.js';
@@ -13,7 +14,7 @@ const matte = (color, roughness = 0.85) => new THREE.MeshStandardMaterial({ colo
 
 // KJC-TSK-1488: deep enough for several rows of workshops in front of the posts.
 const FLOOR = { width: 80, depth: 64, px: 32 };
-const FOV = 36;
+const FOV = CAMERA.fov;
 
 /** The floor tiles and their seams, one per metre (the trimmed bundle has no GridHelper nor RepeatWrapping). */
 function tileTexture(width, depth) {
@@ -100,10 +101,7 @@ export function relayFloor(scene, old, { x, width }) {
 
 /** Where the camera sits, at three quarters, to fit a hall `width` metres wide on a screen of `aspect`. */
 export function framing(width, aspect) {
-  // Far enough that half the hall plus a margin fits half the view's width; never
-  // closer than what fits its depth (about 13 m, from the door to the nameplates).
-  // The trimmed bundle has no MathUtils.
-  const halfView = Math.tan((FOV / 2) * (Math.PI / 180)) * aspect;
-  const distance = Math.max(22, ((width / 2 + 2) / halfView) * 1.1);
-  return new THREE.Vector3(0, distance * 0.7, distance * 0.72);
+  // KJC-TSK-1831: from the front of the line; the maths lives in camera-fit.js.
+  const { x, y, z } = framingOffset(width, aspect);
+  return new THREE.Vector3(x, y, z);
 }

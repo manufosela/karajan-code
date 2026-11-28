@@ -4,8 +4,9 @@
 import * as THREE from 'three';
 import { buildFactory, createFactory, framing, relayFloor } from './factory.js';
 import { glideAt } from './camera-glide.js';
-import { hallSpan, hallWidth, mailboxSpot, viewCentre } from './layout.js';
-import { RACK, floorFor, rackX } from './warehouse.js';
+import { fitWidth } from './camera-fit.js';
+import { hallSpan, mailboxSpot, viewCentre } from './layout.js';
+import { floorFor } from './warehouse.js';
 import { glowAt } from './mail.js';
 import { createMailbox } from './mailbox.js';
 import { createLive } from './live.js';
@@ -89,15 +90,13 @@ function buildScene(lanes, signal) {
     const from = { pos: camera.position.clone(), target: target.clone() };
     target.x = viewCentre(hall.count()) + pan.x;
     target.z = HALL_CENTRE_Z + pan.z;
-    // KJC-TSK-1704: and the warehouse beside it, when it holds any workshop.
-    const rack = scene.userData.shelved ? 2 * (rackX(n) + RACK.w / 2 + 1.5) : 0;
     // KJC-TSK-1828: and the floor reaches from the booth to the rack, whatever the number of workshops.
     const laid = floorFor(n);
     if (laid.width !== floorWidth || laid.x !== floor.position.x) {
       floor = relayFloor(scene, floor, laid);
       floorWidth = laid.width;
     }
-    const to = { pos: target.clone().add(framing(Math.max(hallWidth(n), rack), camera.aspect).multiplyScalar(zoom)), target: target.clone() };
+    const to = { pos: target.clone().add(framing(fitWidth(n), camera.aspect).multiplyScalar(zoom)), target: target.clone() };
     glide = smoothly && !matchMedia('(prefers-reduced-motion: reduce)').matches ? { from, to, at: performance.now() } : null;
     look(glide ? from.pos : to.pos, glide ? from.target : to.target);
     camera.updateProjectionMatrix();
