@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { labelTexture } from './cast/props.js';
 import { plateName } from './lane-status.js';
-import { RACK, rackBays, rackSpot } from './warehouse.js';
+import { RACK, rackBays, rackSpot, rackX } from './warehouse.js';
 
 /** A stored workshop's short name: its HU, else the start of its lane's name. */
 export const slabLabel = (lane) => /^HU-\d+/.exec(lane)?.[0] ?? plateName(lane).slice(0, 12);
@@ -25,13 +25,14 @@ const placed = (geometry, x, y, z) => {
 };
 
 /** The shelves for `bays` bays: a plank under each level, a side panel at each end. */
-function shelves(bays) {
+function shelves(bays, n) {
   const group = new THREE.Group();
   const depth = bays * RACK.bay;
-  const z = rackSpot(0).z + RACK.bay / 2 - depth / 2; // KJC-BUG-0644: the bays go to the back
-  const top = rackSpot(RACK.high - 1).y + RACK.h;
-  for (let level = 0; level < RACK.high; level += 1) group.add(placed(new THREE.BoxGeometry(RACK.w + 0.2, 0.05, depth), RACK.x, rackSpot(level).y - RACK.h / 2 - 0.03, z));
-  for (const dx of [-1, 1]) group.add(placed(new THREE.BoxGeometry(0.05, top, depth), RACK.x + dx * (RACK.w / 2 + 0.1), top / 2, z));
+  const x = rackX(n);
+  const z = rackSpot(0, n).z + RACK.bay / 2 - depth / 2; // KJC-BUG-0644: the bays go to the back
+  const top = rackSpot(RACK.high - 1, n).y + RACK.h;
+  for (let level = 0; level < RACK.high; level += 1) group.add(placed(new THREE.BoxGeometry(RACK.w + 0.2, 0.05, depth), x, rackSpot(level, n).y - RACK.h / 2 - 0.03, z));
+  for (const dx of [-1, 1]) group.add(placed(new THREE.BoxGeometry(0.05, top, depth), x + dx * (RACK.w / 2 + 0.1), top / 2, z));
   return group;
 }
 
@@ -40,24 +41,24 @@ const dispose = (group) => group.traverse((o) => {
   for (const m of [o.material ?? []].flat().filter((m) => m !== steel)) { m.map?.dispose(); m.dispose(); }
 });
 
-/** Mounts the warehouse on `scene`; `show(lanes)` (by slot, null a gap) rebuilds it only when they change. */
+/** Mounts the warehouse on `scene`; `show(lanes, n)` (by slot, null a gap; `n` workshops in the hall) rebuilds it only when they change. */
 export function createRack(scene) {
   const group = new THREE.Group();
   scene.add(group);
   let shown = '';
   return {
-    show(lanes) {
-      const key = lanes.join('|');
+    show(lanes, n) {
+      const key = `${n}:${lanes.join('|')}`;
       if (key === shown) return;
       shown = key;
       dispose(group);
       group.clear();
       if (!lanes.some(Boolean)) return;
-      group.add(shelves(rackBays(lanes.length)));
+      group.add(shelves(rackBays(lanes.length), n));
       lanes.forEach((lane, i) => {
         if (!lane) return;
         const mesh = slab(slabLabel(lane));
-        const at = rackSpot(i);
+        const at = rackSpot(i, n);
         mesh.position.set(at.x, at.y, at.z);
         group.add(mesh);
       });
