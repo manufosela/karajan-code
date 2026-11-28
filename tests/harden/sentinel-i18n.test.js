@@ -1,11 +1,10 @@
-// HU-5055 (KJC-TSK-1841): the Sentinel's messages follow the configured language, or the
-// system's. The project's language wins over the home's, then the OS locale, then English.
+// HU-5055: the Sentinel's messages follow the configured language, or the system's.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execSync, spawnSync } from "node:child_process";
-import { sentinelLang, t } from "../../src/harden/sentinel/sentinel-i18n.mjs";
+import { karajanHome, sentinelLang, t } from "../../src/harden/sentinel/sentinel-i18n.mjs";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 import { placeGuardCopies } from "./_guard-copies.js";
 
@@ -14,6 +13,7 @@ const writeConfig = (base, language) => {
   fs.mkdirSync(path.join(base, ".karajan"), { recursive: true });
   fs.writeFileSync(path.join(base, ".karajan", "kj.config.yml"), `coder: claude\nlanguage: ${language}\n`);
 };
+const writeHomeConfig = (language) => fs.writeFileSync(path.join(home, "kj.config.yml"), `language: ${language}\n`);
 const lang = (env) => sentinelLang({ projectDir, home, env });
 
 beforeEach(() => {
@@ -28,7 +28,7 @@ afterEach(() => {
 describe("sentinelLang", () => {
   it("takes the project's language over the home's, and the home's over the locale", () => {
     writeConfig(projectDir, "es");
-    writeConfig(home, "en");
+    writeHomeConfig("en");
     expect(lang({ LANG: "en_US.UTF-8" })).toBe("es");
     fs.rmSync(path.join(projectDir, ".karajan"), { recursive: true });
     expect(lang({ LANG: "es_ES.UTF-8" })).toBe("en");
@@ -48,6 +48,25 @@ describe("sentinelLang", () => {
   it("an unsupported configured language resolves to English, without falling through", () => {
     writeConfig(projectDir, "fr");
     expect(lang({ LANG: "es_ES.UTF-8" })).toBe("en");
+  });
+
+  it("reads the home named by KARAJAN_HOME, then the legacy KJ_HOME, before the locale", () => {
+    writeHomeConfig("es");
+    expect(sentinelLang({ projectDir, env: { KARAJAN_HOME: home, LANG: "en_US.UTF-8" } })).toBe("es");
+    expect(sentinelLang({ projectDir, env: { KJ_HOME: home, LANG: "en_US.UTF-8" } })).toBe("es");
+  });
+
+  it("the project's language wins over a home named by KARAJAN_HOME", () => {
+    writeConfig(projectDir, "en");
+    writeHomeConfig("es");
+    expect(sentinelLang({ projectDir, env: { KARAJAN_HOME: home, LANG: "es_ES.UTF-8" } })).toBe("en");
+  });
+});
+
+describe("karajanHome", () => {
+  it("resolves KARAJAN_HOME, then KJ_HOME, and ignores empty values", () => {
+    expect(karajanHome({ KARAJAN_HOME: home, KJ_HOME: "/elsewhere" })).toBe(path.resolve(home));
+    expect(karajanHome({ KARAJAN_HOME: "", KJ_HOME: home })).toBe(path.resolve(home));
   });
 });
 
@@ -98,6 +117,11 @@ describe("the Sentinel speaks the configured language", () => {
     const r = edit(envWith({ LANG: "es_ES.UTF-8" }));
     expect(r.stderr).toContain("es configuración de gobierno");
     expect(r.stderr).toContain("Karajan gobierna y se le obedece");
+  });
+
+  it.each(["KARAJAN_HOME", "KJ_HOME"])("blocks in Spanish when %s names a home with language es, whatever the locale", (name) => {
+    writeHomeConfig("es");
+    expect(edit(envWith({ LANG: "en_US.UTF-8", [name]: home })).stderr).toContain("es configuración de gobierno");
   });
 
   it("falls back to English for LANG=fr_FR.UTF-8", () => {

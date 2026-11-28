@@ -17,7 +17,6 @@ import { commitStaging, isGhIssueCreate, isPublishCommand, isReadOnlyCommand, op
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { sandboxCovers, shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 import { blockingDeny, pendingHandoffs } from "./sentinel-handoffs.mjs";
-// HU-5055: the messages follow the configured language, or the system's (see sentinel-i18n.mjs).
 import { sentinelLang, t } from "./sentinel-i18n.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const inOrder = (want, got) => { let i = 0; for (const w of got) if (w === want[i] && ++i === want.length) return true; return false; };
@@ -36,8 +35,7 @@ process.stdin.on("end", () => {
     // KJC-TSK-0968 (HUM-E, ADR 0018): and leaves a record next to the state, with the
     // gate's own words: kj handoff takes the why from here, never from the agent.
     const said = [];
-    // HU-5055: read once, here, so a deny message never depends on a read inside the exit handler.
-    const lang = sentinelLang({ projectDir: ROOT, home: homedir() });
+    const lang = sentinelLang({ projectDir: ROOT });
     const errOrig = console.error.bind(console);
     console.error = (m) => { said.push(String(m)); errOrig(m); };
     process.on("exit", (code) => {
@@ -72,7 +70,7 @@ process.stdin.on("end", () => {
       const targetTop = target ? laneFor(target) : laneTop();
       const relT = target ? relative(targetTop, String(target)).replaceAll("\\", "/") : "";
       if (relT && PROTECTED.test(relT)) {
-        console.error(t("supervisor_file", lang, { file: relT }) + doc("supervisor"));
+        console.error("karajan sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion." + doc("supervisor"));
         process.exit(2);
       }
       // KJC-TSK-0920 (SNT-E): policies, gate settings and exclusions are the human's,
@@ -99,7 +97,7 @@ process.stdin.on("end", () => {
     // KJC-BUG-0429: nor is a command made only of known readers (an allow-list, not a write blocklist).
     const SUPERVISOR_PATHS = [".claude/settings.json", ".claude/settings.local.json", ".karajan/hooks", ".karajan/harness"];
     if (tool === "Bash" && !isReadOnlyCommand(String(input.command || "")) && PROTECTED.test(stripTextOnlyCommandValues(String(input.command || "")).replaceAll("\\", "/")) && !sandboxCovers(ROOT, SUPERVISOR_PATHS)) {
-      console.error(t("supervisor_bash", lang) + doc("supervisor"));
+      console.error("karajan sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion." + doc("supervisor"));
       process.exit(2);
     }
     // KJC-BUG-0164: todo gh que PUBLICA texto (pr/issue/release, create/edit/
@@ -167,7 +165,7 @@ process.stdin.on("end", () => {
       const namesPhoneFile = stripTextOnlyCommandValues(String(input.command || "")).includes("supervisor-phone.json");
       const writesEnroll = EDIT_TOOLS.includes(tool) && String(input.file_path || "").includes("supervisor-phone.json");
       if ((tool === "Bash" && namesPhoneFile) || writesEnroll) {
-        console.error(t("supervisor_phone", lang) + doc("supervisor"));
+        console.error("karajan sentinel: la clave del movil (capa 5) es del humano — supervisor-phone.json no se toca desde la sesion; enrolar es kj identity enroll-phone desde su terminal." + doc("supervisor"));
         process.exit(2);
       }
     }

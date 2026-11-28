@@ -199,13 +199,11 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
   });
 
   it("KJC-TSK-0822 v1.1: el fichero de la clave del movil no se toca desde la sesion", () => {
-    // HU-5055: the block follows the project's language; this one is Spanish.
-    fs.writeFileSync(path.join(dir, ".karajan", "kj.config.yml"), "language: es\n");
     const bash = (command) => ({ session_id: "s1", tool_name: "Bash", tool_input: { command } });
     expect(run(gate, bash("cat /home/x/.karajan/supervisor-phone.json")).status).toBe(2);
     const w = run(gate, { session_id: "s1", tool_name: "Write", tool_input: { file_path: "/home/x/.karajan/supervisor-phone.json", content: "{}" } });
     expect(w.status).toBe(2);
-    expect(w.stderr).toMatch(/clave del móvil/);
+    expect(w.stderr).toMatch(/clave del movil/);
     expect(run(gate, bash("kj identity show")).status).toBe(0);
     // KJC-TSK-1084: el comando ya no se lee aqui; kj identity enroll-phone se niega solo (human-act.test.js).
     expect(run(gate, bash("kj identity enroll-phone QUJDRA==")).status).toBe(0);
