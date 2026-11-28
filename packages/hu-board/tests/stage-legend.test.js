@@ -32,8 +32,10 @@ describe('the cast legend', () => {
     for (const id of ['host', 'teammate', 'coder', 'solomon', 'subagent']) expect(byId[id]?.kind, id).toBe('agent');
   });
 
-  it('the crew and the things of the hall have theirs: Karajan, kaRAGan, kaWATCHan, atril, the courier, the mailbox and the release', () => {
-    for (const id of ['conductor', 'rag', 'watch', 'atril', 'courier', 'mailbox', 'wall', 'release', 'drone']) expect(byId[id], id).toBeDefined();
+  // KJC-TSK-1832: the wall drone carries the cards; the couriers are gone.
+  it('the crew and the things of the hall have theirs: Karajan, kaRAGan, kaWATCHan, atril, the wall drone, the mailbox and the release', () => {
+    for (const id of ['conductor', 'rag', 'watch', 'atril', 'wall-drone', 'mailbox', 'wall', 'release', 'drone']) expect(byId[id], id).toBeDefined();
+    expect(byId.courier).toBeUndefined();
   });
 
   // KJC-TSK-1641 (the maintainer, 2026-11-15): "a pipeline, so show a plumber?" A gray robot with

@@ -37,7 +37,7 @@ const ES = {
     ['Verde, con batuta', 'Agita la batuta cuando el trabajo pasa y levanta la mano cuando no.']]],
   rag: ['kaRAGan', 'La memoria: responde preguntas sobre el código desde el índice del proyecto.', 'Lleva la respuesta al carril que preguntó; durante una reindexación teclea allí.', 'kj rag query y kj rag index.', [['Ámbar', 'Su color, también el de su portátil.']]],
   watch: ['kaWATCHan', 'El vigilante de los repositorios y guardián del contador de versión.', 'Tras una release va al contador y pone la versión nueva.', 'Una release.', [['Azul', 'Su color.']]],
-  courier: ['Mensajero', 'Lleva una card entre el tablero y su carril, con la card sobre la cabeza.', 'Cuando una card se crea, empieza o termina: sale de la cabina y vuelve a ella al acabar el recado.', 'El board, según se mueve la card.', []],
+  'wall-drone': ['Dron del muro', 'Lleva las tarjetas entre el muro de tareas y los carriles: una nueva o terminada al muro, una empezada a su carril.', 'Posado sobre el muro; vuela cada recado a la vista, uno detrás de otro.', 'Una tarjeta creada, empezada o terminada.', []],
   plumber: ['Fontanero', 'Arregla el pipeline de un carril: trabaja en su cinta mientras su CI está fallado.', 'Cuando falla el pipeline de un carril; vuelve a la cabina en cuanto corre o pasa de nuevo.', 'El pipeline de la PR abierta del carril.', [
     ['Gris', 'Un robot gris sin más: no es una IA ni trabaja para nadie en concreto.'], ['Peto y casco', 'Peto azul y casco amarillo: el operario de la nave.'],
     ['Llave de tubo', 'En la mano derecha; la mueve mientras trabaja en la cinta.']]],
@@ -53,7 +53,7 @@ const ES = {
   ledger: ['Ledger', 'Sella cada comando, veredicto y excepción en una cadena de hashes: el pasado no se reescribe sin que se vea.', 'En su puesto; se enciende (dorado) con cada sello del trabajo de un carril.', 'Cada evento sellado.', [['Contable con libro', 'Karajan de contable, con visera: sella cada apunte en su libro.']]],
   steward: ['Steward', 'Vuelve a verificar las garantías según su calendario; la evidencia caducada deja de contar.', 'En su puesto; se enciende (dorado) cuando comprueba el trabajo de un carril.', 'Su calendario.', [['Mayordomo con bandeja', 'Karajan de mayordomo: mantiene la casa en orden según su calendario.']]],
   atril: ['atril', 'El atril: skills, comandos y subagentes, cargados cuando una tarea los necesita.', 'Siempre, junto a kaRAGan. Un anfitrión lee en él antes de empezar una card.', 'kj hu start, cuando una card trae skills.', []],
-  wall: ['Tablero de tareas', 'Las cards del proyecto en tres columnas: por hacer, en curso, hechas.', 'Siempre, junto a los puestos.', 'El board; los mensajeros clavan y recogen sus cards.', []],
+  wall: ['Tablero de tareas', 'Las cards del proyecto en tres columnas: por hacer, en curso, hechas.', 'Siempre, junto a los puestos.', 'El board; el dron del muro clava y recoge sus cards.', []],
   release: ['Listo para release', 'Una mesa con las cards hechas desde la última release, y el contador con esa release.', 'Siempre; la pila crece con cada card hecha.', 'Las cards hechas. Una release la vacía.', []],
   drone: ['Dron de la release', 'Levanta la pila de «Ready to release» y se la lleva volando.', 'Cuando se publica una release.', 'Una release.', []],
   mailbox: ['Buzón', 'Guarda lo que los agentes te han dejado por hacer (handoffs).', 'Siempre, en la esquina delantera derecha de la fábrica.', 'Los agentes, con kj handoff add.', [['Brillo ámbar, parpadeando', 'Algo te espera.']]],

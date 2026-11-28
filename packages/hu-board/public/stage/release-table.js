@@ -3,7 +3,7 @@
 // with how many there are and since which release. release.js says which cards.
 import * as THREE from 'three';
 import { RELEASE_TABLE } from './layout.js';
-import { cardNote } from './couriers.js';
+import { cardNote } from './wall-drone-mesh.js';
 import { releaseSign } from './release.js';
 
 const TOP = { width: 1.6, depth: 1, height: 0.75 };

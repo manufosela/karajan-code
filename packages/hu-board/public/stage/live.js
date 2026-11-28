@@ -6,8 +6,8 @@ import { createDirector, cueLevel, cueFor } from './director.js';
 import { restState, withEvent } from './rest.js';
 import { createAgentsFloor, typeOn } from './agents-floor.js';
 import { RAGAN_ACCENT } from './crew.js';
-import { createCouriers } from './couriers.js';
-import { tripFor } from './courier.js';
+import { WALL_DRONE_TRIP_MS, droneTrips, tripFor, wallDroneAt } from './wall-drone.js';
+import { createWallDrone } from './wall-drone-mesh.js';
 import { createPlumbersFloor } from './plumbers-floor.js';
 import { createCoffeeFloor } from './coffee-floor.js';
 import { createBenchNotes } from './bench-notes.js';
@@ -143,7 +143,12 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   const working = (initial.lanes ?? []).map((l) => ({ lane: l.lane, working: l.working }));
   // KJC-TSK-1569 (ADR 0056): the own robots wear this person's avatar.
   const floor = createAgentsFloor({ scene, camera, xOf: hall.xOf, zOf: hall.zOf, origin, avatar, doorOf: () => boothAt(hall.count()) }, working, performance.now());
-  const couriers = createCouriers(scene); // KJC-TSK-1461: the robots that carry the cards
+  const wallDrone = createWallDrone(scene); // KJC-TSK-1832: the one drone that carries the cards
+  let errands = []; // the card trips, in the order they came
+  const sendDrone = (event, now) => {
+    const trip = tripFor(event, now);
+    if (trip) errands = [...errands, trip];
+  };
   const plumbers = createPlumbersFloor(scene); // KJC-TSK-1642: the ones that fix a failed pipeline
   const coffee = createCoffeeFloor(scene); // KJC-TSK-1663: the cart that serves a waiting host
   floor.cups(coffee.holds); // and the cup that host holds
@@ -303,7 +308,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const cards = freshCards(held, server.cards ?? []);
       // KJC-TSK-1588: and a robot takes it from its desk to the wall's Done column.
       const at = new Date().toISOString();
-      for (const closed of closedCards(atHome(held, hall.names()), atHome(cards, hall.names()))) couriers.push({ ...closed, at }, now);
+      for (const closed of closedCards(atHome(held, hall.names()), atHome(cards, hall.names()))) sendDrone({ ...closed, at }, now);
       state = { ...state, cards, lanes: server.lanes ?? state.lanes, ...(released ? { release: server.release } : {}) };
       if (released || cards !== held) tell(settle().ordered);
       showStatuses();
@@ -335,11 +340,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       floor.push(event, now);
       if (floor.working().filter((w) => w.role === 'host').length > hostsBefore) pressed = now;
       showStatuses(); // KJC-BUG-0581: once the floor has its robots where this event puts them
-      // KJC-TSK-1650: the lane's host at work runs its card's errand; with none, the courier does.
-      const trip = tripFor(event, now);
-      const courierGoes = Boolean(trip) && !floor.errand(trip, now);
-      if (courierGoes) pressed = now; // KJC-TSK-1659: the courier teleports in at the booth
-      if (!trip || courierGoes) couriers.push(event, now);
+      sendDrone(event, now); // KJC-TSK-1832: the wall drone takes every card errand
       // KJC-TSK-1596: once the agent stands before atril.
       if (event.type === 'agent-activity' && event.phase === 'start' && event.skills?.length) turn = { at: turnFrom(event, now), skills: event.skills };
       watch = withWatch(watch, event, now);
@@ -357,10 +358,9 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       const tags = [];
       // KJC-TSK-1436: the Sentinel watches the lane it checks, and goes down to the agent it stops.
       // KJC-TSK-1660: nobody crashes: each group steps aside from where the others stood last frame.
-      const groups = { floor: floor.bodies(), couriers: couriers.bodies(), plumbers: plumbers.bodies(), coffee: coffee.bodies(), ragan: raganBody ? [raganBody] : [] };
+      const groups = { floor: floor.bodies(), plumbers: plumbers.bodies(), coffee: coffee.bodies(), ragan: raganBody ? [raganBody] : [] };
       const othersOf = (name) => Object.entries(groups).filter(([group]) => group !== name).flatMap(([, bodies]) => bodies);
       floor.avoid(othersOf('floor'));
-      couriers.avoid(othersOf('couriers'));
       plumbers.avoid(othersOf('plumbers'));
       coffee.avoid(othersOf('coffee'));
       tags.push(...moveRagan(now, othersOf('ragan')));
@@ -371,13 +371,15 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       stack.show(stacked);
       conduct(now);
       tags.push(...movePieces(now), ...moveReviews(now));
-      couriers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-BUG-0618: by the booth
+      const scheduled = droneTrips(errands);
+      errands = scheduled.filter((trip) => now < trip.start + WALL_DRONE_TRIP_MS);
+      wallDrone.show(wallDroneAt(scheduled, now, hall.xOf, hall.zOf), now);
       hall.frameBelts(now); // KJC-TSK-1639
       hall.frame(now); // KJC-BUG-0623: workshops fade in and out, and slide to their places
       plumbers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-TSK-1642
       coffee.update(floor.hosts(now), now); // KJC-TSK-1663: a cup for a host that waits, taken back when it works
       coffee.frame(now, boothAt(hall.count()));
-      benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, new Set([...couriers.carried(), ...floor.carried(now)]), hall.zOf);
+      benchNotes.frame(atHome(state.cards ?? [], hall.names()), hall.xOf, new Set(errands.map((trip) => trip.id)), hall.zOf);
       tags.push(...showSigns());
       const sentinel = sentinelAt(watch, now, hall.xOf, hall.zOf);
       pieces.sentinel.group.position.set(sentinel.x, sentinel.y, sentinel.z);

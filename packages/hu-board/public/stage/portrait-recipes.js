@@ -17,10 +17,10 @@ const AGENTS = {
 const RECIPES = {
   ...AGENTS,
   wardrobe: { wardrobe: ['fable', 'opus', 'sonnet', 'haiku'] },
-  ...Object.fromEntries(['conductor', 'rag', 'watch', 'courier', 'plumber', 'coffee'].map((id) => [id, { crew: id }])),
+  ...Object.fromEntries(['conductor', 'rag', 'watch', 'plumber', 'coffee'].map((id) => [id, { crew: id }])),
   ...Object.fromEntries(STATIONS.map((id) => [id, { piece: id }])),
   atril: { stand: true },
-  ...Object.fromEntries(['wall', 'release', 'drone', 'mailbox'].map((id) => [id, { thing: id }])),
+  ...Object.fromEntries(['wall', 'release', 'drone', 'wall-drone', 'mailbox'].map((id) => [id, { thing: id }])),
 };
 
 /** The recipe of the card `id`'s portrait; null for a card without one. */

@@ -98,10 +98,10 @@ export const CARDS = [
     marks: [{ mark: 'Blue', means: 'Its colour.' }],
   },
   {
-    id: 'courier', kind: 'crew', name: 'Courier',
-    does: 'Carries a card between the wall and its lane, with the card over its head.',
-    when: 'When a card is created, started or done: it comes out of the booth and goes back to it when the errand ends.',
-    calledBy: 'The board, as the card moves.',
+    id: 'wall-drone', kind: 'thing', name: 'Wall drone',
+    does: 'Carries the cards between the task wall and the lanes: a new or finished card to the wall, a started one to its lane.',
+    when: 'Docked over the wall; it flies each errand in sight, one after another.',
+    calledBy: 'A card created, started or done.',
     marks: [],
   },
   // KJC-TSK-1641: the plumber who fixes a failed pipeline's belt.
@@ -159,7 +159,7 @@ export const CARDS = [
     calledBy: 'kj hu start, when a card brings skills.',
     marks: [],
   },
-  { id: 'wall', kind: 'thing', name: 'Task wall', does: 'The project\'s cards in three columns: to do, in progress, done.', when: 'Always, beside the posts.', calledBy: 'The board; couriers pin and fetch its cards.', marks: [] },
+  { id: 'wall', kind: 'thing', name: 'Task wall', does: 'The project\'s cards in three columns: to do, in progress, done.', when: 'Always, beside the posts.', calledBy: 'The board; the wall drone pins and fetches its cards.', marks: [] },
   {
     id: 'release', kind: 'thing', name: 'Ready to release',
     does: 'A table with the cards done since the last release, and the counter with that release.',

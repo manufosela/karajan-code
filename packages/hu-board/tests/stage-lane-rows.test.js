@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 import { WORKSHOP } from '../public/stage/layout.js';
 import { RAGAN_WALK_MS, raganAt } from '../public/stage/ragan.js';
-import { COURIER_WALK_MS, PIN_MS, courierAt } from '../public/stage/courier.js';
+import { WALL_DRONE_TRIP_MS, droneTrips, wallDroneAt } from '../public/stage/wall-drone.js';
 import { benchSpots } from '../public/stage/bench-notes-layout.js';
-import { BUD_MS, WALK_MS, spotOf, workerAt, workersFrom } from '../public/stage/workers.js';
+import { WALK_MS, spotOf, workerAt, workersFrom } from '../public/stage/workers.js';
 
 const ROW = 9; // how far back the lane's row is from the first one
 const xOf = () => 4;
@@ -23,11 +23,12 @@ describe('every piece goes to the row of its lane (KJC-TSK-1488)', () => {
     expect(pose.z).toBeCloseTo(raganAt({ lane: 'far', at: 0 }, RAGAN_WALK_MS + 10, xOf).z + ROW);
   });
 
-  it('a courier takes and leaves its card at that row', () => {
-    const trip = { id: 'HU-1', lane: 'far', at: 0, out: true, back: false };
-    const atBench = BUD_MS + COURIER_WALK_MS + PIN_MS / 2; // KJC-BUG-0618: its first stop, from the booth
-    expect(courierAt(trip, atBench, xOf, zOf).z).toBeCloseTo(courierAt(trip, atBench, xOf).z + ROW);
-    expect(courierAt(trip, atBench, xOf, zOf).z).toBeGreaterThan(WORKSHOP.z);
+  // KJC-TSK-1832: the wall drone, not a courier, comes down to the lane's row.
+  it('the wall drone takes and leaves its card at that row', () => {
+    const [trip] = droneTrips([{ id: 'HU-1', lane: 'far', at: 0, out: true, back: false }]);
+    const low = Array.from({ length: 200 }, (_, i) => wallDroneAt([trip], (i / 200) * WALL_DRONE_TRIP_MS, xOf, zOf)).filter((p) => p.y < 2);
+    expect(low.length).toBeGreaterThan(0);
+    for (const p of low) expect(p.z).toBeGreaterThan(WORKSHOP.z + ROW / 2);
   });
 
   it('a card in progress sits over the bench of that row', () => {
