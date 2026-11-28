@@ -323,6 +323,8 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     /** KJC-TSK-1460: the factory's cards as they are now (the map counts the ones in progress). */
     cards: () => state.cards ?? [],
     /** KJC-TSK-1625: what the hall's things hold now, for their tooltips. */
+    /** KJC-TSK-1836: the visible AI review copies, for the pointer's figure boxes. */
+    reviewFigures: () => [...copies.values()],
     things: () => ({ cards: state.cards ?? [], release: state.release ?? null, stacked, letters: allLetters(letters) }),
     /** Takes one stream event at `now` (performance clock, ms). */
     push(raw, now) {
