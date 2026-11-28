@@ -9,13 +9,16 @@ import { detectTestFramework, TEST_PATTERNS_BY_LANGUAGE } from "../utils/project
 const TAIL_LINES = 40;
 const MAX_OUTPUT_CHARS = 3000;
 const TEST_PATTERNS = [...new Set(Object.values(TEST_PATTERNS_BY_LANGUAGE).flat())].filter((p) => !p.startsWith("#["));
+const DATA_OR_DOC = new Set(
+  ".json .jsonc .json5 .yml .yaml .toml .xml .md .mdx .txt .csv .tsv .snap .html .htm .css .png .jpg .jpeg .gif .svg .webp .ico .pdf .zip .har .log".split(" "),
+);
 
 /** The files of the diff that are tests, in their order. */
 export function diffTestFiles(files) {
   return files.filter((file) => {
     const rooted = `/${file}`;
-    // Under e2e/ only sources count: its fixtures and docs are no tests, whatever their name.
-    if (rooted.includes("/e2e/") && !/\.[cm]?[jt]sx?$/.test(file)) return false;
+    // Under e2e/, data and docs are no tests, whatever their name.
+    if (rooted.includes("/e2e/") && DATA_OR_DOC.has(path.extname(file).toLowerCase())) return false;
     return TEST_PATTERNS.some((pattern) => rooted.includes(pattern));
   });
 }

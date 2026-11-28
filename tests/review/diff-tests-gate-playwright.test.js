@@ -68,6 +68,29 @@ describe("diffTestsGate with Playwright specs (HU-5049)", () => {
     expect((await gate(["e2e/login.spec.ts", "tests/unit.test.ts"])).ran).toHaveLength(2);
   });
 
+  it.each([
+    ["a glob", `"**/*.unit.test.ts"`],
+    ["a regex", `/\\.unit\\./`],
+    ["an array", `["**/legacy/**", "**/*.unit.test.ts"]`],
+  ])("a file excluded by testIgnore (%s) is the unit runner's", async (_label, value) => {
+    config(`  testDir: "./tests",\n  testIgnore: ${value},`);
+    const { ran } = await gate(["tests/math.unit.test.ts", "tests/login.spec.ts"]);
+    expect(ran).toEqual(["tests/math.unit.test.ts"]);
+  });
+
+  it.each([
+    ["a readable testDir", `  testDir: "e2e",\n  testIgnore: ignored,`],
+    ["an unreadable testDir", `  testDir: dir,\n  testIgnore: ignored,`],
+  ])("with an unreadable testIgnore and %s, no file is Playwright's", async (_label, body) => {
+    config(body);
+    expect((await gate(["e2e/login.spec.ts", "tests/x.e2e.ts"])).ran).toHaveLength(2);
+  });
+
+  it("keeps tests of other languages under e2e/", () => {
+    const tests = ["tests/e2e/test_login.py", "e2e/login_test.go", "src/e2e/LoginTest.java"];
+    expect(diffTestFiles(tests)).toEqual(tests);
+  });
+
   it("counts sources under e2e/ as tests, not other files there", () => {
     expect(diffTestFiles(["e2e/login.ts", "app/e2e/a.js", "e2e/README.md", "src/a.js"])).toEqual(["e2e/login.ts", "app/e2e/a.js"]);
     expect(diffTestFiles(["e2e/request.test.json", "e2e/login.spec.ts"])).toEqual(["e2e/login.spec.ts"]);

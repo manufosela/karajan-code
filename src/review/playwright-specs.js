@@ -26,9 +26,7 @@ function readKey(text, key) {
   return value ? value.match(new RegExp(ITEM, "g")).map(literal) : null;
 }
 
-function parseConfig(source) {
-  // Only comments that start a line: globs hold "/*" and "//" inside their strings.
-  const text = source.replaceAll(/^\s*(\/\/.*|\/\*[\s\S]*?\*\/)/gm, "");
+function parseConfig(text) {
   const dirs = readKey(text, "testDir");
   const matches = readKey(text, "testMatch");
   if (!dirs || !matches || dirs.some((dir) => typeof dir !== "string")) return null;
@@ -52,13 +50,24 @@ function dependsOnPlaywright(dir) {
   }
 }
 
-/** True for each package-relative file that Playwright, not the unit runner, owns. */
-export function playwrightMatcher(dir) {
-  const name = CONFIGS.find((candidate) => existsSync(path.join(dir, candidate)));
-  if (!name) return () => false;
-  const config = parseConfig(readFileSync(path.join(dir, name), "utf8"));
+/** The files testDir and testMatch select; e2e/ and *.e2e.* when those cannot be read. */
+function selector(dir, text) {
+  const config = parseConfig(text);
   if (!config) return dependsOnPlaywright(dir) ? (file) => FALLBACK.test(file) : () => false;
   const testDir = path.resolve(dir, config.testDir);
   return (file) => !path.relative(testDir, path.join(dir, file)).startsWith("..")
     && config.testMatch.some((pattern) => matches(pattern, dir, file));
+}
+
+/** True for each package-relative file that Playwright, not the unit runner, owns. */
+export function playwrightMatcher(dir) {
+  const name = CONFIGS.find((candidate) => existsSync(path.join(dir, candidate)));
+  if (!name) return () => false;
+  // Only comments that start a line: globs hold "/*" and "//" inside their strings.
+  const text = readFileSync(path.join(dir, name), "utf8").replaceAll(/^\s*(\/\/.*|\/\*[\s\S]*?\*\/)/gm, "");
+  const ignored = readKey(text, "testIgnore");
+  // An unreadable testIgnore may exclude any file: skipping one could hide a red unit test.
+  if (!ignored) return () => false;
+  const selected = selector(dir, text);
+  return (file) => selected(file) && !ignored.some((pattern) => matches(pattern, dir, file));
 }
