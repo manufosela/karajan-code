@@ -19,7 +19,7 @@ import { marksAt, withMark } from './marks.js';
 import { raganAt, withIndex, withRag } from './ragan.js';
 import { buttonAt, conductorAt, withBeat } from './conductor.js';
 import { avoidance } from './avoid.js';
-import { PIECE_WALK_MS, gestureAt, withVisit } from './piece-visit.js';
+import { PIECE_WALK_MS, WALKS_TO_WORK, gestureAt, pieceAt, withVisit } from './piece-visit.js';
 import { pieceDroneAt } from './piece-drone.js';
 import { DRONE_TINT, SENTINEL_TINT, createPieceDrone } from './piece-drone-mesh.js';
 import { reviewsAt, withReviews } from './review-crew.js';
@@ -231,11 +231,13 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
    * and sends its drone there, and gestures from its post as the drone looks.
    * KJC-TSK-1595: AI review goes out as one copy per review (moveReviews).
    */
-  const drones = Object.fromEntries(Object.keys(DRONE_TINT).map((id) => [id, createPieceDrone(scene, DRONE_TINT[id])]));
+  const droneIds = Object.keys(DRONE_TINT).filter((id) => !WALKS_TO_WORK.has(id));
+  const drones = Object.fromEntries(droneIds.map((id) => [id, createPieceDrone(scene, DRONE_TINT[id])]));
   const sentinelDrone = createPieceDrone(scene, SENTINEL_TINT);
   const movePieces = (now) => Object.keys(DRONE_TINT).flatMap((id) => {
     const home = { x: postX(id), z: POST.z };
     const act = gestureAt(visits[id], now);
+    if (WALKS_TO_WORK.has(id)) return place(pieces[id].group, pieceAt(visits[id], now, home, hall.xOf, hall.zOf), act, null, now);
     drones[id].show(pieceDroneAt(visits[id], now, home, hall.xOf, hall.zOf), act, now);
     return place(pieces[id].group, { ...home, yaw: 0, walking: false, away: false }, act, null, now);
   });
