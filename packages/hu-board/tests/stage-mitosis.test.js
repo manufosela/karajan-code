@@ -55,16 +55,18 @@ describe('mitosis', () => {
     // middle instead of where I told you": in Karajan's own row, on its right, with room, full height.
     it('the booth stands in Karajan\'s row, on its right, with room on both sides, clear of atril, full height', () => {
       const room = (p) => Math.hypot(door.x - p.x, door.z - p.z);
-      expect(door.x).toBeGreaterThan(CREW.conductor.x);
-      expect(door.x).toBeLessThan(postX(POSTS[0]));
+      // KJC-TSK-1827: the booth leads the line, left of Karajan's team.
+      expect(door.x).toBeLessThan(CREW.rag.x);
+      expect(door.x).toBeLessThan(CREW.conductor.x);
       expect(Math.abs(door.z - CREW.conductor.z)).toBeLessThan(0.3);
       for (const near of [CREW.conductor, { x: postX(POSTS[0]), z: POST.z }]) expect(room(near)).toBeGreaterThanOrEqual(1.9);
       for (const near of [STAND, READER, CREW.rag]) expect(room(near)).toBeGreaterThan(2.5);
       expect(BOOTH.height).toBeGreaterThanOrEqual(1.8); // taller than a robot
       expect(boothAt(8)).toMatchObject({ x: door.x, z: door.z });
-      // The way out runs left of every workshop, wider as the hall grows.
+      // The way out runs left of every workshop; the booth already stands left of them all (KJC-TSK-1827),
+      // so it no longer moves with the hall.
       expect(door.edgeX).toBeLessThan(xOf('main') - WORKSHOP.width / 2);
-      expect(boothAt(8).edgeX).toBeLessThan(boothAt(2).edgeX);
+      expect(boothAt(8).edgeX).toBeLessThanOrEqual(boothAt(2).edgeX);
     });
 
     it('comes out of the booth, budding beside it, round the workshops and along the aisle to its desk, over no workshop', () => {

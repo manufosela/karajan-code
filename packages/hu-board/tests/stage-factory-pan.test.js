@@ -2,14 +2,16 @@
 // it only zoomed on its middle; dragging walks over it, as over the map, within its hall.
 import { describe, expect, it } from 'vitest';
 
-import { DOOR, WORKSHOP, hallSpan, hallWidth, workshopAt } from '../public/stage/layout.js';
+import { BOOTH, DOOR, WORKSHOP, hallSpan, hallWidth, workshopAt } from '../public/stage/layout.js';
 import { panTarget } from '../public/stage/zoom.js';
 
 describe('hallSpan', () => {
   it('as wide as the hall, and deep from the door to the front of its last row of workshops', () => {
     for (const n of [1, 4, 9]) {
       const span = hallSpan(n);
-      expect(span.width).toBe(hallWidth(n));
+      // The camera fits hallWidth; the drag reaches the booth, at the left end of the line.
+      expect(span.width).toBeGreaterThanOrEqual(hallWidth(n));
+      expect(span.width).toBeGreaterThanOrEqual(2 * Math.abs(BOOTH.x));
       const front = workshopAt(n - 1, n).z + WORKSHOP.depth / 2;
       expect(span.depth).toBeGreaterThanOrEqual(front - DOOR.z);
     }

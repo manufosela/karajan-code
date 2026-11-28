@@ -11,9 +11,9 @@ const zOf = () => 2;
 const facing = (to) => Math.atan2(to.x - CREW.conductor.x, to.z - CREW.conductor.z);
 
 describe('Karajan at the booth\'s console', () => {
-  it('the console stands between Karajan and the booth, within its reach', () => {
+  it('the console stands on Karajan\'s right, within his reach (the booth is now first on the line)', () => {
     expect(CONSOLE.x).toBeGreaterThan(CREW.conductor.x);
-    expect(CONSOLE.x).toBeLessThan(BOOTH.x);
+    expect(BOOTH.x).toBeLessThan(CREW.conductor.x);
     expect(Math.hypot(CONSOLE.x - CREW.conductor.x, CONSOLE.z - CREW.conductor.z)).toBeLessThan(1.5);
   });
 

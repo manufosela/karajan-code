@@ -4,13 +4,15 @@
 // KJC-TSK-1609 (the maintainer, 2026-11-13): wider, so its seats stand further apart (workers.js);
 // KJC-TSK-1612: wider still, for the room each agent's backpack takes.
 // KJC-TSK-1826, room for the belt beside the desks.
-export const WORKSHOP = { width: 9, depth: 3, gap: 0.8, z: 2.2 };
-/** Karajan's pieces, in the film's order (crew.js builds them in it). */
-export const STATIONS = ['tdd', 'sentinel', 'review', 'gates', 'sonar', 'ledger', 'steward'];
+import { LINE, lineGroups } from './line-layout.js';
+import { STATIONS, WORKSHOP } from './hall-sizes.js';
+
+// WORKSHOP and STATIONS live in hall-sizes.js so line-layout.js can use them without an import cycle.
+export { STATIONS, WORKSHOP } from './hall-sizes.js';
 /** The pieces that wait in the row of posts: the Sentinel has its raised post. */
 export const POSTS = STATIONS.filter((id) => id !== 'sentinel');
-export const POST = { z: -3, spacing: 1.6 };
-export const SENTINEL_POST = { x: 0, z: -5.4, height: 1.8 };
+// KJC-TSK-1827: the posts stand on the line, left of the lanes, the Sentinel's too.
+export const POST = { z: LINE.z, spacing: 1.6 };
 /** A piece's plinth is 1 m wide before scaling (cast/piece.js). */
 export const PLINTH_WIDTH = 1;
 /** Pieces and robots are drawn for different shots in the film: these bring them to one smaller height. */
@@ -56,30 +58,26 @@ export const AISLE_DZ = WORKSHOP.depth / 2 + 1.9;
 
 /** How much deeper than a one-row hall the rows of `n` workshops make it. */
 export const hallDepth = (n) => (rowsOf(n) - 1) * ROW_STEP;
-/**
- * KJC-TSK-1703 (the maintainer, 2026-11-19): the robots walked over the row of pieces on their way
- * to the task wall. The row opens a passage after the Ledger, in front of the wall: `gap` is how
- * much wider than a post's spacing it is, half taken from each side so the row stays centred.
- */
-const PASSAGE_GAP = 1.2;
-const PASSAGE_AFTER = 'ledger';
-/** The x of each piece's post, the row centred behind the workshops, with the passage. */
-export const postX = (id) => {
-  const i = POSTS.indexOf(id);
-  const side = i > POSTS.indexOf(PASSAGE_AFTER) ? 1 : -1;
-  return (i - (POSTS.length - 1) / 2) * POST.spacing + (side * PASSAGE_GAP) / 2;
-};
-const passageX = (postX(PASSAGE_AFTER) + postX(POSTS[POSTS.indexOf(PASSAGE_AFTER) + 1])) / 2;
-/** The passage: its x, and `front`, where a way to the wall turns into it from the hall. */
-export const PASSAGE = { x: passageX, front: { x: passageX, z: POST.z + 1.2 } };
+const lineGroup = (id) => lineGroups(1).find((g) => g.id === id);
+const pieces = lineGroup('pieces');
+const team = lineGroup('team');
+const booth = lineGroup('booth');
+/** The x of each piece's post, in the film's order, centred in the pieces' stretch of the line. */
+export const postX = (id) => (pieces.from + pieces.to) / 2 + (STATIONS.indexOf(id) - (STATIONS.length - 1) / 2) * POST.spacing;
+export const SENTINEL_POST = { x: postX('sentinel'), z: LINE.z, height: 1.8 };
+/** The way to the wall no longer crosses the posts, which stand left of the lanes. */
+export const PASSAGE = { x: WALL.x, front: { x: WALL.x, z: LINE.z } };
+// The camera's fit stays as it was (the maintainer, 2026-11-28: fit about 45 m at most, drag for the rest).
+const MIN_FIT_WIDTH = 26.2;
 /** How wide the hall is with `n` workshops, so the camera can fit it. */
-export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSHOP.gap), 2 * (END + BOOTH_ROOM + 3.5));
+export const hallWidth = (n) => Math.max(columnsOf(n) * (WORKSHOP.width + WORKSHOP.gap), MIN_FIT_WIDTH);
 
 /**
  * KJC-TSK-1592: how far a drag may walk the view over a hall of `n` workshops: its width, and its
  * depth from the door to the front of the last row, with room for that row's nameplates.
  */
-export const hallSpan = (n) => ({ width: hallWidth(n), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z });
+// KJC-TSK-1827: the drag reaches the booth, at the left end of the line.
+export const hallSpan = (n) => ({ width: Math.max(hallWidth(n), 2 * Math.abs(booth.from)), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z });
 
 /**
  * KJC-BUG-0578: where a factory opened alone stands its mailbox (KJC-TSK-1473): just right of its
@@ -90,19 +88,15 @@ export function mailboxSpot(n) {
   return { x: right + 1.2, z: workshopAt(n - 1, n).z, scale: 0.55 };
 }
 
-/** Where kaRAGan, Karajan and kaWATCHan wait: at the ends of the row of posts. */
-// KJC-TSK-1703: the passage widens the row by half its gap on each side.
-const END = ((POSTS.length + 1) / 2) * POST.spacing + PASSAGE_GAP / 2;
-// KJC-BUG-0603 (the maintainer, 2026-11-15): room for the booth on Karajan's right, in its row: Karajan,
-// atril and kaRAGan stand this much further left than the end of the row of posts.
-const BOOTH_ROOM = 2.6;
+/** KJC-TSK-1827: kaRAGan, atril, Karajan and his console, left to right in the team's stretch of the line. */
+const teamX = (offset) => team.from + offset;
 export const CREW = {
-  conductor: { x: -END - BOOTH_ROOM, z: POST.z, yaw: 0.6 },
-  // KJC-TSK-1487: beside atril, on its outer side; in front of it, it hid it from the camera.
-  rag: { x: -END - BOOTH_ROOM - 2.8, z: POST.z - 1.5, yaw: 0.5 },
-  watch: { x: END, z: POST.z, yaw: -0.6 },
+  conductor: { x: teamX(3.8), z: LINE.z, yaw: 0.6 },
+  rag: { x: teamX(1), z: LINE.z, yaw: 0.5 },
+  // KJC-TSK-1829 moves kaWATCHan with the release table; until then it keeps its present place.
+  watch: { x: 6.2, z: -3, yaw: -0.6 },
 };
-export const STAND = { x: -END - BOOTH_ROOM - 1.4, z: POST.z - 1.8, yaw: 0.7 };
+export const STAND = { x: teamX(2.4), z: LINE.z, yaw: 0.7 };
 
 /**
  * KJC-TSK-1632 (the maintainer, 2026-11-15): the teleport booth the hosts come and go by, beside
@@ -110,9 +104,9 @@ export const STAND = { x: -END - BOOTH_ROOM - 1.4, z: POST.z - 1.8, yaw: 0.7 };
  * halfway to the first post, as tall as a robot and more; `exitZ` is where its way leaves the row,
  * in front of it, so it walks through none of the crew.
  */
-export const BOOTH = { x: (CREW.conductor.x + postX(POSTS[0])) / 2, z: POST.z, height: 2.2, exitZ: POST.z + 1.8 };
-/** KJC-TSK-1659: the booth's console, between Karajan and the booth, a little ahead, within its reach. */
-export const CONSOLE = { x: CREW.conductor.x + 0.9, z: POST.z + 0.5 };
+export const BOOTH = { x: (booth.from + booth.to) / 2, z: LINE.z, height: 2.2, exitZ: LINE.z + 1.8 };
+/** KJC-TSK-1659: Karajan's console, on his right, a little ahead, within his reach. */
+export const CONSOLE = { x: CREW.conductor.x + 0.9, z: LINE.z + 0.5 };
 /**
  * KJC-TSK-1632: the booth, and `edgeX`, where a host's way turns down past the left edge of the
  * first column of `n` workshops (KJC-TSK-1628), so it crosses none.
