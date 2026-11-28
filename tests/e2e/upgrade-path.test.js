@@ -63,6 +63,18 @@ const hardenAndSeal = async (root, kjVersion, { allowNoDrift = false } = {}) => 
   throw new Error(`the seal with kj ${kjVersion} committed nothing: ${sealed.reason}`);
 };
 
+/**
+ * With no published review, a signed seal passes only by the seal-only rule: every commit counted as
+ * the seal act. An unsigned one (ADR 0060) may pass that way too, when it is only kj's own output
+ * (HU-4654); otherwise it is no exempt act (HU-4130) and verify-pr asks for the review, only that.
+ */
+const sealJudged = (r, { commits, signed }) => {
+  const sealOnly = r.ok && r.sealCommits?.length === commits;
+  if (signed || sealOnly) return sealOnly;
+  const missing = "no kj review published by a member: run kj review --publish-pr 1";
+  return !r.ok && !r.sealCommits && !r.rosterCommits && r.problems.length === 1 && r.problems[0] === missing;
+};
+
 // verify-pr reads the PR from GitHub: gh answers with the seal PR and no published review.
 const verifyPr = async (root, label) => {
   const { verifyPrReview } = await import(pathToFileURL(join(root, "src", "review", "verify-pr.js")).href);
@@ -72,10 +84,38 @@ const verifyPr = async (root, label) => {
   const run = (cmd, args, opts) => (cmd === "gh" ? { exitCode: 0, stdout: gh[args[0]], stderr: "" } : runCommand(cmd, args, opts));
   try {
     const r = await verifyPrReview({ projectDir: repo, pr: 1, run });
-    // Passing by the seal-only rule: every commit counted as the seal act, none by a verdict.
-    return { ok: r.ok && r.sealCommits?.length === commits.length, output: JSON.stringify(r, null, 2) };
+    const signed = Boolean(JSON.parse(git("show", `${commits[0]?.oid}:.karajan/supervisor-provenance.json`)).signature);
+    return { ok: sealJudged(r, { commits: commits.length, signed }), output: `signed seal: ${signed}\n${JSON.stringify(r, null, 2)}` };
   } catch (err) { return { ok: false, output: `${label}: ${err.stack}` }; }
 };
+
+describe("upgrade path: what verify-pr must say about the seal PR (HU-5039)", () => {
+  const missing = "no kj review published by a member: run kj review --publish-pr 1";
+  const exempt = { ok: true, problems: [], sealCommits: ["abc1234"] };
+  const asksReview = { ok: false, problems: [missing] };
+
+  it("a signed seal passes only by the seal-only rule", () => {
+    expect(sealJudged(exempt, { commits: 1, signed: true })).toBe(true);
+    expect(sealJudged(exempt, { commits: 2, signed: true })).toBe(false);
+    expect(sealJudged(asksReview, { commits: 1, signed: true })).toBe(false);
+  });
+
+  it("an unsigned seal passes by the seal-only rule or with exactly the missing published review", () => {
+    expect(sealJudged(exempt, { commits: 1, signed: false })).toBe(true);
+    expect(sealJudged(asksReview, { commits: 1, signed: false })).toBe(true);
+  });
+
+  it.each([
+    ["a partial seal count that passes", exempt, 2],
+    ["a partial seal count asking for the review", { ...asksReview, sealCommits: ["abc1234"] }, 2],
+    ["a roster commit asking for the review", { ...asksReview, rosterCommits: ["abc1234"] }, 2],
+    ["a pass with no seal commit", { ok: true, problems: [] }, 1],
+    ["the missing review plus another problem", { ok: false, problems: [missing, "another"] }, 1],
+    ["another problem", { ok: false, problems: ["another"] }, 1],
+  ])("an unsigned seal fails with %s", (_case, result, commits) => {
+    expect(sealJudged(result, { commits, signed: false })).toBe(false);
+  });
+});
 
 describe.skipIf(process.env.KJ_UPGRADE_PATH !== "1")("upgrade path: previous kj → this checkout (KJC-TSK-1619)", () => {
   beforeAll(async () => {
@@ -115,7 +155,7 @@ describe.skipIf(process.env.KJ_UPGRADE_PATH !== "1")("upgrade path: previous kj 
       judge("privacy scan --range", version, kjRun(root, ["privacy", "scan", "--range", `main...${head}`]));
       git("checkout", "-q", head); // kj-policy.yml and kj-verdicts.yml: the PR's tree, the base's kj
       judge("policy check --range --strict", version, kjRun(root, ["policy", "check", "--range", "main...HEAD", "--strict"]));
-      judge("review --verify-pr (seal-only)", version, await verifyPr(root, version));
+      judge("review --verify-pr (seal)", version, await verifyPr(root, version));
     }
     const failed = results.filter((r) => !r.ok);
     const onlyNewerFixes = failed.filter((f) => f.version === prevVersion && results.some((r) => r.name === f.name && r.version === CURRENT && r.ok));
