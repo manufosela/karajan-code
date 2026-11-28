@@ -11,11 +11,13 @@ const PITCH = WORKSHOP.width + WORKSHOP.gap;
 const COUNTS = [1, 2, 4, 7, 12];
 
 describe('the workshops in one row', () => {
-  it('stands every workshop on the same row, one after another, a workshop and a gap apart', () => {
-    for (const n of COUNTS) {
-      const spots = Array.from({ length: n }, (_, i) => workshopAt(i, n));
-      for (const s of spots) expect(s.z).toBe(WORKSHOP.z);
-      for (const [a, b] of spots.slice(1).map((s, i) => [spots[i], s])) expect(b.x - a.x).toBeCloseTo(PITCH);
+  // KJC-TSK-1842 (the maintainer, 2026-11-28): two wide at most; stage-line-rows.test.js has the rows.
+  it('stands the first two workshops on the first row, a workshop and a gap apart', () => {
+    for (const n of COUNTS.filter((c) => c >= 2)) {
+      const [a, b] = [workshopAt(0, n), workshopAt(1, n)];
+      expect(a.z).toBe(WORKSHOP.z);
+      expect(b.z).toBe(WORKSHOP.z);
+      expect(b.x - a.x).toBeCloseTo(PITCH);
     }
   });
 
@@ -45,7 +47,8 @@ describe('the workshops in one row', () => {
     }
   });
 
-  it('adds no depth: there is only one row', () => {
-    for (const n of COUNTS) expect(hallDepth(n)).toBe(0);
+  it('adds depth only past two workshops', () => {
+    for (const n of [1, 2]) expect(hallDepth(n)).toBe(0);
+    for (const n of [4, 7, 12]) expect(hallDepth(n)).toBeGreaterThan(0);
   });
 });

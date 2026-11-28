@@ -4,7 +4,7 @@
 // pipeline running, comes back. Main, the factory's own line, never leaves. Pure: live.js applies it.
 
 import { lineGroups } from './line-layout.js';
-import { WORKSHOP } from './layout.js';
+import { WORKSHOP, workshopAt } from './layout.js';
 
 /** Shelves `high` levels tall, `w` wide, right of the last workshop; a slab per stored workshop. */
 // KJC-BUG-0644 (the maintainer, 2026-11-19): "muy alejado... más cerca del centro y más arriba": right
@@ -26,7 +26,9 @@ export function rackSpot(i, n) {
 export function floorFor(n) {
   const from = lineGroups(n).find((g) => g.id === 'booth').from - 2;
   const to = rackX(n) + RACK.w / 2 + 2;
-  return { x: (from + to) / 2, width: to - from };
+  // KJC-TSK-1842: from 32 m behind z 0 as the fixed floor did, to 6 m past the last row's front edge.
+  const front = Math.max(32, workshopAt(n - 1, n).z + WORKSHOP.depth / 2 + 6);
+  return { x: (from + to) / 2, width: to - from, z: (front - 32) / 2, depth: front + 32 };
 }
 
 /** How many bays deep the warehouse is with `n` slabs, for the camera; 0 when empty. */

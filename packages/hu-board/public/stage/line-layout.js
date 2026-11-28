@@ -24,7 +24,8 @@ const WIDTHS = Object.freeze({
 // KJC-TSK-1842 (the maintainer, 2026-11-28: "no quiero huecos"): no gap between groups.
 const GAP = 0;
 
-const widthOf = (id, lanes) => (id === 'lanes' ? lanes * (WORKSHOP.width + WORKSHOP.gap) : WIDTHS[id]);
+// KJC-TSK-1842: the workshops are two wide at most; more lanes grow in rows towards the camera.
+const widthOf = (id, lanes) => (id === 'lanes' ? Math.min(lanes, 2) * (WORKSHOP.width + WORKSHOP.gap) : WIDTHS[id]);
 
 /** Where the lanes start: the left edge of the hall's first column of four workshops, centred on x = 0. */
 const LANES_FROM = -2 * (WORKSHOP.width + WORKSHOP.gap);

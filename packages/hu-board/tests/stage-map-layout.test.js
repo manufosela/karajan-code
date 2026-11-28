@@ -19,7 +19,7 @@ describe('repacked', () => {
   it('gives a factory that grew a lot of its new size, and no lot covers another', () => {
     const before = packLots([4, 2, 3]).lots;
     const { lots } = repacked([4, 2, 3], [11, 2, 3]);
-    expect(lots[0].width).toBeGreaterThan(before[0].width);
+    expect(lots[0].depth).toBeGreaterThan(before[0].depth); // KJC-TSK-1842: it grows towards the camera
     for (const [i, a] of lots.entries()) for (const b of lots.slice(i + 1)) expect(overlap(a, b)).toBe(false);
   });
 });

@@ -27,7 +27,8 @@ describe('the one-line hall', () => {
     const lanes = (n) => lineGroups(n).find((g) => g.id === 'lanes');
     for (const n of COUNTS) {
       expect(lanes(n).from).toBe(lanes(1).from);
-      expect(lanes(n).to - lanes(n).from).toBeCloseTo(n * (WORKSHOP.width + WORKSHOP.gap));
+      // KJC-TSK-1842: two workshops wide at most.
+      expect(lanes(n).to - lanes(n).from).toBeCloseTo(Math.min(n, 2) * (WORKSHOP.width + WORKSHOP.gap));
     }
   });
 

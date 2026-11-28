@@ -50,8 +50,15 @@ export const workshopX = (i, n) => (i - (n - 1) / 2) * (WORKSHOP.width + WORKSHO
 const PITCH = WORKSHOP.width + WORKSHOP.gap;
 const lanesGroup = (n) => lineGroups(n).find((g) => g.id === 'lanes');
 
-/** The centre `{x, z}` of slot `i` (of `_n`, which does not move it), in the lanes' stretch of the line. */
-export const workshopAt = (i, _n) => ({ x: lanesGroup(1).from + WORKSHOP.gap / 2 + WORKSHOP.width / 2 + i * PITCH, z: WORKSHOP.z });
+// KJC-TSK-1842 (the maintainer, 2026-11-28): two workshops wide, rows growing towards the camera.
+/** The step between rows of workshops, as the hall had before. */
+export const ROW_STEP = WORKSHOP.depth + 2.4;
+
+/** The centre `{x, z}` of slot `i` (of `_n`, which does not move it): column i % 2, row i / 2 towards the camera. */
+export const workshopAt = (i, _n) => ({
+  x: lanesGroup(1).from + WORKSHOP.gap / 2 + WORKSHOP.width / 2 + (i % 2) * PITCH,
+  z: WORKSHOP.z + Math.floor(i / 2) * ROW_STEP,
+});
 
 /**
  * KJC-TSK-1628 (the maintainer, 2026-11-14): the aisle in front of a row of workshops, past their
@@ -59,8 +66,8 @@ export const workshopAt = (i, _n) => ({ x: lanesGroup(1).from + WORKSHOP.gap / 2
  */
 export const AISLE_DZ = WORKSHOP.depth / 2 + 1.9;
 
-/** How much deeper than a one-row hall `n` workshops make it: none, there is one row. */
-export const hallDepth = (_n) => 0;
+/** How much deeper than a one-row hall `n` workshops make it: one row step per extra row (KJC-TSK-1842). */
+export const hallDepth = (n) => (n >= 1 ? (Math.ceil(n / 2) - 1) * ROW_STEP : 0);
 const lineGroup = (id) => lineGroups(1).find((g) => g.id === id);
 const pieces = lineGroup('pieces');
 const team = lineGroup('team');
@@ -69,10 +76,9 @@ const booth = lineGroup('booth');
 export const postX = (id) => (pieces.from + pieces.to) / 2 + (STATIONS.indexOf(id) - (STATIONS.length - 1) / 2) * POST.spacing;
 export const SENTINEL_POST = { x: postX('sentinel'), z: LINE.z, height: 1.8 };
 // The camera's fit stays as it was (the maintainer, 2026-11-28: fit about 45 m at most, drag for the rest).
-const MIN_FIT_WIDTH = 26.2;
 const MAX_FIT_WIDTH = 45;
-/** How wide the hall is with `n` workshops, so the camera can fit it: four slots' worth, then the lanes up to 45 m. */
-export const hallWidth = (n) => (n <= 2 ? MIN_FIT_WIDTH : Math.max(4 * PITCH, Math.min(n * PITCH, MAX_FIT_WIDTH)));
+/** What the camera fits (KJC-TSK-1842): Karajan's back row, booth to mailbox, 45 m at most; not the lanes' count. */
+export const hallWidth = (n) => Math.min(stretchOf(n, 'mailbox').to - stretchOf(n, 'booth').from, MAX_FIT_WIDTH);
 
 /**
  * The x the camera looks at (KJC-TSK-1842): the middle of both rows, the lanes' and Karajan's back row
@@ -100,12 +106,17 @@ export const lineReach = (n) => {
   return Math.max(Math.abs(start), Math.abs(end));
 };
 
+/** KJC-TSK-1842: the z the camera's target starts at; the drag walks the view from here. */
+export const VIEW_Z = -0.6;
+
 export const hallSpan = (n) => {
   const centre = viewCentre(n);
   const { start, end } = lineEnds(n);
   const half = Math.max(centre - start, end - centre, workshopAt(n - 1, n).x + WORKSHOP.width / 2 - centre);
+  // KJC-TSK-1842: the last row's front edge plus the nameplates; the drag reaches it and the door.
+  const front = WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5;
   // Still wide enough for the reach measured from x 0 (the drag clamps around the view centre).
-  return { width: Math.max(hallWidth(n), 2 * half + 0.01, 2 * lineReach(n)), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z };
+  return { width: Math.max(hallWidth(n), 2 * half + 0.01, 2 * lineReach(n)), depth: 2 * Math.max(front - VIEW_Z, VIEW_Z - DOOR.z) };
 };
 
 /**

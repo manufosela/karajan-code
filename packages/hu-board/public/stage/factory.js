@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { populate } from './crew.js';
 import { CAMERA, framingOffset } from './camera-fit.js';
 import { createHall } from './hall.js';
-import { SENTINEL_POST } from './layout.js';
+import { SENTINEL_POST, VIEW_Z } from './layout.js';
 import { createWall } from './wall.js';
 import { createReleaseTable } from './release-table.js';
 import { createVersionBoard } from './version-board.js';
@@ -83,18 +83,19 @@ export function createFactory(renderer, { floor = true, far = 300 } = {}) {
   const ground = floor ? createFloor() : null;
   if (ground) scene.add(ground);
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, far);
-  const target = new THREE.Vector3(0, 0, -0.6);
+  const target = new THREE.Vector3(0, 0, VIEW_Z);
   return { scene, camera, target, floor: ground };
 }
 
 /** KJC-TSK-1828: the standalone floor laid again over `{ x, width }`, same depth; returns the new mesh. */
-export function relayFloor(scene, old, { x, width }) {
+export function relayFloor(scene, old, { x, width, z, depth }) {
   scene.remove(old);
   old.geometry.dispose();
   old.material.map.dispose();
   old.material.dispose();
-  const floor = createFloor(width);
+  const floor = createFloor(width, depth);
   floor.position.x = x;
+  floor.position.z = z; // KJC-TSK-1842: deep enough for the rows towards the camera
   scene.add(floor);
   return floor;
 }

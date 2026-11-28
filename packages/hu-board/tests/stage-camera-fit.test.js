@@ -16,13 +16,15 @@ describe('the camera in front of the line', () => {
     }
   });
 
-  it('stands in front of the line, looking at it level rather than from above', () => {
+  // KJC-TSK-1842 (the maintainer, 2026-11-28: "he perdido perspectiva"): from above again, as before,
+  // so the rows of workshops growing towards the camera are seen one under the other.
+  it('stands in front of the line, looking down at it as before, about 45 degrees', () => {
     for (const aspect of ASPECTS) {
       const { x, y, z } = framingOffset(fitWidth(4), aspect);
       expect(x).toBe(0);
       expect(z).toBeGreaterThan(0);
-      expect(y / z).toBeLessThanOrEqual(Math.tan((25 * Math.PI) / 180));
-      expect(y).toBeGreaterThan(0);
+      expect(y / z).toBeGreaterThanOrEqual(Math.tan((40 * Math.PI) / 180));
+      expect(y / z).toBeLessThanOrEqual(Math.tan((50 * Math.PI) / 180));
     }
   });
 
