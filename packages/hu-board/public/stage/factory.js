@@ -79,10 +79,23 @@ export function createFactory(renderer, { floor = true, far = 300 } = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0f1520);
   scene.add(...createLights());
-  if (floor) scene.add(createFloor());
+  const ground = floor ? createFloor() : null;
+  if (ground) scene.add(ground);
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, far);
   const target = new THREE.Vector3(0, 0, -0.6);
-  return { scene, camera, target };
+  return { scene, camera, target, floor: ground };
+}
+
+/** KJC-TSK-1828: the standalone floor laid again over `{ x, width }`, same depth; returns the new mesh. */
+export function relayFloor(scene, old, { x, width }) {
+  scene.remove(old);
+  old.geometry.dispose();
+  old.material.map.dispose();
+  old.material.dispose();
+  const floor = createFloor(width);
+  floor.position.x = x;
+  scene.add(floor);
+  return floor;
 }
 
 /** Where the camera sits, at three quarters, to fit a hall `width` metres wide on a screen of `aspect`. */

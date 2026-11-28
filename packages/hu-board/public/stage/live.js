@@ -85,11 +85,16 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   const shelve = (take, give) => {
     for (const lane of take) shelf = takeSlot(shelf, shelfLast, lane);
     for (const lane of give) shelf = leaveSlot(shelf, shelfLast, lane);
-    rack.show(shelf);
+    rack.show(shelf, hall.count());
     scene.userData.shelved = shelf.length; // main.js frames the warehouse too
   };
+  /** KJC-TSK-1828: the rack follows the row's end, so a changed count re-places it before the camera refits. */
+  const fit = (options) => {
+    rack.show(shelf, hall.count());
+    refit(options);
+  };
   /** KJC-TSK-1705: where a stored lane's slab stands, where the crane takes it from or to. */
-  const slabOf = (lane) => rackSpot(shelf.indexOf(lane));
+  const slabOf = (lane) => rackSpot(shelf.indexOf(lane), hall.count());
   /** A stored lane with activity of its own comes back (from its slab); its idle clock starts again. */
   const unstore = (lane) => {
     const from = slabOf(lane);
@@ -116,7 +121,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     return [...away, ...back.map((lane) => hall.ensure(lane, { from: slabs.get(lane) }))].some(Boolean);
   };
   const showStatuses = () => {
-    if (store()) refit({ glide: true });
+    if (store()) fit({ glide: true });
     // KJC-BUG-0581: with the robots the floor has at work, so a sign never denies one that types.
     const all = laneStatuses([...new Set([...hall.names(), ...folded])], state, box, floor.working());
     // KJC-BUG-0633: only once finished for a while, so a host stepping out between turns folds nothing.
@@ -126,7 +131,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
     // A lane that finished leaves the row; one that works again comes back to it.
     const moved = [...finished].map((lane) => hall.remove(lane)).concat([...folded].filter((lane) => !finished.has(lane)).map((lane) => hall.ensure(lane)));
     folded = finished;
-    if (moved.some(Boolean)) refit({ glide: true }); // KJC-TSK-1655: the camera glides, no jump
+    if (moved.some(Boolean)) fit({ glide: true }); // KJC-TSK-1655: the camera glides, no jump
     statuses = new Map([...all].filter(([lane]) => !finished.has(lane)));
     for (const [lane, status] of statuses) hall.showStatus(lane, statusLine(status), status.state);
     // KJC-TSK-1639: and its open pull request's pipeline on its belt.
@@ -294,7 +299,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
      */
     resync(server, now) {
       const gone = goneLanes(hall.names(), server.lanes ?? [], state.working ?? []);
-      if (gone.map((lane) => hall.remove(lane)).some(Boolean)) refit({ glide: true });
+      if (gone.map((lane) => hall.remove(lane)).some(Boolean)) fit({ glide: true });
       for (const end of staleEnds(state.working ?? [], server.working ?? [], new Date().toISOString())) api.push(end, now);
       // KJC-TSK-1699: a host inside a long tool, as the board sees it, says so over its robot.
       floor.longRuns(server.working ?? []);
@@ -332,7 +337,7 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       // KJC-TSK-1704: one stored in the warehouse comes back to the hall with any activity of its own.
       // KJC-TSK-1705: the crane brings it from its slab.
       const from = event.lane && stored.has(event.lane) ? unstore(event.lane) : undefined;
-      if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane, { from })) refit({ glide: true });
+      if (event.lane && !folded.has(event.lane) && hall.ensure(event.lane, { from })) fit({ glide: true });
       // An agent at work flashes no piece (KJC-TSK-1430): its robot walks in or out instead.
       if (cueFor(event)) director.push(event, now);
       // KJC-TSK-1659: a host that comes in teleports in at the booth: Karajan presses its button.

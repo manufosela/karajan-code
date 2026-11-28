@@ -3,18 +3,27 @@
 // with nobody in it for a while goes to the warehouse beside the hall; one with an agent, or its
 // pipeline running, comes back. Main, the factory's own line, never leaves. Pure: live.js applies it.
 
-import { WORKSHOP, workshopX } from './layout.js';
+import { lineGroups } from './line-layout.js';
+import { WORKSHOP, workshopAt } from './layout.js';
 
-/** Shelves `high` levels tall at a fixed `x` right of the hall's four columns; a slab per stored workshop. */
+/** Shelves `high` levels tall, `w` wide, right of the last workshop; a slab per stored workshop. */
 // KJC-BUG-0644 (the maintainer, 2026-11-19): "muy alejado... más cerca del centro y más arriba": right
-// against the columns, taller, and growing to the back of the hall instead of towards the camera.
-const RACK_W = 1.8;
-// KJC-TSK-1826: 0.6 m clear of the hall's rightmost column, whatever the workshop's width.
-export const RACK = { x: workshopX(3, 4) + WORKSHOP.width / 2 + 0.6 + RACK_W / 2, high: 6, step: 0.62, bay: 1.15, w: RACK_W, h: 0.32, d: 0.9 };
+// against the line, taller, and growing to the back of the hall instead of towards the camera.
+export const RACK = { high: 6, step: 0.62, bay: 1.15, w: 1.8, h: 0.32, d: 0.9 };
 
-/** Where the slab of slot `i` of the warehouse stands: bottom shelf first, then the next bay back. */
-export function rackSpot(i) {
-  return { x: RACK.x, y: RACK.h / 2 + 0.25 + (i % RACK.high) * RACK.step, z: WORKSHOP.z - Math.floor(i / RACK.high) * RACK.bay };
+/** KJC-TSK-1828: the rack's x with `n` workshops in the row: 0.6 m clear of the last one's right edge. */
+export const rackX = (n) => workshopAt(n - 1, n).x + WORKSHOP.width / 2 + 0.6 + RACK.w / 2;
+
+/** Where the slab of slot `i` of the warehouse of a hall of `n` workshops stands: bottom shelf first, then the next bay back. */
+export function rackSpot(i, n) {
+  return { x: rackX(n), y: RACK.h / 2 + 0.25 + (i % RACK.high) * RACK.step, z: WORKSHOP.z - Math.floor(i / RACK.high) * RACK.bay };
+}
+
+/** The floor of a factory seen alone: from 2 m before the booth to 2 m past the rack, as `{ x, width }`. */
+export function floorFor(n) {
+  const from = lineGroups(n).find((g) => g.id === 'booth').from - 2;
+  const to = rackX(n) + RACK.w / 2 + 2;
+  return { x: (from + to) / 2, width: to - from };
 }
 
 /** How many bays deep the warehouse is with `n` slabs, for the camera; 0 when empty. */

@@ -3,7 +3,7 @@
 // warehouse; one with an agent, or its pipeline running, comes back. Main never leaves the hall.
 import { describe, expect, it } from 'vitest';
 
-import { RACK, STORE_AFTER_MS, rackBays, rackSpot, storedNow } from '../public/stage/warehouse.js';
+import { RACK, STORE_AFTER_MS, rackBays, rackSpot, rackX, storedNow } from '../public/stage/warehouse.js';
 import { WORKSHOP, workshopAt } from '../public/stage/layout.js';
 
 describe('the warehouse rack', () => {
@@ -11,12 +11,13 @@ describe('the warehouse rack', () => {
   // acción y más arriba": right against the hall's columns, and growing to the back, not to the camera.
   it('stands right against every column of the hall, clear of it', () => {
     const right = Math.max(...Array.from({ length: 4 }, (_, i) => workshopAt(i, 4).x)) + WORKSHOP.width / 2;
-    expect(RACK.x - RACK.w / 2).toBeGreaterThan(right + 0.3);
-    expect(RACK.x - RACK.w / 2).toBeLessThan(right + 1);
+    // KJC-TSK-1828: the rack follows the number of workshops (rackX); here, four of them.
+    expect(rackX(4) - RACK.w / 2).toBeGreaterThan(right + 0.3);
+    expect(rackX(4) - RACK.w / 2).toBeLessThan(right + 1);
   });
 
   it('stacks the slabs shelf over shelf, then bay after bay towards the back, none on another', () => {
-    const spots = Array.from({ length: 9 }, (_, i) => rackSpot(i));
+    const spots = Array.from({ length: 9 }, (_, i) => rackSpot(i, 4));
     expect(spots.slice(0, RACK.high).every((s) => s.z === spots[0].z)).toBe(true);
     expect(spots[1].y - spots[0].y).toBeGreaterThan(RACK.h);
     expect(spots[RACK.high].z).toBeLessThan(spots[0].z);
