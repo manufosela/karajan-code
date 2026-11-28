@@ -48,6 +48,7 @@ describe("makefileCommands (ADR 0051)", () => {
 describe("resolveCmds puts the Makefile targets over the stack's commands (ADR 0051)", () => {
   it("php: make targets where the Makefile has them, the detected command elsewhere", async () => {
     makefile("lint:\n\t@true\ntest:\n\t@true\n");
+    writeFileSync(join(dir, ".php-cs-fixer.dist.php"), "");
     const cmds = await resolveCmds(dir, "php");
     expect(cmds.lint).toBe("make lint");
     expect(cmds.test).toBe("make test");

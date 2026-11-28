@@ -76,7 +76,7 @@ describe("kj harden uses native commands per language, never npm by default", ()
   });
 
   it("a PHP repo gets phpstan/php-cs-fixer/phpunit, no npm", async () => {
-    writeFileSync(join(repo, "composer.json"), "{}");
+    writeFileSync(join(repo, "composer.json"), JSON.stringify({ "require-dev": { "phpstan/phpstan": "^1", "phpunit/phpunit": "^11" } }));
     await hardenCommand({ projectDir: repo, ci: false, logger });
     expect(hook("pre-commit")).toContain("vendor/bin/phpstan analyse");
     expect(hook("pre-push")).toContain("vendor/bin/phpunit");
