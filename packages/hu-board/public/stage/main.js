@@ -67,7 +67,7 @@ function buildScene(lanes, signal) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const { scene, camera, target, floor: ground } = createFactory(renderer);
   let floor = ground;
-  let floorWidth = 0;
+  let laidFloor = null;
   const HALL_CENTRE_Z = target.z;
   const { crew, pieces, stand, hall, wall, releaseTable, versionBoard } = buildFactory(scene, lanes);
   const render = () => renderer.render(scene, camera);
@@ -92,9 +92,10 @@ function buildScene(lanes, signal) {
     target.z = HALL_CENTRE_Z + pan.z;
     // KJC-TSK-1828: and the floor reaches from the booth to the rack, whatever the number of workshops.
     const laid = floorFor(n);
-    if (laid.width !== floorWidth || laid.x !== floor.position.x) {
+    // KJC-TSK-1842: also when the rows change its depth.
+    if (!laidFloor || ['x', 'width', 'z', 'depth'].some((k) => laid[k] !== laidFloor[k])) {
       floor = relayFloor(scene, floor, laid);
-      floorWidth = laid.width;
+      laidFloor = laid;
     }
     const to = { pos: target.clone().add(framing(fitWidth(n), camera.aspect).multiplyScalar(zoom)), target: target.clone() };
     glide = smoothly && !matchMedia('(prefers-reduced-motion: reduce)').matches ? { from, to, at: performance.now() } : null;

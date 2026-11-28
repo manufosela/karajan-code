@@ -106,12 +106,17 @@ export const lineReach = (n) => {
   return Math.max(Math.abs(start), Math.abs(end));
 };
 
+/** KJC-TSK-1842: the z the camera's target starts at; the drag walks the view from here. */
+export const VIEW_Z = -0.6;
+
 export const hallSpan = (n) => {
   const centre = viewCentre(n);
   const { start, end } = lineEnds(n);
   const half = Math.max(centre - start, end - centre, workshopAt(n - 1, n).x + WORKSHOP.width / 2 - centre);
+  // KJC-TSK-1842: the last row's front edge plus the nameplates; the drag reaches it and the door.
+  const front = WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5;
   // Still wide enough for the reach measured from x 0 (the drag clamps around the view centre).
-  return { width: Math.max(hallWidth(n), 2 * half + 0.01, 2 * lineReach(n)), depth: WORKSHOP.z + hallDepth(n) + WORKSHOP.depth / 2 + 1.5 - DOOR.z };
+  return { width: Math.max(hallWidth(n), 2 * half + 0.01, 2 * lineReach(n)), depth: 2 * Math.max(front - VIEW_Z, VIEW_Z - DOOR.z) };
 };
 
 /**
