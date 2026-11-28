@@ -56,7 +56,7 @@ const INFRA_MARKERS = [
 
 /** Test file patterns per language (used by TDD policy). */
 export const TEST_PATTERNS_BY_LANGUAGE = {
-  javascript: ["/tests/", "/__tests__/", ".test.", ".spec."],
+  javascript: ["/tests/", "/__tests__/", "/e2e/", ".test.", ".spec."],
   java:       ["/src/test/", "/test/", "Test.java", "Tests.java", "IT.java"],
   kotlin:     ["/src/test/", "/test/", "Test.kt", "Tests.kt", "/src/androidTest/"],
   python:     ["/tests/", "/test/", "test_", "_test.py", "tests.py"],

@@ -3,15 +3,24 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { runCommand } from "../utils/process.js";
+import { playwrightMatcher } from "./playwright-specs.js";
 import { detectTestFramework, TEST_PATTERNS_BY_LANGUAGE } from "../utils/project-detect.js";
 
 const TAIL_LINES = 40;
 const MAX_OUTPUT_CHARS = 3000;
 const TEST_PATTERNS = [...new Set(Object.values(TEST_PATTERNS_BY_LANGUAGE).flat())].filter((p) => !p.startsWith("#["));
+const DATA_OR_DOC = new Set(
+  ".json .jsonc .json5 .yml .yaml .toml .xml .md .mdx .txt .csv .tsv .snap .html .htm .css .png .jpg .jpeg .gif .svg .webp .ico .pdf .zip .har .log".split(" "),
+);
 
 /** The files of the diff that are tests, in their order. */
 export function diffTestFiles(files) {
-  return files.filter((file) => TEST_PATTERNS.some((pattern) => `/${file}`.includes(pattern)));
+  return files.filter((file) => {
+    const rooted = `/${file}`;
+    // Under e2e/, data and docs are no tests, whatever their name.
+    if (rooted.includes("/e2e/") && DATA_OR_DOC.has(path.extname(file).toLowerCase())) return false;
+    return TEST_PATTERNS.some((pattern) => rooted.includes(pattern));
+  });
 }
 
 function runnerFor({ framework, language }, files) {
@@ -64,12 +73,22 @@ function detectorFor(projectDir, detect) {
   return async (dir) => (dir === projectDir ? detectRoot() : (await detect(dir)) ?? detectRoot());
 }
 
-async function runGroup(group, detectGroup, run) {
+/** The group without Playwright's files (e2e needs browsers and a web server), and how many those were. */
+function withoutPlaywright({ dir, files, repoFiles }) {
+  const isPlaywright = playwrightMatcher(dir);
+  const keep = files.map((file) => !isPlaywright(file));
+  const group = { dir, files: files.filter((_, i) => keep[i]), repoFiles: repoFiles.filter((_, i) => keep[i]) };
+  return { group, playwright: files.length - group.files.length };
+}
+
+async function runGroup(whole, detectGroup, run) {
+  const { group, playwright } = withoutPlaywright(whole);
+  if (group.files.length === 0) return { group, playwright };
   const detected = await detectGroup(group.dir);
   const runner = runnerFor(detected ?? {}, group.files);
-  if (!runner) return { group, skipped: detected?.framework || "this project" };
+  if (!runner) return { group, playwright, skipped: detected?.framework || "this project" };
   const result = await run(runner.command, runner.args, { cwd: group.dir });
-  return { group, runner, result };
+  return { group, playwright, runner, result };
 }
 
 const runnerNames = (outcomes) => [...new Set(outcomes.map((outcome) => outcome.runner.name))].join(", ");
@@ -91,6 +110,8 @@ function successNote(outcomes) {
   for (const { group, skipped } of outcomes.filter((outcome) => outcome.skipped)) {
     notes.push(`${group.files.length} test file(s) in the diff not run: no runner kj knows for ${skipped}`);
   }
+  const e2e = outcomes.reduce((sum, outcome) => sum + outcome.playwright, 0);
+  if (e2e > 0) notes.push(`${e2e} Playwright test file(s) in the diff not run: their own CI runs them`);
   return notes.join("; ");
 }
 
