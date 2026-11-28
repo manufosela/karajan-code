@@ -34,7 +34,7 @@ export function watchWorkshops({ canvas, scene, tip, cardsOf, openHu, thingsOf, 
   // KJC-TSK-1625: the release table, the finished stack and the task wall, before the workshops.
   // KJC-TSK-1638: and the mailbox, where the hall puts it.
   const thingUnder = ({ clientX, clientY }) => {
-    const rects = thingBoxes(thingsOf().stacked.length, mailboxSpot(scene.hall.count())).map((b) => ({ id: b.id, rect: onScreenRect(b, scene.camera) }));
+    const rects = thingBoxes(thingsOf().stacked.length, mailboxSpot(scene.hall.count()), scene.hall.count()).map((b) => ({ id: b.id, rect: onScreenRect(b, scene.camera) }));
     return thingAt({ left: clientX, top: clientY }, rects);
   };
   /** The tooltip's lines under the pointer, and whether a click there opens something; null when none. */

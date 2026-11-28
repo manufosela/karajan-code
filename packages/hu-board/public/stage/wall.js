@@ -2,7 +2,7 @@
 // three columns (to do, in progress, done). Its cards are the HU Board's ones of the
 // project, as the card trace tells them; the external board is never drawn.
 import * as THREE from 'three';
-import { WALL } from './layout.js';
+import { WALL, wallAt } from './layout.js';
 import { wallColumns } from './wall-layout.js';
 
 const PX = { width: 1024, height: 640, head: 70, row: 84, pad: 14 };
@@ -48,11 +48,16 @@ export function createWall(parent) {
   board.position.z = 0.05;
   const wall = new THREE.Group();
   wall.add(frame, board);
-  wall.position.set(WALL.x, WALL.y + WALL.height / 2, WALL.z);
+  const place = (n) => {
+    const at = wallAt(n);
+    wall.position.set(at.x, at.y + at.height / 2, at.z);
+  };
+  place(1);
   parent.add(wall);
   let shown = null;
   return {
     group: wall,
+    place, // KJC-TSK-1829: where the wall stands for `n` lanes
     show(cards) {
       const columns = wallColumns(cards ?? []);
       const key = JSON.stringify(columns);

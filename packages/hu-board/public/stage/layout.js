@@ -17,13 +17,26 @@ export const POST = { z: LINE.z, spacing: 1.6 };
 export const PLINTH_WIDTH = 1;
 /** Pieces and robots are drawn for different shots in the film: these bring them to one smaller height. */
 export const SCALE = { piece: 1, crew: 0.5, stand: 0.8 };
-/** KJC-TSK-1459 (ADR 0050): the task board wall, behind the posts, right of the Sentinel's tower. */
-// KJC-TSK-1703: straight behind the passage in the row of pieces (PASSAGE.x), so the way in is clear.
-export const WALL = { x: 3.2, y: 0.3, z: -6.4, width: 3.4, height: 2.1 };
-/** KJC-TSK-1526: the "Ready to release" table, right of the wall, past kaWATCHan. */
-export const RELEASE_TABLE = { x: 7.4, z: -5.4, yaw: -0.5 };
-/** KJC-TSK-1545: the version counter, on its post beside the table, turned as it is. */
-export const VERSION_BOARD = { x: 8.9, z: -6.3, yaw: -0.5 };
+// KJC-TSK-1829 (ADR "kj stage en una línea", accepted 2026-11-27): after the lanes, in their own stretches
+// of the line, the task wall, then the "Ready to release" table, its version counter and kaWATCHan.
+// They move right with the lanes; WALL, RELEASE_TABLE and VERSION_BOARD are their places for one lane.
+const stretchOf = (n, id) => lineGroups(n).find((g) => g.id === id);
+const WALL_SIZE = { y: 0.3, width: 3.4, height: 2.1 };
+/** KJC-TSK-1459 (ADR 0050): the task board wall, centred in the wall's stretch of the line for `n` lanes. */
+export const wallAt = (n) => {
+  const { from, to } = stretchOf(n, 'wall');
+  return { ...WALL_SIZE, x: (from + to) / 2, z: LINE.z };
+};
+const releaseX = (n, offset) => stretchOf(n, 'release').from + offset;
+/** KJC-TSK-1526: the "Ready to release" table, first in its stretch, turned a little to the camera. */
+export const releaseAt = (n) => ({ x: releaseX(n, 1.2), z: LINE.z + 0.2, yaw: -0.3 });
+/** KJC-TSK-1545: the version counter, on its post right of the table. */
+export const versionAt = (n) => ({ x: releaseX(n, 3.3), z: LINE.z - 0.2, yaw: -0.3 });
+/** KJC-TSK-1829: kaWATCHan, last in the release stretch. */
+export const watchAt = (n) => ({ x: releaseX(n, 4.7), z: LINE.z + 0.3, yaw: 0.3 });
+export const WALL = wallAt(1);
+export const RELEASE_TABLE = releaseAt(1);
+export const VERSION_BOARD = versionAt(1);
 /** Where kj sends its agents in from: the back of the hall, behind the posts. */
 export const DOOR = { x: 0, z: -7.5 };
 
@@ -92,8 +105,7 @@ const teamX = (offset) => team.from + offset;
 export const CREW = {
   conductor: { x: teamX(3.8), z: LINE.z, yaw: 0.6 },
   rag: { x: teamX(1), z: LINE.z, yaw: 0.5 },
-  // KJC-TSK-1829 moves kaWATCHan with the release table; until then it keeps its present place.
-  watch: { x: 6.2, z: -3, yaw: -0.6 },
+  watch: watchAt(1), // KJC-TSK-1829: its place for one lane; watchAt(n) moves it
 };
 export const STAND = { x: teamX(2.4), z: LINE.z, yaw: 0.7 };
 

@@ -22,14 +22,14 @@ function block(label) {
   return new THREE.Mesh(new THREE.BoxGeometry(STACK.size, STACK.size, STACK.size), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.7 }));
 }
 
-/** Mounts the stack on `scene`; `show(blocks)` restacks it only when its blocks changed. */
+/** Mounts the stack on `scene`; `show(blocks, n)` restacks it, for `n` lanes, only when its blocks or `n` changed. */
 export function createStack(scene) {
   const group = new THREE.Group();
   scene.add(group);
   let shown = '';
   return {
-    show(blocks) {
-      const key = blocks.map((b) => b.lane).join('|');
+    show(blocks, n = 1) {
+      const key = `${n}:${blocks.map((b) => b.lane).join('|')}`;
       if (key === shown) return;
       shown = key;
       for (const child of group.children) {
@@ -40,7 +40,7 @@ export function createStack(scene) {
       group.clear();
       blocks.forEach(({ label }, i) => {
         const mesh = block(label);
-        const at = stackSpot(i);
+        const at = stackSpot(i, n);
         mesh.position.set(at.x, at.y, at.z);
         mesh.castShadow = true;
         group.add(mesh);

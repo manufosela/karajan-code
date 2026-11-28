@@ -1,7 +1,7 @@
 // KJC-TSK-1545 (asked by the maintainer on 2026-11-11): the version counter beside the "Ready to
 // release" table: a board on a post that says the project's last release. release.js says what.
 import * as THREE from 'three';
-import { VERSION_BOARD } from './layout.js';
+import { versionAt } from './layout.js';
 
 const POST_HEIGHT = 1.5;
 const PANEL = { width: 1.4, height: 0.7 };
@@ -18,12 +18,17 @@ export function createVersionBoard(parent) {
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(PANEL.width, PANEL.height), new THREE.MeshBasicMaterial({ map: texture }));
   panel.position.set(0, POST_HEIGHT + PANEL.height / 2 - 0.1, 0.06);
   board.add(post, panel);
-  board.position.set(VERSION_BOARD.x, 0, VERSION_BOARD.z);
-  board.rotation.y = VERSION_BOARD.yaw;
+  const place = (n) => {
+    const at = versionAt(n);
+    board.position.set(at.x, 0, at.z);
+    board.rotation.y = at.yaw;
+  };
+  place(1);
   parent.add(board);
   let shown = null;
   return {
     group: board,
+    place, // KJC-TSK-1829: where the counter stands for `n` lanes
     show(line) {
       if (line === shown) return;
       shown = line;

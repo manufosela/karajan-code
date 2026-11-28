@@ -2,7 +2,7 @@
 // cards done since the last release lie on it in one pile, the newest on top, under a sign
 // with how many there are and since which release. release.js says which cards.
 import * as THREE from 'three';
-import { RELEASE_TABLE } from './layout.js';
+import { releaseAt } from './layout.js';
 import { cardNote } from './wall-drone-mesh.js';
 import { releaseSign } from './release.js';
 
@@ -47,12 +47,17 @@ export function createReleaseTable(parent) {
   const { plate, paint } = sign();
   const pile = new THREE.Group();
   table.add(top, ...legs, plate, pile);
-  table.position.set(RELEASE_TABLE.x, 0, RELEASE_TABLE.z);
-  table.rotation.y = RELEASE_TABLE.yaw;
+  const place = (n) => {
+    const at = releaseAt(n);
+    table.position.set(at.x, 0, at.z);
+    table.rotation.y = at.yaw;
+  };
+  place(1);
   parent.add(table);
   let shown = null;
   return {
     group: table,
+    place, // KJC-TSK-1829: where the table stands for `n` lanes
     show(cards, release) {
       const key = JSON.stringify([cards.map((c) => c.id), release?.tag ?? null]);
       if (key === shown) return;

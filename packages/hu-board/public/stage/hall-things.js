@@ -3,7 +3,7 @@
 // wall. Each is a box in the factory's frame; the box under the pointer on screen is the one.
 // Pure: workshop-pointer.js projects the boxes and shows the tooltip.
 import { columnOf } from './cards.js';
-import { RELEASE_TABLE, WALL } from './layout.js';
+import { releaseAt, wallAt } from './layout.js';
 import { mailTip } from './mail-tip.js';
 import { readyToRelease } from './release.js';
 import { STACK, stackSpot } from './finished-stack.js';
@@ -18,17 +18,18 @@ const mailboxBox = ({ x, z, scale }) => box('mailbox', [x - 0.8 * scale, 0, z - 
  * The boxes of the things, the stack first while it has `stacked` blocks (it stands before the
  * table); the mailbox last, when `mailbox` says where it stands.
  */
-export function thingBoxes(stacked, mailbox = null) {
-  const t = RELEASE_TABLE;
+export function thingBoxes(stacked, mailbox = null, n = 1) {
+  const t = releaseAt(n);
+  const wall = wallAt(n);
   const things = [
     box('release', [t.x - 1, 0, t.z - 0.8], [t.x + 1, 1.4, t.z + 0.8]),
-    box('wall', [WALL.x - WALL.width / 2, WALL.y, WALL.z - 0.1], [WALL.x + WALL.width / 2, WALL.y + WALL.height, WALL.z + 0.1]),
+    box('wall', [wall.x - wall.width / 2, wall.y, wall.z - 0.1], [wall.x + wall.width / 2, wall.y + wall.height, wall.z + 0.1]),
     ...(mailbox ? [mailboxBox(mailbox)] : []),
   ];
   if (!stacked) return things;
-  const first = stackSpot(0);
-  const last = stackSpot(stacked - 1);
-  const top = stackSpot(Math.min(stacked, STACK.high) - 1);
+  const first = stackSpot(0, n);
+  const last = stackSpot(stacked - 1, n);
+  const top = stackSpot(Math.min(stacked, STACK.high) - 1, n);
   return [box('stack', [first.x - half, 0, first.z - half], [last.x + half, top.y + half, first.z + half]), ...things];
 }
 

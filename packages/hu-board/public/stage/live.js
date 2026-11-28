@@ -175,8 +175,10 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
   };
   /** KJC-TSK-1547: the drone flies the old pile away and kaWATCHan walks to the counter and back. */
   const flyRelease = (now) => {
-    drone.show(droneAt(flight, now), now);
-    const pose = watcherAt(flight, now);
+    const n = hall.count();
+    for (const thing of [wall, releaseTable, versionBoard]) thing?.place(n); // KJC-TSK-1829: they follow the lanes
+    drone.show(droneAt(flight, now, n), now);
+    const pose = watcherAt(flight, now, n);
     crew.watch.root.position.set(pose.x, 0, pose.z);
     crew.watch.root.rotation.y = pose.yaw;
     crew.watch.hover.position.y = 0.1 + (pose.walking ? 0.06 * Math.abs(Math.sin(now / 110)) : 0);
@@ -373,12 +375,12 @@ export function createLive({ scene, pieces, crew, camera, stand, hall, wall, rel
       // KJC-TSK-1623: the stack waits for the release; it goes once the drone lifts that release's pile.
       const lifted = !flight || tableCards(flight, now, null) !== flight.cards;
       stacked = stackOf([...folded], state.cards ?? [], lifted ? state.release : flight.before);
-      stack.show(stacked);
+      stack.show(stacked, hall.count());
       conduct(now);
       tags.push(...movePieces(now), ...moveReviews(now));
       const scheduled = droneTrips(errands);
       errands = scheduled.filter((trip) => now < trip.start + WALL_DRONE_TRIP_MS);
-      wallDrone.show(wallDroneAt(scheduled, now, hall.xOf, hall.zOf), now);
+      wallDrone.show(wallDroneAt(scheduled, now, hall.xOf, hall.zOf, hall.count()), now);
       hall.frameBelts(now); // KJC-TSK-1639
       hall.frame(now); // KJC-BUG-0623: workshops fade in and out, and slide to their places
       plumbers.frame(now, hall.xOf, hall.zOf, boothAt(hall.count())); // KJC-TSK-1642

@@ -2,7 +2,7 @@
 // leaves the row of workshops; while it waits for a release it is a block stacked by the "Ready to
 // release" table, and the release takes it. Pure: stack-mesh.js draws the blocks, live.js folds.
 import { atHome } from './cards.js';
-import { RELEASE_TABLE } from './layout.js';
+import { releaseAt } from './layout.js';
 import { plateName } from './lane-status.js';
 
 /** The blocks: their side, how many stand one on another, and the gap between columns. */
@@ -49,11 +49,12 @@ export function stackOf(lanes, cards, release) {
  * Where block `i` stands: right of the release table and in front of the version counter behind
  * it, in columns of STACK.high blocks.
  */
-export function stackSpot(i) {
+export function stackSpot(i, n = 1) {
   const column = Math.floor(i / STACK.high);
+  const table = releaseAt(n);
   return {
-    x: RELEASE_TABLE.x + 1.2 + column * (STACK.size + STACK.gap),
+    x: table.x + 1.2 + column * (STACK.size + STACK.gap),
     y: STACK.size / 2 + (i % STACK.high) * STACK.size,
-    z: RELEASE_TABLE.z + 0.9,
+    z: table.z + 0.9,
   };
 }
