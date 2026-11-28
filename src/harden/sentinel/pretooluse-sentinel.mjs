@@ -17,6 +17,7 @@ import { commitStaging, isGhIssueCreate, isPublishCommand, isReadOnlyCommand, op
 import { DISCARD_VERBS, discardOf, foreignLost, removedFiles } from "./sentinel-discard.mjs";
 import { sandboxCovers, shellWrites, writesRepo } from "./sentinel-bash-write.mjs";
 import { blockingDeny, pendingHandoffs } from "./sentinel-handoffs.mjs";
+import { sentinelLang, t } from "./sentinel-i18n.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const inOrder = (want, got) => { let i = 0; for (const w of got) if (w === want[i] && ++i === want.length) return true; return false; };
 // KJC-BUG-0333: a publish is read per simple command by the shell reader, so
@@ -34,11 +35,12 @@ process.stdin.on("end", () => {
     // KJC-TSK-0968 (HUM-E, ADR 0018): and leaves a record next to the state, with the
     // gate's own words: kj handoff takes the why from here, never from the agent.
     const said = [];
+    const lang = sentinelLang({ projectDir: ROOT });
     const errOrig = console.error.bind(console);
     console.error = (m) => { said.push(String(m)); errOrig(m); };
     process.on("exit", (code) => {
       if (code !== 2) return;
-      errOrig("karajan: Karajan gobierna y se le obedece. No rodees el gate ni cambies la politica para pasarlo; si te parece injusto, diselo a tu usuario o usa kj report-issue.");
+      errOrig(t("governs", lang));
       // Only what a handoff needs: the exact Bash command, or the path an edit aimed at; never file contents.
       const what = tool === "Bash" ? { command: input.command } : { file_path: input.file_path || input.notebook_path || null };
       // KJC-BUG-0527: the record goes to .karajan/traces (the sandbox leaves it writable), next to the harness folder STATE lives in.
@@ -77,7 +79,7 @@ process.stdin.on("end", () => {
       // .karajan/rules.local.yml (KJC-TSK-0954, ADR 0017): the same rules, the ones from private sources.
       // .karajan/security-level.json (KJC-TSK-1054, ADR 0020): only kj security writes it, after the human layers.
       if ([".karajan/policy.yml", ".karajan/kj.config.yml", ".karajan/rules.yml", ".karajan/rules.local.yml", ".karajan/security-level.json", ".ragignore"].includes(relT) || relT.endsWith("/.ragignore")) {
-        console.error("karajan sentinel: " + relT + " es configuracion de gobierno (politicas, gates, exclusiones): la cambia tu usuario, no la sesion. Si un gate te parece injusto, proponselo a tu usuario o usa kj report-issue." + doc("governance"));
+        console.error(t("governance_file", lang, { file: relT }) + doc("governance"));
         process.exit(2);
       }
       // The ledger is keyed by path in the session's lane: a write the lane guard will deny records nothing.
