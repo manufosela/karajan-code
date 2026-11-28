@@ -29,7 +29,8 @@ const SEAT_ROW = 1.7;
 // KJC-BUG-0589: further from the bench, and their rows a robot's depth with its backpack apart.
 // KJC-BUG-0607 (the maintainer, 2026-11-16): beside their host, not in front of it: the row starts
 // `beside` from the host's seat and runs toward the middle of the workshop, `step` apart.
-const SUBAGENT = { dz: 1.4, beside: 1.2, step: 0.95, slots: 4, row: 0.9 };
+// KJC-TSK-1837: a tighter step so a host's row of subagents fits the narrower workshop.
+const SUBAGENT = { dz: 1.4, beside: 1.2, step: 0.85, slots: 4, row: 0.9 };
 // Each agent wears its own colour (KJC-TSK-1814: all nine kj can run, agent-colours.js).
 export { accentOf } from './agent-colours.js';
 /** How long the laptop's code takes to scroll up one screen, in ms (KJC-TSK-1493). */

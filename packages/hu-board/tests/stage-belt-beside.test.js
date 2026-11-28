@@ -22,7 +22,7 @@ describe('the belt beside the desks', () => {
   it('runs left to right on the right of every desk and every agent, long enough to see its boxes', () => {
     const rightmost = Math.max(...corners.map((c) => c.x), ...robots.map((r) => r.x + ROBOT));
     expect(BELT.from).toBeGreaterThan(rightmost + 0.2);
-    expect(BELT.to - BELT.from).toBeGreaterThanOrEqual(1.5);
+    expect(BELT.to - BELT.from).toBeGreaterThan(0.75); // KJC-TSK-1837: shorter, in a narrower workshop
   });
 
   it('stays inside its workshop', () => {
