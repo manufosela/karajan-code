@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { HELD_PROPS, costumeOfPiece } from '../public/stage/piece-costumes.js';
 import { trafficLight } from '../public/stage/traffic-light.js';
-import { VISIT_SPOTS } from '../public/stage/piece-visit.js';
+import { PIECE_WALK_MS, VISIT_SPOTS, WALKS_TO_WORK, pieceAt, withVisit } from '../public/stage/piece-visit.js';
 import { deskParts } from '../public/stage/desk-layout.js';
 import { PLINTH_WIDTH } from '../public/stage/layout.js';
 import { spotOf } from '../public/stage/workers.js';
@@ -42,6 +42,16 @@ describe('the TDD inspector', () => {
       z: desk.z + a * (desk.depth / 2) * Math.cos(desk.yaw) - c * (desk.width / 2) * Math.sin(desk.yaw),
     })));
     for (const corner of corners) expect(Math.abs(corner.x - piece.x) < half && Math.abs(corner.z - piece.z) < half).toBe(false);
+  });
+
+  // #5020 (codex): the spot moved only the drone; the inspector stayed at its post. He walks there himself.
+  it('walks to the coder\'s desk himself, with no drone, and back to his post', () => {
+    expect(WALKS_TO_WORK.has('tdd')).toBe(true);
+    const home = { x: -4, z: -3 };
+    const visits = withVisit({}, { type: 'method-check', piece: 'tdd', outcome: 'refuse', lane: 'a' }, 0);
+    const there = pieceAt(visits.tdd, PIECE_WALK_MS + 10, home, () => 10, () => 2);
+    expect(there).toMatchObject({ x: 10 + VISIT_SPOTS.tdd.dx, z: 2 + VISIT_SPOTS.tdd.dz, away: true });
+    expect(pieceAt(visits.tdd, visits.tdd.until + 2 * PIECE_WALK_MS, home, () => 10, () => 2)).toMatchObject({ ...home, away: false });
   });
 
   it('tells the inspector in the legend, in English and Spanish', () => {

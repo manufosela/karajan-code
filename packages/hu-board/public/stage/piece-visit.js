@@ -25,6 +25,9 @@ export const VISIT_SPOTS = {
   tdd: { dx: -1.75, dz: 0.75 }, sonar: { dx: 0.2, dz: -3.1 }, steward: { dx: 1.6, dz: -3.1 },
 };
 
+// KJC-TSK-1816: the pieces that go to the workshop themselves instead of sending a drone.
+export const WALKS_TO_WORK = new Set(['tdd']);
+
 const lerp = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, z: a.z + (b.z - a.z) * k });
 const facing = (a, b) => Math.atan2(b.x - a.x, b.z - a.z);
 const spotOf = (visit, xOf, zOf) => {
