@@ -133,7 +133,8 @@ export async function commitSupervisorRegeneration({
   // generates; whatever governs still goes to a person (checked below, before anything is written).
   if (renewal && readSecurityLevel({ projectDir }).level !== "critical") return { committed: false, reason: "a seal renews itself only at the critical level" };
   if (!renewal) seal.refuse({ env, tty, ancestry: deps.ancestry ?? {} });
-  const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8" }));
+  // HU-5032: stderr piped, so basePinOf's `git show` of a path the base lacks prints no "fatal:".
+  const run = gitFn || ((args) => execFileSync("git", args, { cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
   // HU-3899: the files the project declares in policy.yml sealed_files are sealed like the governance config.
   const declared = sealedFilesOf(projectDir);
   // KJC-BUG-0244 (grebla #958): el commit sellado solo lleva el supervisor, pero
